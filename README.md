@@ -112,7 +112,7 @@ Your schedule file must include these columns:
 | Duration | String | "30m", "1h 30m", "01:30:00" |
 | Type | String | "fixed" or "flexible" |
 
-Download a [sample template](docs/templates/schedule-template.xlsx) to get started.
+Download a [sample template](docs/templates/sample-schedule.xlsx) to get started.
 
 ## Browser Support
 
