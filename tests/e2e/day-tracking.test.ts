@@ -90,9 +90,9 @@ test.describe('Day Tracking Flow', () => {
 		// Should show timer display
 		await expect(page.getByTestId('timer-display')).toBeVisible();
 
-		// Should show current task info
+		// Should show current task info (use specific selector to avoid ImpactPanel conflict)
 		await expect(page.getByTestId('current-task')).toBeVisible();
-		await expect(page.getByText('Quick Task 1')).toBeVisible();
+		await expect(page.getByTestId('current-task').getByTestId('task-name')).toContainText('Quick Task 1');
 	});
 
 	test('can complete task and advance to next', async ({ page }) => {
@@ -100,13 +100,13 @@ test.describe('Day Tracking Flow', () => {
 
 		// Start day
 		await page.getByTestId('start-day-btn').click();
-		await expect(page.getByText('Quick Task 1')).toBeVisible();
+		await expect(page.getByTestId('current-task').getByTestId('task-name')).toContainText('Quick Task 1');
 
 		// Complete task
 		await page.getByTestId('complete-task-btn').click();
 
-		// Should advance to next task
-		await expect(page.getByText('Quick Task 2')).toBeVisible();
+		// Should advance to next task (use specific selector to avoid ImpactPanel conflict)
+		await expect(page.getByTestId('current-task').getByTestId('task-name')).toContainText('Quick Task 2');
 	});
 
 	test('shows day summary after completing all tasks', async ({ page }) => {
@@ -115,12 +115,12 @@ test.describe('Day Tracking Flow', () => {
 		// Start day
 		await page.getByTestId('start-day-btn').click();
 
-		// Complete all 3 tasks
+		// Complete all 3 tasks (use specific selector to avoid ImpactPanel conflict)
 		await page.getByTestId('complete-task-btn').click();
-		await expect(page.getByText('Quick Task 2')).toBeVisible();
+		await expect(page.getByTestId('current-task').getByTestId('task-name')).toContainText('Quick Task 2');
 
 		await page.getByTestId('complete-task-btn').click();
-		await expect(page.getByText('Fixed Meeting')).toBeVisible();
+		await expect(page.getByTestId('current-task').getByTestId('task-name')).toContainText('Fixed Meeting');
 
 		// Last task - button should say "Complete Day"
 		await page.getByTestId('complete-task-btn').click();
@@ -167,13 +167,13 @@ test.describe('Day Tracking Flow', () => {
 	test('persists session across page reload', async ({ page }) => {
 		await uploadAndConfirmSchedule(page, path.join(fixturesDir, 'tracking-schedule.xlsx'));
 
-		// Start day
+		// Start day (use specific selector to avoid ImpactPanel conflict)
 		await page.getByTestId('start-day-btn').click();
-		await expect(page.getByText('Quick Task 1')).toBeVisible();
+		await expect(page.getByTestId('current-task').getByTestId('task-name')).toContainText('Quick Task 1');
 
 		// Complete first task
 		await page.getByTestId('complete-task-btn').click();
-		await expect(page.getByText('Quick Task 2')).toBeVisible();
+		await expect(page.getByTestId('current-task').getByTestId('task-name')).toContainText('Quick Task 2');
 
 		// Reload page
 		await page.reload();

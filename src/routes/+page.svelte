@@ -15,6 +15,7 @@
 	import TaskControls from '$lib/components/TaskControls.svelte';
 	import DaySummary from '$lib/components/DaySummary.svelte';
 	import FixedTaskWarning from '$lib/components/FixedTaskWarning.svelte';
+	import ImpactPanel from '$lib/components/ImpactPanel.svelte';
 	import type { DaySummary as DaySummaryType } from '$lib/types';
 
 	// State for confirmed tasks
@@ -184,6 +185,15 @@
 		showTracking = false;
 	}
 
+	// Impact panel reorder handler (T051)
+	function handleImpactReorder(fromIndex: number, toIndex: number) {
+		const success = sessionStore.reorderTasks(fromIndex, toIndex);
+		if (success) {
+			// Update local reference to tasks
+			confirmedTasks = storage.loadTasks();
+		}
+	}
+
 	// Derived state for UI
 	const isLastTask = $derived(
 		sessionStore.currentTaskIndex === sessionStore.totalTasks - 1
@@ -264,47 +274,77 @@
 					<DaySummary summary={daySummary} onDismiss={handleDismissSummary} />
 				{:else}
 					{#if sessionStore.status === 'running'}
-						<div class="timer-section">
-							<TimerDisplay
-								displayTime={timerStore.displayTime}
-								color={timerStore.color}
-								isRunning={timerStore.isRunning}
-							/>
-						</div>
+						<!-- Side-by-side layout: timer left, impact panel right (T024) -->
+						<div class="tracking-layout">
+							<!-- Left: Timer and current task -->
+							<div class="timer-column">
+								<div class="timer-section">
+									<TimerDisplay
+										displayTime={timerStore.displayTime}
+										color={timerStore.color}
+										isRunning={timerStore.isRunning}
+									/>
+								</div>
 
-						<div class="task-section">
-							<CurrentTask
-								task={sessionStore.currentTask}
-								currentIndex={sessionStore.currentTaskIndex}
-								totalTasks={sessionStore.totalTasks}
-							/>
-						</div>
+								<div class="task-section">
+									<CurrentTask
+										task={sessionStore.currentTask}
+										currentIndex={sessionStore.currentTaskIndex}
+										totalTasks={sessionStore.totalTasks}
+									/>
+								</div>
 
-						<div class="lag-section" data-testid="lag-display">
-							<span class="lag-label">Schedule:</span>
-							<span class="lag-value" class:ahead={sessionStore.lagSec < 0} class:behind={sessionStore.lagSec > 0}>
-								{sessionStore.lagDisplay}
-							</span>
-						</div>
+								<div class="lag-section" data-testid="lag-display">
+									<span class="lag-label">Schedule:</span>
+									<span class="lag-value" class:ahead={sessionStore.lagSec < 0} class:behind={sessionStore.lagSec > 0}>
+										{sessionStore.lagDisplay}
+									</span>
+								</div>
 
-						{#if sessionStore.fixedTaskWarning}
-							<div class="warning-section">
-								<FixedTaskWarning warning={sessionStore.fixedTaskWarning} />
+								{#if sessionStore.fixedTaskWarning}
+									<div class="warning-section">
+										<FixedTaskWarning warning={sessionStore.fixedTaskWarning} />
+									</div>
+								{/if}
+
+								<div class="controls-section">
+									<TaskControls
+										status={sessionStore.status}
+										hasSchedule={confirmedTasks.length > 0}
+										{isLastTask}
+										{isLeader}
+										onStartDay={handleStartDay}
+										onCompleteTask={handleCompleteTask}
+										onEndDay={handleEndDay}
+									/>
+								</div>
 							</div>
-						{/if}
-					{/if}
 
-					<div class="controls-section">
-						<TaskControls
-							status={sessionStore.status}
-							hasSchedule={confirmedTasks.length > 0}
-							{isLastTask}
-							{isLeader}
-							onStartDay={handleStartDay}
-							onCompleteTask={handleCompleteTask}
-							onEndDay={handleEndDay}
-						/>
-					</div>
+							<!-- Right: Impact panel (T025) -->
+							<div class="impact-column">
+								<ImpactPanel
+									tasks={confirmedTasks}
+									progress={sessionStore.session?.taskProgress ?? []}
+									currentIndex={sessionStore.currentTaskIndex}
+									elapsedMs={timerStore.elapsedMs}
+									onReorder={handleImpactReorder}
+								/>
+							</div>
+						</div>
+					{:else}
+						<!-- Idle state: show controls centered -->
+						<div class="controls-section">
+							<TaskControls
+								status={sessionStore.status}
+								hasSchedule={confirmedTasks.length > 0}
+								{isLastTask}
+								{isLeader}
+								onStartDay={handleStartDay}
+								onCompleteTask={handleCompleteTask}
+								onEndDay={handleEndDay}
+							/>
+						</div>
+					{/if}
 
 					{#if sessionStore.status === 'idle'}
 						<div class="back-link">
@@ -323,7 +363,7 @@
 	@reference "tailwindcss";
 
 	.app-container {
-		@apply max-w-3xl mx-auto p-6;
+		@apply max-w-5xl mx-auto p-6;
 	}
 
 	.app-header {
@@ -415,6 +455,19 @@
 	/* Tracking View */
 	.tracking-view {
 		@apply flex flex-col items-center gap-8 py-6;
+	}
+
+	/* Side-by-side layout for running state */
+	.tracking-layout {
+		@apply grid grid-cols-1 md:grid-cols-2 gap-6 w-full;
+	}
+
+	.timer-column {
+		@apply flex flex-col items-center gap-6;
+	}
+
+	.impact-column {
+		@apply w-full;
 	}
 
 	.timer-section {

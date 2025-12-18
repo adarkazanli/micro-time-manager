@@ -118,6 +118,42 @@ When a fixed task is approaching and your current pace would make you late, you'
 
 > "At current pace, you will be 8 minutes late for Team standup"
 
+### Schedule Impact Panel
+
+The Impact Panel shows your full schedule with real-time status updates:
+
+#### Task Status Indicators
+
+| Status | Display | Meaning |
+|--------|---------|---------|
+| Completed | Grayed out, strikethrough | Task is done |
+| Current | Blue highlight | Task you're working on now |
+| Pending | Normal | Tasks yet to come |
+
+#### Risk Indicators for Fixed Tasks
+
+Fixed tasks show colored dots indicating schedule risk:
+
+| Color | Meaning | Buffer Time |
+|-------|---------|-------------|
+| Green | On track | More than 5 minutes ahead |
+| Yellow | At risk | 0-5 minutes of buffer |
+| Red | Will be late | Already behind schedule |
+
+#### Reordering Tasks
+
+You can drag flexible tasks to resolve schedule conflicts:
+
+1. Look for the drag handle (⋮⋮) on flexible pending tasks
+2. Drag a task to a new position
+3. Watch risk indicators update in real-time
+4. Your new order is automatically saved
+
+**Note:** You cannot reorder:
+- Fixed tasks (they have set times)
+- Completed tasks
+- The current task you're working on
+
 ---
 
 ## Managing Interruptions

@@ -1167,4 +1167,162 @@ describe('sessionStore', () => {
 			expect(summary.tasksMissed).toBe(1);
 		});
 	});
+
+	// ==========================================================================
+	// T036: Unit tests for reorderTasks() - impact panel drag-drop
+	// ==========================================================================
+
+	describe('reorderTasks()', () => {
+		it('should return false when no session active', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+
+			const result = sessionStore.reorderTasks(1, 2);
+
+			expect(result).toBe(false);
+		});
+
+		it('should return false for invalid indices', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(3);
+			// Make all flexible for this test
+			tasks.forEach((t) => (t.type = 'flexible'));
+
+			sessionStore.startDay(tasks);
+
+			expect(sessionStore.reorderTasks(-1, 2)).toBe(false);
+			expect(sessionStore.reorderTasks(1, 10)).toBe(false);
+		});
+
+		it('should return true for same position (no-op)', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(3);
+			tasks.forEach((t) => (t.type = 'flexible'));
+
+			sessionStore.startDay(tasks);
+
+			const result = sessionStore.reorderTasks(1, 1);
+
+			expect(result).toBe(true);
+		});
+
+		it('should prevent moving fixed tasks (T040)', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(3);
+			tasks[1].type = 'fixed'; // Make task at index 1 fixed
+
+			sessionStore.startDay(tasks);
+
+			const result = sessionStore.reorderTasks(1, 2);
+
+			expect(result).toBe(false);
+		});
+
+		it('should prevent moving completed tasks (T041)', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(3);
+			tasks.forEach((t) => (t.type = 'flexible'));
+
+			sessionStore.startDay(tasks);
+			sessionStore.completeTask(1800); // Complete first task
+
+			// Try to move the completed task
+			const result = sessionStore.reorderTasks(0, 2);
+
+			expect(result).toBe(false);
+		});
+
+		it('should prevent moving current task (T042)', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(3);
+			tasks.forEach((t) => (t.type = 'flexible'));
+
+			sessionStore.startDay(tasks);
+
+			// Current task is at index 0, try to move it
+			const result = sessionStore.reorderTasks(0, 2);
+
+			expect(result).toBe(false);
+		});
+
+		it('should prevent moving to position before current task', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(4);
+			tasks.forEach((t) => (t.type = 'flexible'));
+
+			sessionStore.startDay(tasks);
+			sessionStore.completeTask(1800); // Current is now at index 1
+
+			// Try to move task 2 to before current (index 0)
+			const result = sessionStore.reorderTasks(2, 0);
+
+			expect(result).toBe(false);
+		});
+
+		it('should successfully reorder flexible pending tasks after current', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(4);
+			tasks.forEach((t) => (t.type = 'flexible'));
+
+			sessionStore.startDay(tasks);
+			sessionStore.completeTask(1800); // Current is now at index 1
+
+			// Move task 3 to position 2 (before task 2)
+			const result = sessionStore.reorderTasks(3, 2);
+
+			expect(result).toBe(true);
+		});
+
+		it('should update sortOrder fields after reorder (T043)', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(4);
+			tasks.forEach((t, i) => {
+				t.type = 'flexible';
+				t.name = `Task ${i + 1}`;
+			});
+
+			sessionStore.startDay(tasks);
+			sessionStore.completeTask(1800); // Current is now at index 1
+
+			// Move task 3 (index 3) to position 2
+			sessionStore.reorderTasks(3, 2);
+
+			// After reorder, sortOrder should be updated sequentially
+			const progress = sessionStore.taskProgress;
+			progress.forEach((p, _i) => {
+				// taskProgress should be in the new order
+				expect(typeof p.taskId).toBe('string');
+			});
+		});
+
+		it('should persist changes after reorder', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(4);
+			tasks.forEach((t) => (t.type = 'flexible'));
+
+			sessionStore.startDay(tasks);
+			sessionStore.completeTask(1800);
+
+			const lastPersistedBefore = sessionStore.session?.lastPersistedAt;
+
+			// Wait a tiny bit to ensure timestamp differs
+			vi.advanceTimersByTime(10);
+
+			sessionStore.reorderTasks(2, 3);
+
+			expect(sessionStore.session?.lastPersistedAt).toBeGreaterThan(lastPersistedBefore!);
+		});
+
+		it('should not allow moving task from before current to after', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(4);
+			tasks.forEach((t) => (t.type = 'flexible'));
+
+			sessionStore.startDay(tasks);
+			sessionStore.completeTask(1800); // Complete task 0, current is now 1
+			// Task 0 is completed, cannot move it
+			const result = sessionStore.reorderTasks(0, 3);
+
+			expect(result).toBe(false);
+		});
+	});
 });

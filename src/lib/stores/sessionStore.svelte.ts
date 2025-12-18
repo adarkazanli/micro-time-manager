@@ -424,6 +424,112 @@ function createSessionStore() {
 			session = null;
 			tasks = [];
 			storage.clearSession();
+		},
+
+		/**
+		 * Reorder tasks in the schedule.
+		 *
+		 * Feature: 003-impact-panel
+		 * Tasks: T039-T043 - Add reorderTasks action
+		 *
+		 * Validation rules:
+		 * - Cannot move fixed tasks
+		 * - Cannot move completed tasks
+		 * - Cannot move the current task
+		 * - Target position must be after current task
+		 *
+		 * @param fromIndex - Index of task to move
+		 * @param toIndex - Target position
+		 * @returns true if reorder succeeded, false if validation failed
+		 */
+		reorderTasks(fromIndex: number, toIndex: number): boolean {
+			if (!session || session.status !== 'running') {
+				return false;
+			}
+
+			// Validate indices
+			if (
+				fromIndex < 0 ||
+				fromIndex >= tasks.length ||
+				toIndex < 0 ||
+				toIndex >= tasks.length
+			) {
+				return false;
+			}
+
+			// Same position - no change needed
+			if (fromIndex === toIndex) {
+				return true;
+			}
+
+			const taskToMove = tasks[fromIndex];
+			const progressToMove = session.taskProgress[fromIndex];
+			const currentIndex = session.currentTaskIndex;
+
+			// T040: Cannot move fixed tasks
+			if (taskToMove.type === 'fixed') {
+				return false;
+			}
+
+			// T041: Cannot move completed tasks
+			if (
+				progressToMove.status === 'complete' ||
+				progressToMove.status === 'missed'
+			) {
+				return false;
+			}
+
+			// T042: Cannot move current task
+			if (fromIndex === currentIndex) {
+				return false;
+			}
+
+			// Cannot move to a position before or at current task
+			if (toIndex <= currentIndex) {
+				return false;
+			}
+
+			// Cannot move from before current task
+			if (fromIndex <= currentIndex) {
+				return false;
+			}
+
+			// Perform the reorder
+			const newTasks = [...tasks];
+			const newProgress = [...session.taskProgress];
+
+			// Remove from old position
+			const [movedTask] = newTasks.splice(fromIndex, 1);
+			const [movedProgress] = newProgress.splice(fromIndex, 1);
+
+			// Adjust target index if moving forward
+			const adjustedToIndex = fromIndex < toIndex ? toIndex - 1 : toIndex;
+
+			// Insert at new position
+			newTasks.splice(adjustedToIndex, 0, movedTask);
+			newProgress.splice(adjustedToIndex, 0, movedProgress);
+
+			// T043: Update sortOrder fields
+			for (let i = 0; i < newTasks.length; i++) {
+				newTasks[i] = {
+					...newTasks[i],
+					sortOrder: i
+				};
+			}
+
+			// Update state
+			tasks = newTasks;
+			session = {
+				...session,
+				taskProgress: newProgress,
+				lastPersistedAt: Date.now()
+			};
+
+			// Persist changes (T056 will be handled by calling code)
+			storage.saveSession(session);
+			storage.saveTasks(newTasks);
+
+			return true;
 		}
 	};
 }

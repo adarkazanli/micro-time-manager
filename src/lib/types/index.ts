@@ -28,6 +28,12 @@ export type ProgressStatus = 'pending' | 'active' | 'complete' | 'missed';
 /** Supported file extensions */
 export type SupportedFileType = '.xlsx' | '.xls' | '.csv';
 
+/** Risk level for fixed task indicators in impact panel */
+export type RiskLevel = 'green' | 'yellow' | 'red';
+
+/** Display status for task styling in impact panel */
+export type DisplayStatus = 'completed' | 'current' | 'pending';
+
 // =============================================================================
 // Core Entities
 // =============================================================================
@@ -213,6 +219,48 @@ export interface DaySummary {
 	tasksMissed: number;
 	/** Session duration (startedAt to endedAt) */
 	sessionDurationSec: number;
+}
+
+// =============================================================================
+// Impact Panel Entities (003-impact-panel)
+// =============================================================================
+
+/**
+ * Task with projected timing information for impact display.
+ * Computed at runtime, not persisted.
+ */
+export interface ProjectedTask {
+	/** Reference to original ConfirmedTask */
+	task: ConfirmedTask;
+	/** Projected start time based on current progress */
+	projectedStart: Date;
+	/** Projected end time (projectedStart + duration) */
+	projectedEnd: Date;
+	/** Risk level for fixed tasks (null for flexible) */
+	riskLevel: RiskLevel | null;
+	/** Seconds of buffer before scheduled start (negative = late) */
+	bufferSec: number;
+	/** Visual status for styling */
+	displayStatus: DisplayStatus;
+	/** Whether this task can be dragged (flexible + not completed/current) */
+	isDraggable: boolean;
+}
+
+/**
+ * Complete state for the impact panel.
+ * Derived from session state and timer.
+ */
+export interface ImpactPanelState {
+	/** All tasks with projections */
+	projectedTasks: ProjectedTask[];
+	/** Count of fixed tasks at each risk level */
+	riskSummary: {
+		green: number;
+		yellow: number;
+		red: number;
+	};
+	/** Whether any reordering is possible */
+	canReorder: boolean;
 }
 
 // =============================================================================
