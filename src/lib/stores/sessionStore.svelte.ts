@@ -18,6 +18,7 @@ import type {
 	ProgressStatus
 } from '$lib/types';
 import { storage } from '$lib/services/storage';
+import { calculateProjectedStart } from '$lib/services/projection';
 
 // =============================================================================
 // State
@@ -61,27 +62,37 @@ const lagDisplayValue = $derived.by(() => {
 });
 
 /**
- * Detect if current pace will miss a fixed task
+ * Calculate fixed task warning based on projected timing.
  *
  * Feature: 002-day-tracking
  * Task: T043 - Add fixedTaskWarning derivation
+ *
+ * Uses projection service to accurately calculate when we'll reach
+ * a fixed task based on current elapsed time, not cumulative lag.
+ *
+ * @param elapsedMs - Milliseconds elapsed on current task
+ * @returns Warning info if a fixed task will be late, null otherwise
  */
-const fixedTaskWarningValue = $derived.by<FixedTaskWarning | null>(() => {
+function calculateFixedTaskWarning(elapsedMs: number): FixedTaskWarning | null {
 	// No warning if no session or not running
 	if (!session || session.status !== 'running') return null;
 
 	const currentIndex = session.currentTaskIndex;
-	const lagSec = session.totalLagSec;
-
-	// No warning if on schedule or ahead
-	if (lagSec <= 0) return null;
 
 	// Look for upcoming fixed tasks (after current task)
 	for (let i = currentIndex + 1; i < tasks.length; i++) {
 		const task = tasks[i];
 		if (task.type === 'fixed') {
-			// Calculate minutes late based on current lag
-			const minutesLate = Math.ceil(lagSec / 60);
+			// Calculate projected start using projection service
+			const projectedStart = calculateProjectedStart(tasks, currentIndex, elapsedMs, i);
+			const scheduledStart = task.plannedStart;
+
+			// Calculate how late we'll be (negative = early)
+			const bufferMs = scheduledStart.getTime() - projectedStart.getTime();
+			const minutesLate = Math.ceil(-bufferMs / 60000); // Convert to minutes, negative buffer = late
+
+			// Only warn if we'll actually be late
+			if (minutesLate <= 0) return null;
 
 			return {
 				taskId: task.taskId,
@@ -93,7 +104,7 @@ const fixedTaskWarningValue = $derived.by<FixedTaskWarning | null>(() => {
 	}
 
 	return null;
-});
+}
 
 // =============================================================================
 // Helpers
@@ -182,8 +193,14 @@ function createSessionStore() {
 			return lagDisplayValue;
 		},
 
-		get fixedTaskWarning(): FixedTaskWarning | null {
-			return fixedTaskWarningValue;
+		/**
+		 * Get fixed task warning based on current elapsed time.
+		 *
+		 * @param elapsedMs - Milliseconds elapsed on current task (from timerStore)
+		 * @returns Warning info if a fixed task will be late, null otherwise
+		 */
+		getFixedTaskWarning(elapsedMs: number): FixedTaskWarning | null {
+			return calculateFixedTaskWarning(elapsedMs);
 		},
 
 		get taskProgress(): readonly TaskProgress[] {

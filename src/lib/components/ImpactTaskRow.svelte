@@ -27,11 +27,25 @@
 	let { projectedTask, onDragStart, onDragEnd, onEdit, index }: Props = $props();
 
 	// Derived display values
-	const displayTime = $derived(formatTime(projectedTask.task.plannedStart, '12h'));
+	const scheduledTime = $derived(formatTime(projectedTask.task.plannedStart, '12h'));
 	const projectedTime = $derived(formatTime(projectedTask.projectedStart, '12h'));
 	const duration = $derived(formatDuration(projectedTask.task.plannedDurationSec));
 	const isFixed = $derived(projectedTask.task.type === 'fixed');
 	const showRiskIndicator = $derived(isFixed && projectedTask.displayStatus === 'pending');
+
+	// For pending tasks, show projected time if different from scheduled
+	// Check if we're behind schedule (projected is later than scheduled)
+	const isBehindSchedule = $derived(
+		projectedTask.displayStatus === 'pending' &&
+		projectedTask.projectedStart.getTime() > projectedTask.task.plannedStart.getTime()
+	);
+
+	// Display time: for completed/current, show scheduled; for pending, show projected if behind
+	const displayTime = $derived(
+		projectedTask.displayStatus === 'pending' && isBehindSchedule
+			? projectedTime
+			: scheduledTime
+	);
 
 	// Buffer display for tooltip
 	const bufferDisplay = $derived(() => {
@@ -102,9 +116,11 @@
 
 	<!-- Time display (FR-015: show scheduled start times) -->
 	<div class="task-time" data-testid="task-time">
-		<span class="scheduled-time">{displayTime}</span>
-		{#if projectedTask.displayStatus === 'pending' && projectedTime !== displayTime}
-			<span class="projected-time" title="Projected start">({projectedTime})</span>
+		<span class="scheduled-time" class:delayed={isBehindSchedule}>{displayTime}</span>
+		{#if isBehindSchedule}
+			<span class="original-time" title="Originally scheduled for {scheduledTime}">
+				was {scheduledTime}
+			</span>
 		{/if}
 	</div>
 
@@ -203,15 +219,19 @@
 
 	/* Time display */
 	.task-time {
-		@apply text-sm font-mono text-gray-600 min-w-[100px];
+		@apply text-sm font-mono text-gray-600 min-w-[100px] flex flex-col;
 	}
 
 	.scheduled-time {
 		@apply text-gray-600;
 	}
 
-	.projected-time {
-		@apply text-xs text-gray-400 ml-1;
+	.scheduled-time.delayed {
+		@apply text-orange-600 font-medium;
+	}
+
+	.original-time {
+		@apply text-xs text-gray-400 line-through;
 	}
 
 	.impact-task-row.completed .task-time {

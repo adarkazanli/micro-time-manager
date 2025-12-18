@@ -257,9 +257,9 @@
 									</span>
 								</div>
 
-								{#if sessionStore.fixedTaskWarning}
+								{#if sessionStore.getFixedTaskWarning(timerStore.elapsedMs)}
 									<div class="warning-section">
-										<FixedTaskWarning warning={sessionStore.fixedTaskWarning} />
+										<FixedTaskWarning warning={sessionStore.getFixedTaskWarning(timerStore.elapsedMs)} />
 									</div>
 								{/if}
 
