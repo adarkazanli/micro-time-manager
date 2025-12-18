@@ -11,9 +11,24 @@ Auto-generated from all feature plans. Last updated: 2025-12-17
 ## Project Structure
 
 ```text
-backend/
-frontend/
+src/
+├── lib/
+│   ├── components/    # Svelte UI components
+│   ├── stores/        # Svelte reactive stores
+│   ├── services/      # Business logic (storage, parser, timer, projection)
+│   ├── utils/         # Pure utility functions (time, duration)
+│   ├── types/         # TypeScript type definitions
+│   └── assets/        # Static assets
+├── routes/            # SvelteKit page routes
+└── app.css            # Global styles
+
 tests/
+├── unit/              # Store and service tests
+├── component/         # Component tests
+└── e2e/               # End-to-end tests (Playwright)
+
+docs/                  # Project documentation
+specs/                 # Feature specifications
 ```
 
 ## Commands
