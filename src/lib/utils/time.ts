@@ -109,3 +109,65 @@ export function formatTime(date: Date, format: '12h' | '24h' = '24h'): string {
 
 	return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
 }
+
+/**
+ * Format milliseconds as timer display string
+ *
+ * Feature: 002-day-tracking
+ * Task: T020 - Add formatTime utility function for timer display
+ *
+ * @param ms - Milliseconds (can be negative for overtime)
+ * @returns Formatted string "MM:SS" or "H:MM:SS" (with "-" prefix if negative)
+ *
+ * @example
+ * formatTimerMs(5000)     // "00:05"
+ * formatTimerMs(90000)    // "01:30"
+ * formatTimerMs(3661000)  // "1:01:01"
+ * formatTimerMs(-60000)   // "-01:00"
+ */
+export function formatTimerMs(ms: number): string {
+	const isNegative = ms < 0;
+	const absMs = Math.abs(ms);
+
+	const totalSeconds = Math.floor(absMs / 1000);
+	const hours = Math.floor(totalSeconds / 3600);
+	const minutes = Math.floor((totalSeconds % 3600) / 60);
+	const seconds = totalSeconds % 60;
+
+	const prefix = isNegative ? '-' : '';
+
+	if (hours > 0) {
+		return `${prefix}${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+	}
+
+	return `${prefix}${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Format lag seconds as human-readable string
+ *
+ * Feature: 002-day-tracking
+ * Task: T028 - Add calculateLag utility function
+ *
+ * @param lagSec - Lag in seconds (negative = ahead, positive = behind)
+ * @returns Formatted string like "On schedule", "5 min ahead", "1 hr 10 min behind"
+ *
+ * @example
+ * formatLag(0)      // "On schedule"
+ * formatLag(-300)   // "5 min ahead"
+ * formatLag(600)    // "10 min behind"
+ * formatLag(-3900)  // "1 hr 5 min ahead"
+ */
+export function formatLag(lagSec: number): string {
+	if (lagSec === 0) return 'On schedule';
+
+	const absLag = Math.abs(lagSec);
+	const hours = Math.floor(absLag / 3600);
+	const minutes = Math.floor((absLag % 3600) / 60);
+	const direction = lagSec < 0 ? 'ahead' : 'behind';
+
+	if (hours > 0) {
+		return `${hours} hr ${minutes} min ${direction}`;
+	}
+	return `${minutes} min ${direction}`;
+}

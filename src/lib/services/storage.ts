@@ -5,10 +5,12 @@
  * schema versioning, and migration support.
  */
 
-import type { ConfirmedTask } from '$lib/types';
+import type { ConfirmedTask, DaySession, TabInfo } from '$lib/types';
 import {
 	STORAGE_KEY_TASKS,
 	STORAGE_KEY_SCHEMA,
+	STORAGE_KEY_SESSION,
+	STORAGE_KEY_TAB,
 	CURRENT_SCHEMA_VERSION
 } from '$lib/types';
 
@@ -41,6 +43,25 @@ function isLocalStorageAvailable(): boolean {
 }
 
 /**
+ * Migrate from schema v1 to v2
+ *
+ * v1 -> v2 changes:
+ * - Added session storage (STORAGE_KEY_SESSION)
+ * - Added tab info storage (STORAGE_KEY_TAB)
+ * - Clears any stale/corrupted session data
+ */
+function migrateV1toV2(): void {
+	// Clear any stale session data that might exist
+	// (shouldn't exist in v1, but handle corrupted state)
+	try {
+		localStorage.removeItem(STORAGE_KEY_SESSION);
+		localStorage.removeItem(STORAGE_KEY_TAB);
+	} catch {
+		// Ignore errors during cleanup
+	}
+}
+
+/**
  * Run migrations if needed based on schema version
  */
 function migrateIfNeeded(): void {
@@ -52,8 +73,10 @@ function migrateIfNeeded(): void {
 	const version = storedVersion ? parseInt(storedVersion, 10) : 0;
 
 	if (version < CURRENT_SCHEMA_VERSION) {
-		// Run migrations here as needed
-		// Currently at v1, no migrations needed yet
+		// Run migrations in order
+		if (version < 2) {
+			migrateV1toV2();
+		}
 
 		// Update schema version
 		localStorage.setItem(STORAGE_KEY_SCHEMA, String(CURRENT_SCHEMA_VERSION));
@@ -190,5 +213,125 @@ export const storage = {
 
 		const version = localStorage.getItem(STORAGE_KEY_SCHEMA);
 		return version ? parseInt(version, 10) : 0;
+	},
+
+	// =========================================================================
+	// Session Storage (002-day-tracking)
+	// =========================================================================
+
+	/**
+	 * Save day session to localStorage
+	 */
+	saveSession(session: DaySession): boolean {
+		if (!isLocalStorageAvailable()) {
+			console.warn('localStorage not available');
+			return false;
+		}
+
+		try {
+			localStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify(session));
+			return true;
+		} catch (error) {
+			console.error('Failed to save session:', error);
+			return false;
+		}
+	},
+
+	/**
+	 * Load day session from localStorage
+	 */
+	getSession(): DaySession | null {
+		if (!isLocalStorageAvailable()) {
+			return null;
+		}
+
+		try {
+			const stored = localStorage.getItem(STORAGE_KEY_SESSION);
+			if (!stored) {
+				return null;
+			}
+
+			return JSON.parse(stored) as DaySession;
+		} catch (error) {
+			console.error('Failed to load session:', error);
+			return null;
+		}
+	},
+
+	/**
+	 * Clear day session from localStorage
+	 */
+	clearSession(): boolean {
+		if (!isLocalStorageAvailable()) {
+			return false;
+		}
+
+		try {
+			localStorage.removeItem(STORAGE_KEY_SESSION);
+			return true;
+		} catch (error) {
+			console.error('Failed to clear session:', error);
+			return false;
+		}
+	},
+
+	// =========================================================================
+	// Tab Info Storage (002-day-tracking)
+	// =========================================================================
+
+	/**
+	 * Load tab info from localStorage
+	 */
+	getTabInfo(): TabInfo | null {
+		if (!isLocalStorageAvailable()) {
+			return null;
+		}
+
+		try {
+			const stored = localStorage.getItem(STORAGE_KEY_TAB);
+			if (!stored) {
+				return null;
+			}
+
+			return JSON.parse(stored) as TabInfo;
+		} catch (error) {
+			console.error('Failed to load tab info:', error);
+			return null;
+		}
+	},
+
+	/**
+	 * Save tab info to localStorage
+	 */
+	saveTabInfo(tabInfo: TabInfo): boolean {
+		if (!isLocalStorageAvailable()) {
+			console.warn('localStorage not available');
+			return false;
+		}
+
+		try {
+			localStorage.setItem(STORAGE_KEY_TAB, JSON.stringify(tabInfo));
+			return true;
+		} catch (error) {
+			console.error('Failed to save tab info:', error);
+			return false;
+		}
+	},
+
+	/**
+	 * Clear tab info from localStorage
+	 */
+	clearTabInfo(): boolean {
+		if (!isLocalStorageAvailable()) {
+			return false;
+		}
+
+		try {
+			localStorage.removeItem(STORAGE_KEY_TAB);
+			return true;
+		} catch (error) {
+			console.error('Failed to clear tab info:', error);
+			return false;
+		}
 	}
 };

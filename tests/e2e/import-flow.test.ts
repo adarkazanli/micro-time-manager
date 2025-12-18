@@ -284,9 +284,8 @@ test.describe('Schedule Import Flow', () => {
 		// Click confirm
 		await page.getByText('Confirm Schedule').click();
 
-		// Should show success state
-		await expect(page.getByTestId('success-state')).toBeVisible();
-		await expect(page.getByText('Schedule Confirmed!')).toBeVisible();
+		// Should show tracking view (002-day-tracking feature)
+		await expect(page.getByTestId('tracking-view')).toBeVisible();
 	});
 
 	test('can import another schedule after confirmation', async ({ page }) => {
@@ -309,10 +308,10 @@ test.describe('Schedule Import Flow', () => {
 			timeout: 10000
 		});
 		await page.getByText('Confirm Schedule').click();
-		await expect(page.getByTestId('success-state')).toBeVisible();
+		await expect(page.getByTestId('tracking-view')).toBeVisible();
 
-		// Click import another
-		await page.getByText('Import Another Schedule').click();
+		// Click import another (session must be idle to see this link)
+		await page.getByText('Import a different schedule').click();
 
 		// Should return to upload screen
 		await expect(page.getByTestId('file-uploader')).toBeVisible();
@@ -366,7 +365,7 @@ test.describe('Schedule Import Flow', () => {
 			timeout: 10000
 		});
 		await page.getByText('Confirm Schedule').click();
-		await expect(page.getByTestId('success-state')).toBeVisible();
+		await expect(page.getByTestId('tracking-view')).toBeVisible();
 
 		// Check localStorage
 		const tasks = await page.evaluate(() => {

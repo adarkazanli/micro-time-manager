@@ -1,6 +1,6 @@
 /**
- * Shared TypeScript types for Schedule Import feature
- * Based on data-model.md specification
+ * Shared TypeScript types for Micro Time Manager
+ * Based on data-model.md specifications for 001-schedule-import and 002-day-tracking
  */
 
 // =============================================================================
@@ -15,6 +15,15 @@ export type ImportStatus = 'idle' | 'parsing' | 'preview' | 'error' | 'ready';
 
 /** Task status (post-confirmation) */
 export type TaskStatus = 'pending' | 'active' | 'complete';
+
+/** Timer visual state based on remaining time */
+export type TimerColor = 'green' | 'yellow' | 'red';
+
+/** Day session execution status */
+export type SessionStatus = 'idle' | 'running' | 'complete';
+
+/** Individual task progress status */
+export type ProgressStatus = 'pending' | 'active' | 'complete' | 'missed';
 
 /** Supported file extensions */
 export type SupportedFileType = '.xlsx' | '.xls' | '.csv';
@@ -97,6 +106,116 @@ export interface ImportState {
 }
 
 // =============================================================================
+// Day Tracking Entities (002-day-tracking)
+// =============================================================================
+
+/**
+ * Runtime state for a single task's execution.
+ * Created when session starts, updated during tracking.
+ */
+export interface TaskProgress {
+	/** Reference to ConfirmedTask.taskId */
+	taskId: string;
+	/** Planned duration from ConfirmedTask (seconds) */
+	plannedDurationSec: number;
+	/** Actual time spent (seconds), updated on completion */
+	actualDurationSec: number;
+	/** When task was completed, null if incomplete */
+	completedAt: string | null;
+	/** Current execution state */
+	status: ProgressStatus;
+}
+
+/**
+ * Complete state for a day's schedule execution.
+ * Persisted to localStorage.
+ */
+export interface DaySession {
+	/** Unique session identifier (UUID v4) */
+	sessionId: string;
+	/** When "Start Day" was clicked (ISO string for persistence) */
+	startedAt: string;
+	/** When session ended, null if ongoing */
+	endedAt: string | null;
+	/** Current session state */
+	status: SessionStatus;
+	/** Index of current task in taskProgress array (0-based) */
+	currentTaskIndex: number;
+	/** Elapsed time on current task (milliseconds) */
+	currentTaskElapsedMs: number;
+	/** Last time state was persisted (epoch ms, for recovery) */
+	lastPersistedAt: number;
+	/** Cumulative lag in seconds (negative = ahead, positive = behind) */
+	totalLagSec: number;
+	/** Progress records for all tasks */
+	taskProgress: TaskProgress[];
+}
+
+/**
+ * Derived timer state for display components.
+ * Computed from DaySession, not stored directly.
+ */
+export interface TimerState {
+	/** Milliseconds elapsed on current task */
+	elapsedMs: number;
+	/** Milliseconds remaining (can be negative if overtime) */
+	remainingMs: number;
+	/** Visual indicator based on remaining time */
+	color: TimerColor;
+	/** Whether timer is actively counting */
+	isRunning: boolean;
+	/** Formatted display string (e.g., "12:34" or "-2:15") */
+	displayTime: string;
+}
+
+/**
+ * Active tab tracking for multi-tab detection.
+ * Stored in localStorage for cross-tab visibility.
+ */
+export interface TabInfo {
+	/** Unique identifier for this browser tab (UUID v4) */
+	tabId: string;
+	/** When this tab claimed leadership (epoch ms) */
+	activeSince: number;
+	/** Last heartbeat timestamp (epoch ms) */
+	lastHeartbeat: number;
+}
+
+/**
+ * Warning when current pace will miss a fixed task.
+ */
+export interface FixedTaskWarning {
+	/** The fixed task at risk */
+	taskId: string;
+	/** Task name for display */
+	taskName: string;
+	/** Projected minutes late */
+	minutesLate: number;
+	/** Fixed task's planned start time */
+	plannedStart: string;
+}
+
+/**
+ * Summary statistics shown when all tasks are complete.
+ */
+export interface DaySummary {
+	/** Total time planned (seconds) */
+	totalPlannedSec: number;
+	/** Total time actually spent (seconds) */
+	totalActualSec: number;
+	/** Final lag (actualSec - plannedSec) */
+	finalLagSec: number;
+	/** Tasks completed on time */
+	tasksOnTime: number;
+	/** Tasks completed late */
+	tasksLate: number;
+	/** Tasks marked as missed */
+	tasksMissed: number;
+	/** Session duration (startedAt to endedAt) */
+	sessionDurationSec: number;
+}
+
+// =============================================================================
 // Parse Result Types
 // =============================================================================
 
@@ -140,5 +259,27 @@ export const STORAGE_KEY_TASKS = 'tm_tasks';
 /** localStorage key for schema version */
 export const STORAGE_KEY_SCHEMA = 'tm_schema_version';
 
+/** localStorage key for day session */
+export const STORAGE_KEY_SESSION = 'tm_session';
+
+/** localStorage key for active tab info */
+export const STORAGE_KEY_TAB = 'tm_active_tab';
+
 /** Current schema version */
-export const CURRENT_SCHEMA_VERSION = 1;
+export const CURRENT_SCHEMA_VERSION = 2;
+
+// =============================================================================
+// Day Tracking Constants (002-day-tracking)
+// =============================================================================
+
+/** Warning threshold - timer turns yellow at 5 minutes remaining (ms) */
+export const WARNING_THRESHOLD_MS = 300000;
+
+/** Tab is considered stale after this many ms without heartbeat */
+export const TAB_STALE_THRESHOLD_MS = 5000;
+
+/** How often to send tab heartbeat (ms) */
+export const TAB_HEARTBEAT_INTERVAL_MS = 2000;
+
+/** How often to persist timer state to localStorage (ms) */
+export const PERSIST_INTERVAL_MS = 5000;

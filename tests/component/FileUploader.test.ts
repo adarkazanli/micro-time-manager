@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it } from 'vitest';
 // Note: Component tests are temporarily skipped due to Svelte 5 + @testing-library/svelte
 // compatibility issues with jsdom. These will be covered by e2e tests.
 // See: https://github.com/testing-library/svelte-testing-library/issues/284

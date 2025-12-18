@@ -8,8 +8,8 @@
 
 	let { errors, onRetry }: Props = $props();
 
-	// Group errors by type for better organization
-	const groupedErrors = $derived(() => {
+	// Group errors by type for better organization (reserved for future UI enhancement)
+	const _groupedErrors = $derived(() => {
 		const fileErrors = errors.filter((e) => e.row === 0);
 		const rowErrors = errors.filter((e) => e.row > 0);
 		return { fileErrors, rowErrors };
