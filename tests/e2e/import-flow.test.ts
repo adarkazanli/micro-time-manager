@@ -169,7 +169,7 @@ test.describe('Schedule Import Flow', () => {
 		await expect(page.getByText('Import Failed')).toBeVisible();
 
 		// Verify retry button exists
-		await expect(page.getByText('Try Again')).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Try Again' })).toBeVisible();
 	});
 
 	test('allows retry after validation error', async ({ page }) => {
@@ -192,7 +192,7 @@ test.describe('Schedule Import Flow', () => {
 		await expect(page.getByTestId('error-state')).toBeVisible({ timeout: 10000 });
 
 		// Click retry
-		await page.getByText('Try Again').click();
+		await page.getByRole('button', { name: 'Try Again' }).click();
 
 		// Should return to upload screen
 		await expect(page.getByTestId('file-uploader')).toBeVisible();
