@@ -29,9 +29,9 @@
 
 **Purpose**: Extend existing project with 002-day-tracking types and constants
 
-- [ ] T001 Add timer-related type definitions to src/lib/types/index.ts (TimerColor, SessionStatus, ProgressStatus, TaskProgress, DaySession, TimerState, TabInfo, FixedTaskWarning, DaySummary)
-- [ ] T002 Add new localStorage constants to src/lib/types/index.ts (STORAGE_KEY_SESSION, STORAGE_KEY_TAB, WARNING_THRESHOLD_MS, TAB_STALE_THRESHOLD_MS, TAB_HEARTBEAT_INTERVAL_MS, PERSIST_INTERVAL_MS)
-- [ ] T003 Update CURRENT_SCHEMA_VERSION from 1 to 2 in src/lib/types/index.ts
+- [x] T001 Add timer-related type definitions to src/lib/types/index.ts (TimerColor, SessionStatus, ProgressStatus, TaskProgress, DaySession, TimerState, TabInfo, FixedTaskWarning, DaySummary)
+- [x] T002 Add new localStorage constants to src/lib/types/index.ts (STORAGE_KEY_SESSION, STORAGE_KEY_TAB, WARNING_THRESHOLD_MS, TAB_STALE_THRESHOLD_MS, TAB_HEARTBEAT_INTERVAL_MS, PERSIST_INTERVAL_MS)
+- [x] T003 Update CURRENT_SCHEMA_VERSION from 1 to 2 in src/lib/types/index.ts
 
 ---
 
@@ -43,16 +43,16 @@
 
 ### Tests for Foundational
 
-- [ ] T004 [P] Unit test for createTimer service in tests/unit/timer.test.ts - test performance.now() usage, RAF updates, stop/start, recovery offset
-- [ ] T005 [P] Unit test for tabSync service in tests/unit/tabSync.test.ts - test leadership claim, heartbeat, BroadcastChannel messaging
-- [ ] T006 [P] Unit test for storage service extension in tests/unit/storage.test.ts - test saveSession, getSession, clearSession, schema migration v1→v2
+- [x] T004 [P] Unit test for createTimer service in tests/unit/timer.test.ts - test performance.now() usage, RAF updates, stop/start, recovery offset
+- [x] T005 [P] Unit test for tabSync service in tests/unit/tabSync.test.ts - test leadership claim, heartbeat, BroadcastChannel messaging
+- [x] T006 [P] Unit test for storage service extension in tests/unit/storage.test.ts - test saveSession, getSession, clearSession, schema migration v1→v2
 
 ### Implementation for Foundational
 
-- [ ] T007 Implement createTimer factory function in src/lib/services/timer.ts per timer-service.contract.ts (performance.now(), requestAnimationFrame, offset recovery)
-- [ ] T008 Implement createTabSync factory function in src/lib/services/tabSync.ts per timer-service.contract.ts (BroadcastChannel, localStorage fallback, heartbeat)
-- [ ] T009 Extend storage service in src/lib/services/storage.ts with saveSession(), getSession(), clearSession(), getTabInfo(), saveTabInfo(), clearTabInfo()
-- [ ] T010 Implement schema migration function migrateV1toV2() in src/lib/services/storage.ts
+- [x] T007 Implement createTimer factory function in src/lib/services/timer.ts per timer-service.contract.ts (performance.now(), requestAnimationFrame, offset recovery)
+- [x] T008 Implement createTabSync factory function in src/lib/services/tabSync.ts per timer-service.contract.ts (BroadcastChannel, localStorage fallback, heartbeat)
+- [x] T009 Extend storage service in src/lib/services/storage.ts with saveSession(), getSession(), clearSession(), getTabInfo(), saveTabInfo(), clearTabInfo()
+- [x] T010 Implement schema migration function migrateV1toV2() in src/lib/services/storage.ts
 
 **Checkpoint**: Foundation ready - timer service, tab sync, and storage all tested and working
 
@@ -66,19 +66,19 @@
 
 ### Tests for User Story 1
 
-- [ ] T011 [P] [US1] Unit test for timerStore in tests/unit/timerStore.test.ts - test start, stop, reset, snapshot, elapsedMs, remainingMs, displayTime
-- [ ] T012 [P] [US1] Unit test for sessionStore.startDay() in tests/unit/sessionStore.test.ts - test session creation, task progress initialization, error on empty tasks
+- [x] T011 [P] [US1] Unit test for timerStore in tests/unit/timerStore.test.ts - test start, stop, reset, snapshot, elapsedMs, remainingMs, displayTime
+- [x] T012 [P] [US1] Unit test for sessionStore.startDay() in tests/unit/sessionStore.test.ts - test session creation, task progress initialization, error on empty tasks
 - [ ] T013 [P] [US1] E2E test for start day flow in tests/e2e/day-tracking.test.ts - test "Start Day" button creates session and starts timer
 
 ### Implementation for User Story 1
 
-- [ ] T014 [US1] Create timerStore with Svelte 5 runes in src/lib/stores/timerStore.svelte.ts - implement TimerStoreContract interface
-- [ ] T015 [US1] Create sessionStore with startDay() method in src/lib/stores/sessionStore.svelte.ts - implement startDay() from SessionStoreContract
-- [ ] T016 [P] [US1] Create TimerDisplay.svelte component in src/lib/components/TimerDisplay.svelte - display countdown with formatted time
-- [ ] T017 [P] [US1] Create CurrentTask.svelte component in src/lib/components/CurrentTask.svelte - display task name and type badge (fixed/flexible)
-- [ ] T018 [US1] Create TaskControls.svelte component with "Start Day" button in src/lib/components/TaskControls.svelte
-- [ ] T019 [US1] Integrate timer components into main page in src/routes/+page.svelte - add tracking view with timer display, current task, controls
-- [ ] T020 [US1] Add formatTime utility function to src/lib/utils/time.ts - format milliseconds as MM:SS or H:MM:SS with negative support
+- [x] T014 [US1] Create timerStore with Svelte 5 runes in src/lib/stores/timerStore.svelte.ts - implement TimerStoreContract interface
+- [x] T015 [US1] Create sessionStore with startDay() method in src/lib/stores/sessionStore.svelte.ts - implement startDay() from SessionStoreContract
+- [x] T016 [P] [US1] Create TimerDisplay.svelte component in src/lib/components/TimerDisplay.svelte - display countdown with formatted time
+- [x] T017 [P] [US1] Create CurrentTask.svelte component in src/lib/components/CurrentTask.svelte - display task name and type badge (fixed/flexible)
+- [x] T018 [US1] Create TaskControls.svelte component with "Start Day" button in src/lib/components/TaskControls.svelte
+- [x] T019 [US1] Integrate timer components into main page in src/routes/+page.svelte - add tracking view with timer display, current task, controls
+- [x] T020 [US1] Add formatTime utility function to src/lib/utils/time.ts - format milliseconds as MM:SS or H:MM:SS with negative support
 
 **Checkpoint**: User Story 1 complete - user can start day and see countdown timer with task info
 
@@ -92,18 +92,18 @@
 
 ### Tests for User Story 2
 
-- [ ] T021 [P] [US2] Unit test for sessionStore.completeTask() in tests/unit/sessionStore.test.ts - test actual time recording, auto-advance, lag calculation
-- [ ] T022 [P] [US2] Unit test for sessionStore.endDay() in tests/unit/sessionStore.test.ts - test summary generation when last task completed
+- [x] T021 [P] [US2] Unit test for sessionStore.completeTask() in tests/unit/sessionStore.test.ts - test actual time recording, auto-advance, lag calculation
+- [x] T022 [P] [US2] Unit test for sessionStore.endDay() in tests/unit/sessionStore.test.ts - test summary generation when last task completed
 - [ ] T023 [P] [US2] E2E test for task completion flow in tests/e2e/day-tracking.test.ts - test "Complete Task" advances to next, last task shows summary
 
 ### Implementation for User Story 2
 
-- [ ] T024 [US2] Add completeTask() method to sessionStore in src/lib/stores/sessionStore.svelte.ts - record actual duration, update lag, advance to next task
-- [ ] T025 [US2] Add endDay() method to sessionStore in src/lib/stores/sessionStore.svelte.ts - generate DaySummary when all tasks complete
-- [ ] T026 [US2] Add "Complete Task" button to TaskControls.svelte in src/lib/components/TaskControls.svelte
-- [ ] T027 [US2] Create DaySummary.svelte component in src/lib/components/DaySummary.svelte - display end-of-day statistics
-- [ ] T028 [US2] Add calculateLag utility function to src/lib/utils/time.ts - calculate cumulative lag from task progress
-- [ ] T029 [US2] Integrate DaySummary into main page in src/routes/+page.svelte - show summary when session status is 'complete'
+- [x] T024 [US2] Add completeTask() method to sessionStore in src/lib/stores/sessionStore.svelte.ts - record actual duration, update lag, advance to next task
+- [x] T025 [US2] Add endDay() method to sessionStore in src/lib/stores/sessionStore.svelte.ts - generate DaySummary when all tasks complete
+- [x] T026 [US2] Add "Complete Task" button to TaskControls.svelte in src/lib/components/TaskControls.svelte
+- [x] T027 [US2] Create DaySummary.svelte component in src/lib/components/DaySummary.svelte - display end-of-day statistics
+- [x] T028 [US2] Add calculateLag utility function to src/lib/utils/time.ts - calculate cumulative lag from task progress
+- [x] T029 [US2] Integrate DaySummary into main page in src/routes/+page.svelte - show summary when session status is 'complete'
 
 **Checkpoint**: User Stories 1 AND 2 complete - user can start day, complete tasks, and see summary at end
 
@@ -117,13 +117,13 @@
 
 ### Tests for User Story 3
 
-- [ ] T030 [P] [US3] Unit test for timer color thresholds in tests/unit/timerStore.test.ts - test green >5min, yellow ≤5min, red ≤0
+- [x] T030 [P] [US3] Unit test for timer color thresholds in tests/unit/timerStore.test.ts - test green >5min, yellow ≤5min, red ≤0
 - [ ] T031 [P] [US3] Component test for TimerDisplay color changes in tests/component/TimerDisplay.test.ts - verify CSS class changes
 
 ### Implementation for User Story 3
 
-- [ ] T032 [US3] Add color derivation to timerStore in src/lib/stores/timerStore.svelte.ts - derive color from remainingMs using thresholds
-- [ ] T033 [US3] Add color-based Tailwind classes to TimerDisplay.svelte in src/lib/components/TimerDisplay.svelte - green-500, yellow-500, red-500
+- [x] T032 [US3] Add color derivation to timerStore in src/lib/stores/timerStore.svelte.ts - derive color from remainingMs using thresholds
+- [x] T033 [US3] Add color-based Tailwind classes to TimerDisplay.svelte in src/lib/components/TimerDisplay.svelte - green-500, yellow-500, red-500
 
 **Checkpoint**: User Story 3 complete - timer visually indicates time pressure
 
@@ -137,16 +137,16 @@
 
 ### Tests for User Story 4
 
-- [ ] T034 [P] [US4] Unit test for lag calculation in tests/unit/lagCalculation.test.ts - test ahead, behind, on-schedule, hour formatting
-- [ ] T035 [P] [US4] Unit test for lagDisplay formatting in tests/unit/sessionStore.test.ts - test "On schedule", "X min ahead/behind", "X hr Y min ahead/behind"
-- [ ] T036 [P] [US4] Component test for LagIndicator in tests/component/LagIndicator.test.ts - verify display and color coding
+- [x] T034 [P] [US4] Unit test for lag calculation in tests/unit/sessionStore.test.ts - test ahead, behind, on-schedule, hour formatting (combined with T035)
+- [x] T035 [P] [US4] Unit test for lagDisplay formatting in tests/unit/sessionStore.test.ts - test "On schedule", "X min ahead/behind", "X hr Y min ahead/behind"
+- [ ] T036 [P] [US4] Component test for LagIndicator in tests/component/LagIndicator.test.ts - verify display and color coding (skipped: inline implementation)
 
 ### Implementation for User Story 4
 
-- [ ] T037 [US4] Add lagSec and lagDisplay derivations to sessionStore in src/lib/stores/sessionStore.svelte.ts
-- [ ] T038 [US4] Create LagIndicator.svelte component in src/lib/components/LagIndicator.svelte - display lag with color coding (green ahead/on-time, yellow 1-10min behind, red >10min behind)
-- [ ] T039 [US4] Add formatLag utility function to src/lib/utils/time.ts - format seconds as "X min ahead/behind" or "X hr Y min ahead/behind"
-- [ ] T040 [US4] Integrate LagIndicator into main page in src/routes/+page.svelte
+- [x] T037 [US4] Add lagSec and lagDisplay derivations to sessionStore in src/lib/stores/sessionStore.svelte.ts
+- [x] T038 [US4] Lag indicator display implemented inline in src/routes/+page.svelte (no separate component)
+- [x] T039 [US4] Add formatLag utility function to src/lib/utils/time.ts - format seconds as "X min ahead/behind" or "X hr Y min ahead/behind"
+- [x] T040 [US4] Integrate LagIndicator into main page in src/routes/+page.svelte
 
 **Checkpoint**: User Story 4 complete - user can see overall schedule health
 
@@ -160,14 +160,14 @@
 
 ### Tests for User Story 5
 
-- [ ] T041 [P] [US5] Unit test for detectFixedTaskConflict in tests/unit/sessionStore.test.ts - test warning generation, warning clear, no warning cases
+- [x] T041 [P] [US5] Unit test for detectFixedTaskConflict in tests/unit/sessionStore.test.ts - test warning generation, warning clear, no warning cases
 - [ ] T042 [P] [US5] Component test for FixedTaskWarning in tests/component/FixedTaskWarning.test.ts - verify warning display and dismissal
 
 ### Implementation for User Story 5
 
-- [ ] T043 [US5] Add fixedTaskWarning derivation to sessionStore in src/lib/stores/sessionStore.svelte.ts - implement detectFixedTaskConflict logic
-- [ ] T044 [US5] Create FixedTaskWarning.svelte component in src/lib/components/FixedTaskWarning.svelte - display "At current pace, you will be X minutes late for [Task Name]"
-- [ ] T045 [US5] Integrate FixedTaskWarning into main page in src/routes/+page.svelte
+- [x] T043 [US5] Add fixedTaskWarning derivation to sessionStore in src/lib/stores/sessionStore.svelte.ts - implement detectFixedTaskConflict logic
+- [x] T044 [US5] Create FixedTaskWarning.svelte component in src/lib/components/FixedTaskWarning.svelte - display "At current pace, you will be X minutes late for [Task Name]"
+- [x] T045 [US5] Integrate FixedTaskWarning into main page in src/routes/+page.svelte
 
 **Checkpoint**: User Story 5 complete - user gets proactive warnings about fixed task conflicts
 
@@ -179,23 +179,23 @@
 
 ### Tests for Edge Cases
 
-- [ ] T046 [P] Unit test for page refresh recovery in tests/unit/sessionStore.test.ts - test restore() method recalculates elapsed time
+- [x] T046 [P] Unit test for page refresh recovery in tests/unit/sessionStore.test.ts - test restore() method recalculates elapsed time
 - [ ] T047 [P] Unit test for multi-tab detection in tests/unit/tabSync.test.ts - test secondary tab gets warning, controls disabled
-- [ ] T048 [P] Unit test for missed fixed task handling in tests/unit/sessionStore.test.ts - test markMissed() skips task correctly
+- [x] T048 [P] Unit test for missed fixed task handling in tests/unit/sessionStore.test.ts - test markMissed() skips task correctly
 - [ ] T049 [P] E2E test for page refresh in tests/e2e/day-tracking.test.ts - refresh mid-task, verify timer resumes correctly
 
 ### Implementation for Edge Cases
 
-- [ ] T050 Add restore() method to sessionStore in src/lib/stores/sessionStore.svelte.ts - restore session from localStorage, recalculate elapsed
-- [ ] T051 Add markMissed() method to sessionStore in src/lib/stores/sessionStore.svelte.ts - mark fixed tasks as missed if start time passed
-- [ ] T052 Implement visibility change persistence in src/lib/stores/sessionStore.svelte.ts - persist state on document.visibilitychange
-- [ ] T053 Implement periodic persistence (5s interval) in src/lib/stores/sessionStore.svelte.ts
-- [ ] T054 Add multi-tab warning UI to TaskControls.svelte in src/lib/components/TaskControls.svelte - show warning, disable controls if not leader
-- [ ] T055 Initialize tab sync and session recovery on app load in src/routes/+page.svelte
+- [x] T050 Add restore() method to sessionStore in src/lib/stores/sessionStore.svelte.ts - restore session from localStorage, recalculate elapsed
+- [x] T051 Add markMissed() method to sessionStore in src/lib/stores/sessionStore.svelte.ts - mark fixed tasks as missed if start time passed
+- [x] T052 Implement visibility change persistence in src/routes/+page.svelte - persist state on document.visibilitychange
+- [x] T053 Implement periodic persistence (5s interval) in src/routes/+page.svelte
+- [x] T054 Add multi-tab warning UI to TaskControls.svelte in src/lib/components/TaskControls.svelte - show warning, disable controls if not leader
+- [x] T055 Initialize tab sync and session recovery on app load in src/routes/+page.svelte
 
 **Checkpoint**: All edge cases handled - app is resilient to refresh, multi-tab, and missed tasks
 
-- [ ] T056 [P] Add "no schedule" error handling to TaskControls.svelte - show message prompting schedule import when confirmedTasks array is empty in src/lib/components/TaskControls.svelte
+- [x] T056 [P] Add "no schedule" error handling to TaskControls.svelte - show message prompting schedule import when confirmedTasks array is empty in src/lib/components/TaskControls.svelte
 
 ---
 

@@ -1,15 +1,121 @@
 <script lang="ts">
-	import { importStore, isParsing, hasErrors, canConfirm } from '$lib/stores/importStore';
+	import { onMount, onDestroy } from 'svelte';
+	import { importStore } from '$lib/stores/importStore';
+	import { timerStore } from '$lib/stores/timerStore.svelte';
+	import { sessionStore } from '$lib/stores/sessionStore.svelte';
+	import { storage } from '$lib/services/storage';
+	import { createTabSync, type TabSyncService } from '$lib/services/tabSync';
+	import type { ConfirmedTask } from '$lib/types';
+	import { PERSIST_INTERVAL_MS } from '$lib/types';
 	import FileUploader from '$lib/components/FileUploader.svelte';
 	import SchedulePreview from '$lib/components/SchedulePreview.svelte';
 	import TemplateDownload from '$lib/components/TemplateDownload.svelte';
+	import TimerDisplay from '$lib/components/TimerDisplay.svelte';
+	import CurrentTask from '$lib/components/CurrentTask.svelte';
+	import TaskControls from '$lib/components/TaskControls.svelte';
+	import DaySummary from '$lib/components/DaySummary.svelte';
+	import FixedTaskWarning from '$lib/components/FixedTaskWarning.svelte';
+	import type { DaySummary as DaySummaryType } from '$lib/types';
+
+	// State for confirmed tasks
+	let confirmedTasks = $state<ConfirmedTask[]>([]);
+	let showTracking = $state(false);
+	let daySummary = $state<DaySummaryType | null>(null);
+
+	// Tab sync state
+	let tabSync: TabSyncService | null = $state(null);
+	let isLeader = $state(true);
+	let persistInterval: ReturnType<typeof setInterval> | null = null;
+
+	/**
+	 * Persist current session state to localStorage
+	 * T052/T053: Visibility change and periodic persistence
+	 */
+	function persistSessionState() {
+		if (sessionStore.session && sessionStore.status === 'running') {
+			// Update elapsed time from timer
+			const elapsedMs = timerStore.elapsedMs;
+			storage.saveSession({
+				...sessionStore.session,
+				currentTaskElapsedMs: elapsedMs,
+				lastPersistedAt: Date.now()
+			});
+		}
+	}
+
+	/**
+	 * Handle visibility change - persist when page becomes hidden
+	 */
+	function handleVisibilityChange() {
+		if (document.hidden) {
+			persistSessionState();
+		}
+	}
+
+	// Load tasks on mount
+	onMount(() => {
+		storage.init();
+		confirmedTasks = storage.loadTasks();
+		showTracking = confirmedTasks.length > 0;
+
+		// T055: Initialize tab sync
+		tabSync = createTabSync();
+		isLeader = tabSync.claimLeadership();
+
+		tabSync.onLeadershipChange((leader) => {
+			isLeader = leader;
+		});
+
+		// Restore session if exists
+		const savedSession = storage.getSession();
+		if (savedSession && savedSession.status === 'running') {
+			sessionStore.restore(savedSession, confirmedTasks);
+			// Resume timer with stored elapsed time
+			if (sessionStore.currentProgress) {
+				timerStore.start(
+					sessionStore.currentProgress.plannedDurationSec,
+					savedSession.currentTaskElapsedMs
+				);
+			}
+		}
+
+		// T052: Set up visibility change listener
+		document.addEventListener('visibilitychange', handleVisibilityChange);
+
+		// T053: Set up periodic persistence (every 5 seconds)
+		persistInterval = setInterval(persistSessionState, PERSIST_INTERVAL_MS);
+	});
+
+	// Cleanup on destroy
+	onDestroy(() => {
+		// Persist state before unmounting
+		persistSessionState();
+
+		// Clean up visibility listener
+		if (typeof document !== 'undefined') {
+			document.removeEventListener('visibilitychange', handleVisibilityChange);
+		}
+
+		// Clean up periodic persistence
+		if (persistInterval) {
+			clearInterval(persistInterval);
+		}
+
+		// Clean up tab sync
+		if (tabSync) {
+			tabSync.releaseLeadership();
+			tabSync.destroy();
+		}
+	});
 
 	async function handleFileSelect(file: File) {
 		await importStore.uploadFile(file);
 	}
 
 	function handleConfirm() {
-		importStore.confirmSchedule();
+		const tasks = importStore.confirmSchedule();
+		confirmedTasks = tasks;
+		showTracking = true;
 	}
 
 	function handleCancel() {
@@ -29,9 +135,58 @@
 		importStore.reset();
 	}
 
-	function handleImportAnother() {
+	// Reserved for future "import another schedule" feature
+	function _handleImportAnother() {
 		importStore.reset();
+		showTracking = false;
 	}
+
+	// Day tracking handlers
+	function handleStartDay() {
+		sessionStore.startDay(confirmedTasks);
+		if (sessionStore.currentProgress) {
+			timerStore.start(sessionStore.currentProgress.plannedDurationSec);
+		}
+	}
+
+	function handleCompleteTask() {
+		const elapsedMs = timerStore.stop();
+		const elapsedSec = Math.floor(elapsedMs / 1000);
+		sessionStore.completeTask(elapsedSec);
+
+		// Start next task timer if session is still running
+		if (sessionStore.status === 'running' && sessionStore.currentProgress) {
+			timerStore.start(sessionStore.currentProgress.plannedDurationSec);
+		}
+	}
+
+	function handleEndDay() {
+		const summary = sessionStore.endDay();
+		daySummary = summary;
+	}
+
+	function handleDismissSummary() {
+		daySummary = null;
+		sessionStore.reset();
+		timerStore.reset();
+		storage.clearTasks();
+		confirmedTasks = [];
+		showTracking = false;
+	}
+
+	function handleBackToImport() {
+		sessionStore.reset();
+		timerStore.reset();
+		importStore.reset();
+		storage.clearTasks();
+		confirmedTasks = [];
+		showTracking = false;
+	}
+
+	// Derived state for UI
+	const isLastTask = $derived(
+		sessionStore.currentTaskIndex === sessionStore.totalTasks - 1
+	);
 </script>
 
 <svelte:head>
@@ -76,7 +231,7 @@
 					Found {$importStore.errors.length} error{$importStore.errors.length === 1 ? '' : 's'} in your file
 				</p>
 				<ul class="error-list">
-					{#each $importStore.errors as error}
+					{#each $importStore.errors as error, i (i)}
 						<li class="error-item">
 							{#if error.row > 0}
 								<span class="error-location">Row {error.row}, {error.column}:</span>
@@ -101,29 +256,63 @@
 				onConfirm={handleConfirm}
 				onCancel={handleCancel}
 			/>
-		{:else if $importStore.status === 'ready'}
-			<div class="success-state" data-testid="success-state">
-				<div class="success-icon-wrapper">
-					<svg
-						class="success-icon"
-						xmlns="http://www.w3.org/2000/svg"
-						viewBox="0 0 20 20"
-						fill="currentColor"
-					>
-						<path
-							fill-rule="evenodd"
-							d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-							clip-rule="evenodd"
+		{:else if $importStore.status === 'ready' || showTracking}
+			<!-- Day Tracking View -->
+			<div class="tracking-view" data-testid="tracking-view">
+				{#if daySummary}
+					<DaySummary summary={daySummary} onDismiss={handleDismissSummary} />
+				{:else}
+					{#if sessionStore.status === 'running'}
+						<div class="timer-section">
+							<TimerDisplay
+								displayTime={timerStore.displayTime}
+								color={timerStore.color}
+								isRunning={timerStore.isRunning}
+							/>
+						</div>
+
+						<div class="task-section">
+							<CurrentTask
+								task={sessionStore.currentTask}
+								currentIndex={sessionStore.currentTaskIndex}
+								totalTasks={sessionStore.totalTasks}
+							/>
+						</div>
+
+						<div class="lag-section" data-testid="lag-display">
+							<span class="lag-label">Schedule:</span>
+							<span class="lag-value" class:ahead={sessionStore.lagSec < 0} class:behind={sessionStore.lagSec > 0}>
+								{sessionStore.lagDisplay}
+							</span>
+						</div>
+
+						{#if sessionStore.fixedTaskWarning}
+							<div class="warning-section">
+								<FixedTaskWarning warning={sessionStore.fixedTaskWarning} />
+							</div>
+						{/if}
+					{/if}
+
+					<div class="controls-section">
+						<TaskControls
+							status={sessionStore.status}
+							hasSchedule={confirmedTasks.length > 0}
+							{isLastTask}
+							{isLeader}
+							onStartDay={handleStartDay}
+							onCompleteTask={handleCompleteTask}
+							onEndDay={handleEndDay}
 						/>
-					</svg>
-				</div>
-				<h2 class="success-title">Schedule Confirmed!</h2>
-				<p class="success-subtitle">Your schedule has been saved and is ready to track.</p>
-				<div class="success-actions">
-					<button type="button" class="btn btn-primary" onclick={handleImportAnother}>
-						Import Another Schedule
-					</button>
-				</div>
+					</div>
+
+					{#if sessionStore.status === 'idle'}
+						<div class="back-link">
+							<button type="button" class="btn-link" onclick={handleBackToImport}>
+								Import a different schedule
+							</button>
+						</div>
+					{/if}
+				{/if}
 			</div>
 		{/if}
 	</div>
@@ -217,33 +406,58 @@
 		@apply focus:ring-blue-500;
 	}
 
-	/* Success State */
-	.success-state {
-		@apply flex flex-col items-center justify-center py-12 text-center;
-	}
-
-	.success-icon-wrapper {
-		@apply w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mb-4;
-	}
-
-	.success-icon {
-		@apply w-10 h-10 text-green-600;
-	}
-
-	.success-title {
-		@apply text-2xl font-semibold text-gray-900 mb-2;
-	}
-
-	.success-subtitle {
-		@apply text-gray-600 mb-6;
-	}
-
-	.success-actions {
-		@apply flex gap-3;
-	}
-
 	/* Template Section */
 	.template-section {
 		@apply mt-4 pt-4 border-t border-gray-200;
+	}
+
+	/* Tracking View */
+	.tracking-view {
+		@apply flex flex-col items-center gap-8 py-6;
+	}
+
+	.timer-section {
+		@apply w-full flex justify-center;
+	}
+
+	.task-section {
+		@apply w-full;
+	}
+
+	.lag-section {
+		@apply flex items-center gap-2 text-sm;
+	}
+
+	.lag-label {
+		@apply text-gray-500;
+	}
+
+	.lag-value {
+		@apply font-medium text-gray-700;
+	}
+
+	.lag-value.ahead {
+		@apply text-green-600;
+	}
+
+	.lag-value.behind {
+		@apply text-red-600;
+	}
+
+	.warning-section {
+		@apply w-full max-w-md;
+	}
+
+	.controls-section {
+		@apply w-full flex justify-center;
+	}
+
+	.back-link {
+		@apply mt-4;
+	}
+
+	.btn-link {
+		@apply text-sm text-gray-500 hover:text-gray-700 underline;
+		@apply transition-colors duration-150;
 	}
 </style>

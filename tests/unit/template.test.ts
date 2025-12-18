@@ -106,7 +106,7 @@ describe('template service', () => {
 
 	describe('downloadTemplate', () => {
 		let createElementSpy: ReturnType<typeof vi.spyOn>;
-		let appendChildSpy: ReturnType<typeof vi.spyOn>;
+		let _appendChildSpy: ReturnType<typeof vi.spyOn>;
 		let removeChildSpy: ReturnType<typeof vi.spyOn>;
 		let clickSpy: ReturnType<typeof vi.fn>;
 		let mockLink: HTMLAnchorElement;
@@ -130,7 +130,7 @@ describe('template service', () => {
 			createElementSpy = vi
 				.spyOn(document, 'createElement')
 				.mockReturnValue(mockLink);
-			appendChildSpy = vi
+			_appendChildSpy = vi
 				.spyOn(document.body, 'appendChild')
 				.mockReturnValue(mockLink);
 			removeChildSpy = vi

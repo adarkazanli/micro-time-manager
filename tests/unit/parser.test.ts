@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
 	parseScheduleFile,
 	isValidFileType,
@@ -6,7 +6,7 @@ import {
 	getSupportedExtensions,
 	getAcceptString
 } from '$lib/services/parser';
-import { MAX_FILE_SIZE, MAX_TASKS } from '$lib/types';
+import { MAX_FILE_SIZE } from '$lib/types';
 
 // Helper to create a mock File
 function createMockFile(
