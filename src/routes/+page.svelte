@@ -223,64 +223,8 @@
 	</header>
 
 	<div class="app-content">
-		{#if $importStore.status === 'idle'}
-			<FileUploader onFileSelect={handleFileSelect} />
-			<div class="template-section">
-				<TemplateDownload />
-			</div>
-		{:else if $importStore.status === 'parsing'}
-			<div class="loading-state" data-testid="loading-state">
-				<div class="loading-spinner"></div>
-				<p class="loading-text">Parsing schedule...</p>
-			</div>
-		{:else if $importStore.status === 'error'}
-			<div class="error-state" data-testid="error-state">
-				<div class="error-header">
-					<svg
-						class="error-icon"
-						xmlns="http://www.w3.org/2000/svg"
-						viewBox="0 0 20 20"
-						fill="currentColor"
-					>
-						<path
-							fill-rule="evenodd"
-							d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-							clip-rule="evenodd"
-						/>
-					</svg>
-					<h2 class="error-title">Import Failed</h2>
-				</div>
-				<p class="error-subtitle">
-					Found {$importStore.errors.length} error{$importStore.errors.length === 1 ? '' : 's'} in your file
-				</p>
-				<ul class="error-list">
-					{#each $importStore.errors as error, i (i)}
-						<li class="error-item">
-							{#if error.row > 0}
-								<span class="error-location">Row {error.row}, {error.column}:</span>
-							{/if}
-							<span class="error-message">{error.message}</span>
-							{#if error.value}
-								<span class="error-value">"{error.value}"</span>
-							{/if}
-						</li>
-					{/each}
-				</ul>
-				<button type="button" class="btn btn-primary" onclick={handleRetry}>
-					Try Again
-				</button>
-			</div>
-		{:else if $importStore.status === 'preview'}
-			<SchedulePreview
-				tasks={$importStore.tasks}
-				readonly={false}
-				onTaskUpdate={handleTaskUpdate}
-				onReorder={handleReorder}
-				onConfirm={handleConfirm}
-				onCancel={handleCancel}
-			/>
-		{:else if $importStore.status === 'ready' || showTracking}
-			<!-- Day Tracking View -->
+		{#if showTracking}
+			<!-- Day Tracking View - prioritized when we have persisted tasks -->
 			<div class="tracking-view" data-testid="tracking-view">
 				{#if daySummary}
 					<DaySummary summary={daySummary} onDismiss={handleDismissSummary} />
@@ -368,6 +312,62 @@
 					{/if}
 				{/if}
 			</div>
+		{:else if $importStore.status === 'idle'}
+			<FileUploader onFileSelect={handleFileSelect} />
+			<div class="template-section">
+				<TemplateDownload />
+			</div>
+		{:else if $importStore.status === 'parsing'}
+			<div class="loading-state" data-testid="loading-state">
+				<div class="loading-spinner"></div>
+				<p class="loading-text">Parsing schedule...</p>
+			</div>
+		{:else if $importStore.status === 'error'}
+			<div class="error-state" data-testid="error-state">
+				<div class="error-header">
+					<svg
+						class="error-icon"
+						xmlns="http://www.w3.org/2000/svg"
+						viewBox="0 0 20 20"
+						fill="currentColor"
+					>
+						<path
+							fill-rule="evenodd"
+							d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+							clip-rule="evenodd"
+						/>
+					</svg>
+					<h2 class="error-title">Import Failed</h2>
+				</div>
+				<p class="error-subtitle">
+					Found {$importStore.errors.length} error{$importStore.errors.length === 1 ? '' : 's'} in your file
+				</p>
+				<ul class="error-list">
+					{#each $importStore.errors as error, i (i)}
+						<li class="error-item">
+							{#if error.row > 0}
+								<span class="error-location">Row {error.row}, {error.column}:</span>
+							{/if}
+							<span class="error-message">{error.message}</span>
+							{#if error.value}
+								<span class="error-value">"{error.value}"</span>
+							{/if}
+						</li>
+					{/each}
+				</ul>
+				<button type="button" class="btn btn-primary" onclick={handleRetry}>
+					Try Again
+				</button>
+			</div>
+		{:else if $importStore.status === 'preview'}
+			<SchedulePreview
+				tasks={$importStore.tasks}
+				readonly={false}
+				onTaskUpdate={handleTaskUpdate}
+				onReorder={handleReorder}
+				onConfirm={handleConfirm}
+				onCancel={handleCancel}
+			/>
 		{/if}
 	</div>
 </main>
