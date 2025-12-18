@@ -14,6 +14,7 @@
 
 	import type { ProjectedTask } from '$lib/types';
 	import { formatTime } from '$lib/utils/time';
+	import { formatDuration } from '$lib/utils/duration';
 
 	interface Props {
 		projectedTask: ProjectedTask;
@@ -27,6 +28,7 @@
 	// Derived display values
 	const displayTime = $derived(formatTime(projectedTask.task.plannedStart, '12h'));
 	const projectedTime = $derived(formatTime(projectedTask.projectedStart, '12h'));
+	const duration = $derived(formatDuration(projectedTask.task.plannedDurationSec));
 	const isFixed = $derived(projectedTask.task.type === 'fixed');
 	const showRiskIndicator = $derived(isFixed && projectedTask.displayStatus === 'pending');
 
@@ -98,6 +100,11 @@
 		{#if projectedTask.displayStatus === 'pending' && projectedTime !== displayTime}
 			<span class="projected-time" title="Projected start">({projectedTime})</span>
 		{/if}
+	</div>
+
+	<!-- Duration display -->
+	<div class="task-duration" data-testid="task-duration">
+		<span class="duration-value">{duration}</span>
 	</div>
 
 	<!-- Task name -->
@@ -202,6 +209,19 @@
 	}
 
 	.impact-task-row.completed .task-time {
+		@apply text-gray-400;
+	}
+
+	/* Duration display */
+	.task-duration {
+		@apply text-sm font-mono text-gray-500 min-w-[60px];
+	}
+
+	.duration-value {
+		@apply text-gray-500;
+	}
+
+	.impact-task-row.completed .task-duration {
 		@apply text-gray-400;
 	}
 
