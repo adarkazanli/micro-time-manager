@@ -447,12 +447,12 @@ function createSessionStore() {
 				return false;
 			}
 
-			// Validate indices
+			// Validate indices (toIndex can equal tasks.length to move to end)
 			if (
 				fromIndex < 0 ||
 				fromIndex >= tasks.length ||
 				toIndex < 0 ||
-				toIndex >= tasks.length
+				toIndex > tasks.length
 			) {
 				return false;
 			}

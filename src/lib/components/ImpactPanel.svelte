@@ -165,6 +165,19 @@
 				/>
 			</div>
 		{/each}
+		<!-- Drop zone for moving tasks to end of list -->
+		{#if draggedIndex !== null && draggedIndex < projectedTasks.length - 1}
+			<div
+				class="end-drop-zone"
+				role="listitem"
+				class:drop-target={dropTargetIndex === projectedTasks.length}
+				ondragover={(e) => handleDragOver(e, projectedTasks.length)}
+				ondragleave={handleDragLeave}
+				ondrop={(e) => handleDrop(e, projectedTasks.length)}
+			>
+				<span class="drop-hint">Drop here to move to end</span>
+			</div>
+		{/if}
 	</div>
 
 	<!-- Empty state -->
@@ -272,6 +285,21 @@
 
 	.task-item.dragging {
 		@apply opacity-50;
+	}
+
+	/* End drop zone */
+	.end-drop-zone {
+		@apply py-3 px-4 border-2 border-dashed border-gray-300 rounded-lg;
+		@apply text-center text-sm text-gray-400;
+		@apply transition-all duration-150;
+	}
+
+	.end-drop-zone.drop-target {
+		@apply border-blue-400 bg-blue-50 text-blue-600;
+	}
+
+	.drop-hint {
+		@apply pointer-events-none;
 	}
 
 	/* Empty/complete states */
