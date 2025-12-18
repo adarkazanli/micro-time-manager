@@ -427,6 +427,68 @@ function createSessionStore() {
 		},
 
 		/**
+		 * Get the current tasks array.
+		 */
+		get tasks(): ConfirmedTask[] {
+			return tasks;
+		},
+
+		/**
+		 * Update a task's properties.
+		 *
+		 * Feature: 003-impact-panel
+		 *
+		 * Allows editing task name, planned start time, duration, and type.
+		 * Updates both the tasks array and the corresponding progress record.
+		 *
+		 * @param taskId - ID of task to update
+		 * @param updates - Partial task properties to update
+		 * @returns true if update succeeded, false if task not found
+		 */
+		updateTask(
+			taskId: string,
+			updates: Partial<Pick<ConfirmedTask, 'name' | 'plannedStart' | 'plannedDurationSec' | 'type'>>
+		): boolean {
+			const taskIndex = tasks.findIndex((t) => t.taskId === taskId);
+			if (taskIndex === -1) {
+				return false;
+			}
+
+			// Update the task
+			const updatedTask = {
+				...tasks[taskIndex],
+				...updates
+			};
+
+			const newTasks = [...tasks];
+			newTasks[taskIndex] = updatedTask;
+			tasks = newTasks;
+
+			// Update progress record if duration changed
+			if (session && updates.plannedDurationSec !== undefined) {
+				const newProgress = [...session.taskProgress];
+				const progressIndex = newProgress.findIndex((p) => p.taskId === taskId);
+				if (progressIndex !== -1) {
+					newProgress[progressIndex] = {
+						...newProgress[progressIndex],
+						plannedDurationSec: updates.plannedDurationSec
+					};
+					session = {
+						...session,
+						taskProgress: newProgress,
+						lastPersistedAt: Date.now()
+					};
+					storage.saveSession(session);
+				}
+			}
+
+			// Persist tasks
+			storage.saveTasks(newTasks);
+
+			return true;
+		},
+
+		/**
 		 * Reorder tasks in the schedule.
 		 *
 		 * Feature: 003-impact-panel

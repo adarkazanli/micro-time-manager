@@ -20,10 +20,11 @@
 		projectedTask: ProjectedTask;
 		onDragStart?: (e: DragEvent, index: number) => void;
 		onDragEnd?: (e: DragEvent) => void;
+		onEdit?: (task: ProjectedTask['task']) => void;
 		index: number;
 	}
 
-	let { projectedTask, onDragStart, onDragEnd, index }: Props = $props();
+	let { projectedTask, onDragStart, onDragEnd, onEdit, index }: Props = $props();
 
 	// Derived display values
 	const displayTime = $derived(formatTime(projectedTask.task.plannedStart, '12h'));
@@ -49,6 +50,10 @@
 		}
 		onDragStart?.(e, index);
 	}
+
+	function handleDoubleClick() {
+		onEdit?.(projectedTask.task);
+	}
 </script>
 
 <div
@@ -63,6 +68,7 @@
 	draggable={projectedTask.isDraggable}
 	ondragstart={handleDragStart}
 	ondragend={onDragEnd}
+	ondblclick={handleDoubleClick}
 	role="listitem"
 >
 	<!-- Drag handle for draggable tasks -->

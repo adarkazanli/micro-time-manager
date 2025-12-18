@@ -194,6 +194,18 @@
 		}
 	}
 
+	// Impact panel task update handler
+	function handleImpactUpdateTask(
+		taskId: string,
+		updates: Partial<Pick<ConfirmedTask, 'name' | 'plannedStart' | 'plannedDurationSec' | 'type'>>
+	) {
+		const success = sessionStore.updateTask(taskId, updates);
+		if (success) {
+			// Update local reference to tasks
+			confirmedTasks = storage.loadTasks();
+		}
+	}
+
 	// Derived state for UI
 	const isLastTask = $derived(
 		sessionStore.currentTaskIndex === sessionStore.totalTasks - 1
@@ -328,6 +340,7 @@
 									currentIndex={sessionStore.currentTaskIndex}
 									elapsedMs={timerStore.elapsedMs}
 									onReorder={handleImpactReorder}
+									onUpdateTask={handleImpactUpdateTask}
 								/>
 							</div>
 						</div>

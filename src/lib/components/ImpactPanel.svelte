@@ -15,6 +15,7 @@
 	import type { ConfirmedTask, TaskProgress } from '$lib/types';
 	import { createProjectedTasks } from '$lib/services/projection';
 	import ImpactTaskRow from './ImpactTaskRow.svelte';
+	import EditTaskDialog from './EditTaskDialog.svelte';
 
 	interface Props {
 		tasks: ConfirmedTask[];
@@ -22,9 +23,30 @@
 		currentIndex: number;
 		elapsedMs: number;
 		onReorder?: (fromIndex: number, toIndex: number) => void;
+		onUpdateTask?: (taskId: string, updates: Partial<Pick<ConfirmedTask, 'name' | 'plannedStart' | 'plannedDurationSec' | 'type'>>) => void;
 	}
 
-	let { tasks, progress, currentIndex, elapsedMs, onReorder }: Props = $props();
+	let { tasks, progress, currentIndex, elapsedMs, onReorder, onUpdateTask }: Props = $props();
+
+	// Edit dialog state
+	let editingTask = $state<ConfirmedTask | null>(null);
+	let isEditDialogOpen = $state(false);
+
+	function handleEditTask(task: ConfirmedTask) {
+		editingTask = task;
+		isEditDialogOpen = true;
+	}
+
+	function handleSaveTask(updates: Partial<Pick<ConfirmedTask, 'name' | 'plannedStart' | 'plannedDurationSec' | 'type'>>) {
+		if (editingTask && onUpdateTask) {
+			onUpdateTask(editingTask.taskId, updates);
+		}
+	}
+
+	function handleCloseDialog() {
+		isEditDialogOpen = false;
+		editingTask = null;
+	}
 
 	// Drag state
 	let draggedIndex = $state<number | null>(null);
@@ -162,6 +184,7 @@
 					{index}
 					onDragStart={handleDragStart}
 					onDragEnd={handleDragEnd}
+					onEdit={handleEditTask}
 				/>
 			</div>
 		{/each}
@@ -194,6 +217,16 @@
 		</div>
 	{/if}
 </div>
+
+<!-- Edit Task Dialog -->
+{#if editingTask}
+	<EditTaskDialog
+		task={editingTask}
+		open={isEditDialogOpen}
+		onSave={handleSaveTask}
+		onClose={handleCloseDialog}
+	/>
+{/if}
 
 <style>
 	@reference "tailwindcss";
