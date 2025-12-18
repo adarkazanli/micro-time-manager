@@ -169,6 +169,7 @@
 		daySummary = null;
 		sessionStore.reset();
 		timerStore.reset();
+		importStore.reset();
 		storage.clearTasks();
 		confirmedTasks = [];
 		showTracking = false;
