@@ -170,6 +170,7 @@
 			<input
 				type="text"
 				class="edit-input name-input"
+				data-testid="task-name-input"
 				bind:value={editValue}
 				onblur={saveEdit}
 				onkeydown={handleKeyDown}
@@ -213,6 +214,7 @@
 		<button
 			type="button"
 			class="type-badge {task.type}"
+			data-testid="type-badge-{task.type}"
 			onclick={toggleType}
 			disabled={readonly}
 			title={readonly ? '' : 'Click to toggle type'}

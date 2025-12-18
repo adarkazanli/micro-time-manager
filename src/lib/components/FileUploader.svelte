@@ -62,7 +62,7 @@
 </script>
 
 <div
-	data-testid="upload-zone"
+	data-testid="file-uploader"
 	class="upload-zone {dragActive ? 'drag-active' : ''} {disabled ? 'disabled' : ''}"
 	role="button"
 	tabindex={disabled ? -1 : 0}
@@ -81,7 +81,7 @@
 		onchange={handleFileChange}
 		disabled={disabled}
 		class="sr-only"
-		aria-hidden="true"
+		data-testid="file-input"
 	/>
 
 	<div class="upload-content">
@@ -102,9 +102,9 @@
 		</svg>
 
 		<p class="upload-text">
-			<span class="font-semibold">Drag and drop</span> your schedule file here
+			<span class="font-semibold">Drag & drop</span> your schedule file here
 		</p>
-		<p class="upload-subtext">or click to browse</p>
+		<p class="upload-subtext">or click to browse files</p>
 		<p class="upload-formats">Supports .xlsx, .xls, .csv (max 1MB)</p>
 	</div>
 </div>
