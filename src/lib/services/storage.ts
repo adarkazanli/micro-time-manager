@@ -5,7 +5,7 @@
  * schema versioning, and migration support.
  */
 
-import type { ConfirmedTask, DaySession, TabInfo, Interruption } from '$lib/types';
+import type { ConfirmedTask, DaySession, TabInfo, Interruption, PersistedInterruptionState } from '$lib/types';
 import {
 	STORAGE_KEY_TASKS,
 	STORAGE_KEY_SCHEMA,
@@ -363,46 +363,55 @@ export const storage = {
 	// =========================================================================
 
 	/**
-	 * Save interruptions to localStorage
+	 * Save interruption state to localStorage
+	 * Includes interruptions array and pausedTaskElapsedMs for session recovery
 	 */
-	saveInterruptions(interruptions: Interruption[]): boolean {
+	saveInterruptionState(state: PersistedInterruptionState): boolean {
 		if (!isLocalStorageAvailable()) {
 			console.warn('localStorage not available');
 			return false;
 		}
 
 		try {
-			localStorage.setItem(STORAGE_KEY_INTERRUPTIONS, JSON.stringify(interruptions));
+			localStorage.setItem(STORAGE_KEY_INTERRUPTIONS, JSON.stringify(state));
 			return true;
 		} catch (error) {
-			console.error('Failed to save interruptions:', error);
+			console.error('Failed to save interruption state:', error);
 			return false;
 		}
 	},
 
 	/**
-	 * Load interruptions from localStorage
+	 * Load interruption state from localStorage
+	 * Handles backward compatibility with old format (plain array)
 	 */
-	loadInterruptions(): Interruption[] {
+	loadInterruptionState(): PersistedInterruptionState {
 		if (!isLocalStorageAvailable()) {
-			return [];
+			return { interruptions: [], pausedTaskElapsedMs: 0 };
 		}
 
 		try {
 			const stored = localStorage.getItem(STORAGE_KEY_INTERRUPTIONS);
 			if (!stored) {
-				return [];
+				return { interruptions: [], pausedTaskElapsedMs: 0 };
 			}
 
-			return JSON.parse(stored) as Interruption[];
+			const parsed = JSON.parse(stored);
+
+			// Backward compatibility: old format was just an array
+			if (Array.isArray(parsed)) {
+				return { interruptions: parsed as Interruption[], pausedTaskElapsedMs: 0 };
+			}
+
+			return parsed as PersistedInterruptionState;
 		} catch (error) {
-			console.error('Failed to load interruptions:', error);
-			return [];
+			console.error('Failed to load interruption state:', error);
+			return { interruptions: [], pausedTaskElapsedMs: 0 };
 		}
 	},
 
 	/**
-	 * Clear interruptions from localStorage
+	 * Clear interruption state from localStorage
 	 */
 	clearInterruptions(): boolean {
 		if (!isLocalStorageAvailable()) {

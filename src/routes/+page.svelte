@@ -79,23 +79,27 @@
 			isLeader = leader;
 		});
 
+		// T053: Restore interruption state first (need to know if interrupted before starting timer)
+		const savedInterruptionState = storage.loadInterruptionState();
+		const wasInterrupted = interruptionStore.restore(savedInterruptionState.interruptions);
+
+		// If there was an active interruption, restore the paused task elapsed time
+		if (wasInterrupted && savedInterruptionState.pausedTaskElapsedMs > 0) {
+			pausedTaskElapsedMs = savedInterruptionState.pausedTaskElapsedMs;
+		}
+
 		// Restore session if exists
 		const savedSession = storage.getSession();
 		if (savedSession && savedSession.status === 'running') {
 			sessionStore.restore(savedSession, confirmedTasks);
-			// Resume timer with stored elapsed time
-			if (sessionStore.currentProgress) {
+
+			// Resume task timer ONLY if not currently interrupted
+			if (sessionStore.currentProgress && !wasInterrupted) {
 				timerStore.start(
 					sessionStore.currentProgress.plannedDurationSec,
 					savedSession.currentTaskElapsedMs
 				);
 			}
-		}
-
-		// T053: Restore interruption state on session recovery
-		const savedInterruptions = storage.loadInterruptions();
-		if (savedInterruptions.length > 0) {
-			interruptionStore.restore(savedInterruptions);
 		}
 
 		// T052: Set up visibility change listener
@@ -238,6 +242,16 @@
 		}
 	}
 
+	/**
+	 * Helper to persist interruption state to localStorage
+	 */
+	function saveInterruptionState() {
+		storage.saveInterruptionState({
+			interruptions: interruptionStore.allInterruptionsForPersistence,
+			pausedTaskElapsedMs: interruptionStore.isInterrupted ? pausedTaskElapsedMs : 0
+		});
+	}
+
 	// T025: Handle starting an interruption
 	function handleInterrupt() {
 		const taskId = sessionStore.currentTask?.taskId;
@@ -248,6 +262,9 @@
 
 		// Start interruption
 		interruptionStore.startInterruption(taskId);
+
+		// Persist state with pausedTaskElapsedMs
+		saveInterruptionState();
 	}
 
 	// T035: Handle resuming from an interruption
@@ -262,6 +279,10 @@
 		if (sessionStore.currentProgress) {
 			timerStore.start(sessionStore.currentProgress.plannedDurationSec, pausedTaskElapsedMs);
 		}
+
+		// Reset pausedTaskElapsedMs and persist
+		pausedTaskElapsedMs = 0;
+		saveInterruptionState();
 	}
 
 	// T026, T036: Global keydown listener for I/R keys
@@ -298,6 +319,8 @@
 	function handleSaveInterruption(updates: { category: import('$lib/types').InterruptionCategory | null; note: string | null }) {
 		if (lastInterruptionId) {
 			interruptionStore.updateInterruption(lastInterruptionId, updates);
+			// Persist updated state
+			saveInterruptionState();
 		}
 		showEditDialog = false;
 	}

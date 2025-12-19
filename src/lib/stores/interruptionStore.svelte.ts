@@ -72,6 +72,16 @@ function createInterruptionStore() {
 			return interruptionsState;
 		},
 
+		/**
+		 * Get all interruptions for persistence (includes active interruption if any)
+		 */
+		get allInterruptionsForPersistence(): Interruption[] {
+			if (activeInterruptionState) {
+				return [...interruptionsState, activeInterruptionState];
+			}
+			return interruptionsState;
+		},
+
 		// -------------------------------------------------------------------------
 		// Actions
 		// -------------------------------------------------------------------------
@@ -118,6 +128,7 @@ function createInterruptionStore() {
 		/**
 		 * End the current interruption and record it.
 		 * Stops the interruption timer and adds to history.
+		 * Note: Caller is responsible for persisting state via storage.saveInterruptionState
 		 *
 		 * @returns The completed interruption record
 		 * @throws Error if not currently interrupted
@@ -146,14 +157,12 @@ function createInterruptionStore() {
 			isInterruptedState = false;
 			elapsedMsState = 0;
 
-			// Persist to storage
-			storage.saveInterruptions(interruptionsState);
-
 			return completed;
 		},
 
 		/**
 		 * Update a recorded interruption with category and/or note.
+		 * Note: Caller is responsible for persisting state via storage.saveInterruptionState
 		 *
 		 * @param id - The interruption ID to update
 		 * @param updates - Object with optional category and note fields
@@ -181,9 +190,6 @@ function createInterruptionStore() {
 				updated,
 				...interruptionsState.slice(index + 1)
 			];
-
-			// Persist to storage
-			storage.saveInterruptions(interruptionsState);
 		},
 
 		/**
@@ -230,10 +236,49 @@ function createInterruptionStore() {
 		 * Restore interruptions from saved data.
 		 * Used for session recovery.
 		 *
+		 * If an active interruption exists (endedAt === null), restores:
+		 * - isInterruptedState = true
+		 * - activeInterruptionState to the active interruption
+		 * - Starts the interruption timer from the saved start time
+		 *
 		 * @param saved - Array of saved interruption records
+		 * @returns true if an active interruption was restored
 		 */
-		restore(saved: Interruption[]): void {
-			interruptionsState = [...saved];
+		restore(saved: Interruption[]): boolean {
+			// Find any active interruption (endedAt === null)
+			const activeInterruption = saved.find((i) => i.endedAt === null);
+
+			// Set completed interruptions (filter out active)
+			interruptionsState = saved.filter((i) => i.endedAt !== null);
+
+			if (activeInterruption) {
+				// Restore active interruption state
+				activeInterruptionState = activeInterruption;
+				isInterruptedState = true;
+
+				// Calculate elapsed time since interruption started
+				const startTime = new Date(activeInterruption.startedAt).getTime();
+				const now = Date.now();
+				const elapsedMs = now - startTime;
+				elapsedMsState = elapsedMs;
+
+				// Clean up any existing timer
+				if (interruptionTimer) {
+					interruptionTimer.destroy();
+				}
+
+				// Start interruption timer from elapsed position
+				interruptionTimer = createTimer({
+					onTick: (elapsed: number) => {
+						elapsedMsState = elapsed;
+					}
+				});
+				interruptionTimer.start(elapsedMs);
+
+				return true;
+			}
+
+			return false;
 		},
 
 		/**

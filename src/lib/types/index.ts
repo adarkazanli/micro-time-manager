@@ -388,6 +388,17 @@ export interface InterruptionState {
 	interruptions: Interruption[];
 }
 
+/**
+ * Shape for persisting interruption state to localStorage.
+ * Includes pausedTaskElapsedMs to restore the task timer position.
+ */
+export interface PersistedInterruptionState {
+	/** All interruptions (completed and active) */
+	interruptions: Interruption[];
+	/** Elapsed ms on task timer when interrupted (for resume) */
+	pausedTaskElapsedMs: number;
+}
+
 // =============================================================================
 // Interruption Tracking Constants (004-interruption-tracking)
 // =============================================================================
