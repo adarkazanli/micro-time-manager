@@ -26,6 +26,9 @@
 	import NoteInput from '$lib/components/NoteInput.svelte';
 	import NotesView from '$lib/components/NotesView.svelte';
 	import AnalyticsDashboard from '$lib/components/AnalyticsDashboard.svelte';
+	import ExportButton from '$lib/components/ExportButton.svelte';
+	import { exportToExcel, exportToCSV } from '$lib/services/export';
+	import { calculateAnalyticsSummary } from '$lib/services/analytics';
 	import type { DaySummary as DaySummaryType } from '$lib/types';
 
 	// State for confirmed tasks
@@ -359,6 +362,50 @@
 		isAnalyticsOpen = !isAnalyticsOpen;
 	}
 
+	// T027, T038 (007-data-export): Handle Excel export
+	function handleExportExcel() {
+		if (!sessionStore.session) return;
+
+		const progress = sessionStore.session.taskProgress;
+		const interruptions = interruptionStore.interruptions;
+		const notes = noteStore.notes;
+		const summary = calculateAnalyticsSummary(progress, interruptions);
+		const sessionStart = sessionStore.session.startedAt;
+		const sessionEnd = sessionStore.session.endedAt;
+
+		exportToExcel(
+			confirmedTasks,
+			progress,
+			interruptions,
+			notes,
+			summary,
+			sessionStart,
+			sessionEnd
+		);
+	}
+
+	// T027, T044 (007-data-export): Handle CSV export
+	function handleExportCSV() {
+		if (!sessionStore.session) return;
+
+		const progress = sessionStore.session.taskProgress;
+		const interruptions = interruptionStore.interruptions;
+		const notes = noteStore.notes;
+		const summary = calculateAnalyticsSummary(progress, interruptions);
+		const sessionStart = sessionStore.session.startedAt;
+		const sessionEnd = sessionStore.session.endedAt;
+
+		exportToCSV(
+			confirmedTasks,
+			progress,
+			interruptions,
+			notes,
+			summary,
+			sessionStart,
+			sessionEnd
+		);
+	}
+
 	// T049 (005-note-capture): Handle editing a note
 	function handleNoteEdit(noteId: string) {
 		// For now, we'll use a simple prompt - this will be replaced with a proper dialog in Phase 7
@@ -541,6 +588,12 @@
 											</svg>
 											Analytics
 										</button>
+										<!-- T028 (007-data-export): Export button with format selector -->
+										<ExportButton
+											disabled={false}
+											onExportExcel={handleExportExcel}
+											onExportCSV={handleExportCSV}
+										/>
 									</div>
 								</div>
 
