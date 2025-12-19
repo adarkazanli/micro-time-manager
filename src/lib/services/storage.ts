@@ -44,12 +44,9 @@ function isLocalStorageAvailable(): boolean {
 }
 
 /**
- * Migrate from schema v1 to v2
+ * Apply schema migration from version 1 to version 2.
  *
- * v1 -> v2 changes:
- * - Added session storage (STORAGE_KEY_SESSION)
- * - Added tab info storage (STORAGE_KEY_TAB)
- * - Clears any stale/corrupted session data
+ * Ensures legacy or corrupted session and tab-storage entries are removed by deleting STORAGE_KEY_SESSION and STORAGE_KEY_TAB; errors during cleanup are ignored.
  */
 function migrateV1toV2(): void {
 	// Clear any stale session data that might exist
@@ -63,11 +60,10 @@ function migrateV1toV2(): void {
 }
 
 /**
- * Migrate from schema v2 to v3
+ * Ensure the interruptions storage key exists when migrating schema v2 to v3 by initializing STORAGE_KEY_INTERRUPTIONS to an empty array if missing.
  *
- * v2 -> v3 changes:
- * - Added interruptions storage (STORAGE_KEY_INTERRUPTIONS)
- * - Initialize as empty array if missing
+ * @remarks
+ * Errors encountered during migration are ignored.
  */
 function migrateV2toV3(): void {
 	try {
@@ -82,7 +78,11 @@ function migrateV2toV3(): void {
 }
 
 /**
- * Run migrations if needed based on schema version
+ * Ensure stored data matches the current schema by running any needed migrations.
+ *
+ * If localStorage is unavailable this function exits without action. It reads the stored schema
+ * version, runs migrations sequentially for any missing versions (v1→v2, v2→v3, …), and then
+ * updates the stored schema version to the current value.
  */
 function migrateIfNeeded(): void {
 	if (!isLocalStorageAvailable()) {
