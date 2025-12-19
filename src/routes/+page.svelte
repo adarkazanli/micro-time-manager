@@ -25,6 +25,7 @@
 	import InterruptionLog from '$lib/components/InterruptionLog.svelte';
 	import NoteInput from '$lib/components/NoteInput.svelte';
 	import NotesView from '$lib/components/NotesView.svelte';
+	import AnalyticsDashboard from '$lib/components/AnalyticsDashboard.svelte';
 	import type { DaySummary as DaySummaryType } from '$lib/types';
 
 	// State for confirmed tasks
@@ -42,6 +43,9 @@
 	let lastInterruptionId = $state<string | null>(null);
 	let showEditDialog = $state(false);
 	let showInterruptionLog = $state(false);
+
+	// Analytics state (T045 - 006-analytics-dashboard)
+	let isAnalyticsOpen = $state(false);
 
 	/**
 	 * Persist current session state to localStorage
@@ -350,6 +354,11 @@
 		noteStore.toggleView();
 	}
 
+	// T046 (006-analytics-dashboard): Toggle analytics panel
+	function toggleAnalytics() {
+		isAnalyticsOpen = !isAnalyticsOpen;
+	}
+
 	// T049 (005-note-capture): Handle editing a note
 	function handleNoteEdit(noteId: string) {
 		// For now, we'll use a simple prompt - this will be replaced with a proper dialog in Phase 7
@@ -519,6 +528,19 @@
 												Notes ({noteStore.notes.length})
 											</button>
 										{/if}
+										<!-- T046 (006-analytics-dashboard): Analytics button -->
+										<button
+											type="button"
+											class="btn btn-analytics"
+											onclick={toggleAnalytics}
+											data-testid="analytics-btn"
+											title="View Analytics"
+										>
+											<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="analytics-icon">
+												<path d="M15.5 2A1.5 1.5 0 0014 3.5v13a1.5 1.5 0 001.5 1.5h1a1.5 1.5 0 001.5-1.5v-13A1.5 1.5 0 0016.5 2h-1zM9.5 6A1.5 1.5 0 008 7.5v9A1.5 1.5 0 009.5 18h1a1.5 1.5 0 001.5-1.5v-9A1.5 1.5 0 0010.5 6h-1zM3.5 10A1.5 1.5 0 002 11.5v5A1.5 1.5 0 003.5 18h1A1.5 1.5 0 006 16.5v-5A1.5 1.5 0 004.5 10h-1z" />
+											</svg>
+											Analytics
+										</button>
 									</div>
 								</div>
 
@@ -679,6 +701,15 @@
 			onDelete={handleNoteDelete}
 			onClose={toggleNotesView}
 		/>
+	</div>
+{/if}
+
+<!-- T048 (006-analytics-dashboard): AnalyticsDashboard overlay -->
+{#if isAnalyticsOpen}
+	<div class="analytics-overlay" data-testid="analytics-overlay">
+		<div class="analytics-panel">
+			<AnalyticsDashboard onClose={toggleAnalytics} />
+		</div>
 	</div>
 {/if}
 
@@ -882,5 +913,24 @@
 
 	.notes-view-overlay {
 		@apply fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4;
+	}
+
+	/* Analytics button and overlay (006-analytics-dashboard) */
+	.btn-analytics {
+		@apply flex items-center gap-1.5;
+		@apply bg-indigo-100 text-indigo-700 hover:bg-indigo-200;
+		@apply focus:ring-indigo-500;
+	}
+
+	.analytics-icon {
+		@apply w-4 h-4;
+	}
+
+	.analytics-overlay {
+		@apply fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4;
+	}
+
+	.analytics-panel {
+		@apply bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-hidden;
 	}
 </style>

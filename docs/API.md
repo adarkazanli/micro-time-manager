@@ -694,46 +694,102 @@ interface ExporterService {
 
 ### Analytics Service
 
-Calculates metrics and scores.
+Pure functions for calculating productivity metrics. No state management—all calculations are derived from input data.
+
+**Location:** `src/lib/services/analytics.ts`
 
 ```typescript
 // src/lib/services/analytics.ts
 
-interface AnalyticsService {
-  /**
-   * Calculate concentration score
-   * @param workTimeSec - Total work time
-   * @param interruptionTimeSec - Total interruption time
-   * @returns Percentage (0-100)
-   */
-  calculateConcentrationScore(
-    workTimeSec: number,
-    interruptionTimeSec: number
-  ): number;
+/**
+ * Get concentration rating based on score.
+ * @param score - Concentration score percentage (0-100)
+ * @returns Human-readable rating tier
+ */
+function getConcentrationRating(score: number): ConcentrationRating;
+// Returns: 'Excellent' (>=90), 'Good' (80-89), 'Fair' (70-79), 'Needs improvement' (<70)
 
-  /**
-   * Calculate schedule adherence
-   * @param plannedSec - Total planned time
-   * @param actualSec - Total actual time
-   * @returns Percentage (can exceed 100%)
-   */
-  calculateScheduleAdherence(
-    plannedSec: number,
-    actualSec: number
-  ): number;
+/**
+ * Calculate day-level analytics summary from task progress and interruptions.
+ * @param taskProgress - Array of task progress records from session
+ * @param interruptions - Array of interruption records from session
+ * @returns Aggregated analytics summary
+ */
+function calculateAnalyticsSummary(
+  taskProgress: readonly TaskProgress[],
+  interruptions: readonly Interruption[]
+): AnalyticsSummary;
 
-  /**
-   * Get task variance
-   * @param task - Task to analyze
-   * @returns Variance in seconds (positive = over, negative = under)
-   */
-  getTaskVariance(task: Task): number;
+/**
+ * Calculate per-task performance metrics.
+ * @param tasks - Array of confirmed tasks
+ * @param taskProgress - Array of task progress records
+ * @param interruptions - Array of interruption records
+ * @returns Array of per-task performance metrics
+ */
+function calculateTaskPerformance(
+  tasks: readonly ConfirmedTask[],
+  taskProgress: readonly TaskProgress[],
+  interruptions: readonly Interruption[]
+): TaskPerformance[];
+```
 
-  /**
-   * Compute all analytics for current session
-   */
-  computeSessionSummary(): SessionSummary;
+**Types:**
+
+```typescript
+type ConcentrationRating = 'Excellent' | 'Good' | 'Fair' | 'Needs improvement';
+
+interface AnalyticsSummary {
+  totalPlannedSec: number;      // Sum of all task durations
+  totalActualSec: number;       // Time spent on completed tasks
+  tasksCompleted: number;       // Number of completed tasks
+  totalTasks: number;           // Total tasks in schedule
+  scheduleAdherence: number;    // planned/actual × 100 (higher = better)
+  concentrationScore: number;   // (work - interruption) / work × 100
+  concentrationRating: ConcentrationRating;
+  totalInterruptionCount: number;
+  totalInterruptionSec: number;
 }
+
+interface TaskPerformance {
+  taskId: string;
+  taskName: string;
+  plannedDurationSec: number;
+  actualDurationSec: number;
+  varianceSec: number;          // actual - planned (positive = over)
+  interruptionCount: number;
+  interruptionSec: number;
+  status: ProgressStatus;
+}
+
+/** Concentration score thresholds */
+const CONCENTRATION_EXCELLENT_THRESHOLD = 90;
+const CONCENTRATION_GOOD_THRESHOLD = 80;
+const CONCENTRATION_FAIR_THRESHOLD = 70;
+```
+
+**Usage Example:**
+
+```svelte
+<script>
+  import { sessionStore } from '$lib/stores/sessionStore.svelte';
+  import { interruptionStore } from '$lib/stores/interruptionStore.svelte';
+  import { calculateAnalyticsSummary, calculateTaskPerformance } from '$lib/services/analytics';
+
+  const summary = $derived(
+    calculateAnalyticsSummary(sessionStore.taskProgress, interruptionStore.interruptions)
+  );
+
+  const taskPerformance = $derived(
+    calculateTaskPerformance(
+      sessionStore.tasks,
+      sessionStore.taskProgress,
+      interruptionStore.interruptions
+    )
+  );
+</script>
+
+<div>Concentration: {summary.concentrationScore}% ({summary.concentrationRating})</div>
 ```
 
 ---

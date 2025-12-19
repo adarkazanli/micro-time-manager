@@ -403,6 +403,58 @@ When exporting to CSV, separate files are generated:
 
 ---
 
+## Computed Analytics Types
+
+These types are computed at runtime from session and interruption data. They are not persisted to localStorage but are used by the Analytics Dashboard and export functionality.
+
+### AnalyticsSummary
+
+Aggregated day-level metrics computed from `TaskProgress[]` and `Interruption[]`.
+
+```typescript
+type ConcentrationRating = 'Excellent' | 'Good' | 'Fair' | 'Needs improvement';
+
+interface AnalyticsSummary {
+  totalPlannedSec: number;         // Sum of all plannedDurationSec
+  totalActualSec: number;          // Sum of actualDurationSec for completed tasks
+  tasksCompleted: number;          // Count of tasks with status 'complete'
+  totalTasks: number;              // Total task count
+  scheduleAdherence: number;       // (planned / actual) × 100
+  concentrationScore: number;      // ((work - interruption) / work) × 100
+  concentrationRating: ConcentrationRating;
+  totalInterruptionCount: number;
+  totalInterruptionSec: number;
+}
+```
+
+**Concentration Rating Thresholds:**
+
+| Score Range | Rating |
+|-------------|--------|
+| ≥ 90% | Excellent |
+| 80-89% | Good |
+| 70-79% | Fair |
+| < 70% | Needs improvement |
+
+### TaskPerformance
+
+Per-task metrics computed by joining `ConfirmedTask[]`, `TaskProgress[]`, and `Interruption[]`.
+
+```typescript
+interface TaskPerformance {
+  taskId: string;
+  taskName: string;
+  plannedDurationSec: number;
+  actualDurationSec: number;
+  varianceSec: number;             // actual - planned (positive = over)
+  interruptionCount: number;       // Interruptions during this task
+  interruptionSec: number;         // Total interruption time for this task
+  status: ProgressStatus;
+}
+```
+
+---
+
 ## Storage Limits
 
 | Browser | localStorage Limit |

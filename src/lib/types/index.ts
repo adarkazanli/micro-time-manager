@@ -454,3 +454,74 @@ export const NOTE_CHAR_WARNING_THRESHOLD = 50;
 
 /** Character count threshold for red danger (remaining chars) */
 export const NOTE_CHAR_DANGER_THRESHOLD = 10;
+
+// =============================================================================
+// Analytics Types (006-analytics-dashboard)
+// =============================================================================
+
+/**
+ * Rating tier for concentration score.
+ * Based on thresholds: Excellent (≥90%), Good (80-89%), Fair (70-79%), Needs improvement (<70%)
+ */
+export type ConcentrationRating = 'Excellent' | 'Good' | 'Fair' | 'Needs improvement';
+
+/**
+ * Day-level analytics summary.
+ * Computed from sessionStore and interruptionStore data, not persisted.
+ */
+export interface AnalyticsSummary {
+	/** Total planned time across all tasks (seconds) */
+	totalPlannedSec: number;
+	/** Total actual time spent on tasks (seconds) */
+	totalActualSec: number;
+	/** Number of completed tasks */
+	tasksCompleted: number;
+	/** Total number of tasks in schedule */
+	totalTasks: number;
+	/** Schedule adherence percentage (planned/actual × 100) */
+	scheduleAdherence: number;
+	/** Concentration score percentage (0-100) */
+	concentrationScore: number;
+	/** Human-readable concentration rating */
+	concentrationRating: ConcentrationRating;
+	/** Total number of interruptions across all tasks */
+	totalInterruptionCount: number;
+	/** Total interruption time across all tasks (seconds) */
+	totalInterruptionSec: number;
+}
+
+/**
+ * Performance metrics for a single task.
+ * Computed by joining task, progress, and interruption data.
+ */
+export interface TaskPerformance {
+	/** Task identifier (from ConfirmedTask) */
+	taskId: string;
+	/** Task name for display */
+	taskName: string;
+	/** Planned duration (seconds) */
+	plannedDurationSec: number;
+	/** Actual duration (seconds), 0 if not complete */
+	actualDurationSec: number;
+	/** Variance: actual - planned (positive = over, negative = under) */
+	varianceSec: number;
+	/** Number of interruptions during this task */
+	interruptionCount: number;
+	/** Total interruption time for this task (seconds) */
+	interruptionSec: number;
+	/** Task completion status */
+	status: ProgressStatus;
+}
+
+// =============================================================================
+// Analytics Constants (006-analytics-dashboard)
+// =============================================================================
+
+/** Concentration score threshold for "Excellent" rating (≥90%) */
+export const CONCENTRATION_EXCELLENT_THRESHOLD = 90;
+
+/** Concentration score threshold for "Good" rating (≥80%) */
+export const CONCENTRATION_GOOD_THRESHOLD = 80;
+
+/** Concentration score threshold for "Fair" rating (≥70%) */
+export const CONCENTRATION_FAIR_THRESHOLD = 70;
