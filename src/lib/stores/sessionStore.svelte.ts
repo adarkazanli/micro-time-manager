@@ -18,6 +18,7 @@ import type {
 	ProgressStatus
 } from '$lib/types';
 import { storage } from '$lib/services/storage';
+import { calculateProjectedStart } from '$lib/services/projection';
 
 // =============================================================================
 // State
@@ -61,27 +62,37 @@ const lagDisplayValue = $derived.by(() => {
 });
 
 /**
- * Detect if current pace will miss a fixed task
+ * Calculate fixed task warning based on projected timing.
  *
  * Feature: 002-day-tracking
  * Task: T043 - Add fixedTaskWarning derivation
+ *
+ * Uses projection service to accurately calculate when we'll reach
+ * a fixed task based on current elapsed time, not cumulative lag.
+ *
+ * @param elapsedMs - Milliseconds elapsed on current task
+ * @returns Warning info if a fixed task will be late, null otherwise
  */
-const fixedTaskWarningValue = $derived.by<FixedTaskWarning | null>(() => {
+function calculateFixedTaskWarning(elapsedMs: number): FixedTaskWarning | null {
 	// No warning if no session or not running
 	if (!session || session.status !== 'running') return null;
 
 	const currentIndex = session.currentTaskIndex;
-	const lagSec = session.totalLagSec;
-
-	// No warning if on schedule or ahead
-	if (lagSec <= 0) return null;
 
 	// Look for upcoming fixed tasks (after current task)
 	for (let i = currentIndex + 1; i < tasks.length; i++) {
 		const task = tasks[i];
 		if (task.type === 'fixed') {
-			// Calculate minutes late based on current lag
-			const minutesLate = Math.ceil(lagSec / 60);
+			// Calculate projected start using projection service
+			const projectedStart = calculateProjectedStart(tasks, currentIndex, elapsedMs, i, Date.now());
+			const scheduledStart = task.plannedStart;
+
+			// Calculate how late we'll be (negative = early)
+			const bufferMs = scheduledStart.getTime() - projectedStart.getTime();
+			const minutesLate = Math.ceil(-bufferMs / 60000); // Convert to minutes, negative buffer = late
+
+			// Only warn if we'll actually be late
+			if (minutesLate <= 0) return null;
 
 			return {
 				taskId: task.taskId,
@@ -93,7 +104,7 @@ const fixedTaskWarningValue = $derived.by<FixedTaskWarning | null>(() => {
 	}
 
 	return null;
-});
+}
 
 // =============================================================================
 // Helpers
@@ -182,8 +193,14 @@ function createSessionStore() {
 			return lagDisplayValue;
 		},
 
-		get fixedTaskWarning(): FixedTaskWarning | null {
-			return fixedTaskWarningValue;
+		/**
+		 * Get fixed task warning based on current elapsed time.
+		 *
+		 * @param elapsedMs - Milliseconds elapsed on current task (from timerStore)
+		 * @returns Warning info if a fixed task will be late, null otherwise
+		 */
+		getFixedTaskWarning(elapsedMs: number): FixedTaskWarning | null {
+			return calculateFixedTaskWarning(elapsedMs);
 		},
 
 		get taskProgress(): readonly TaskProgress[] {
@@ -424,6 +441,174 @@ function createSessionStore() {
 			session = null;
 			tasks = [];
 			storage.clearSession();
+		},
+
+		/**
+		 * Get the current tasks array.
+		 */
+		get tasks(): ConfirmedTask[] {
+			return tasks;
+		},
+
+		/**
+		 * Update a task's properties.
+		 *
+		 * Feature: 003-impact-panel
+		 *
+		 * Allows editing task name, planned start time, duration, and type.
+		 * Updates both the tasks array and the corresponding progress record.
+		 *
+		 * @param taskId - ID of task to update
+		 * @param updates - Partial task properties to update
+		 * @returns true if update succeeded, false if task not found
+		 */
+		updateTask(
+			taskId: string,
+			updates: Partial<Pick<ConfirmedTask, 'name' | 'plannedStart' | 'plannedDurationSec' | 'type'>>
+		): boolean {
+			const taskIndex = tasks.findIndex((t) => t.taskId === taskId);
+			if (taskIndex === -1) {
+				return false;
+			}
+
+			// Update the task
+			const updatedTask = {
+				...tasks[taskIndex],
+				...updates
+			};
+
+			const newTasks = [...tasks];
+			newTasks[taskIndex] = updatedTask;
+			tasks = newTasks;
+
+			// Update progress record if duration changed
+			if (session && updates.plannedDurationSec !== undefined) {
+				const newProgress = [...session.taskProgress];
+				const progressIndex = newProgress.findIndex((p) => p.taskId === taskId);
+				if (progressIndex !== -1) {
+					newProgress[progressIndex] = {
+						...newProgress[progressIndex],
+						plannedDurationSec: updates.plannedDurationSec
+					};
+					session = {
+						...session,
+						taskProgress: newProgress,
+						lastPersistedAt: Date.now()
+					};
+					storage.saveSession(session);
+				}
+			}
+
+			// Persist tasks
+			storage.saveTasks(newTasks);
+
+			return true;
+		},
+
+		/**
+		 * Reorder tasks in the schedule.
+		 *
+		 * Feature: 003-impact-panel
+		 * Tasks: T039-T043 - Add reorderTasks action
+		 *
+		 * Validation rules:
+		 * - Cannot move fixed tasks
+		 * - Cannot move completed tasks
+		 * - Cannot move the current task
+		 * - Target position must be after current task
+		 *
+		 * @param fromIndex - Index of task to move
+		 * @param toIndex - Target position
+		 * @returns true if reorder succeeded, false if validation failed
+		 */
+		reorderTasks(fromIndex: number, toIndex: number): boolean {
+			if (!session || session.status !== 'running') {
+				return false;
+			}
+
+			// Validate indices (toIndex can equal tasks.length to move to end)
+			if (
+				fromIndex < 0 ||
+				fromIndex >= tasks.length ||
+				toIndex < 0 ||
+				toIndex > tasks.length
+			) {
+				return false;
+			}
+
+			// Same position - no change needed
+			if (fromIndex === toIndex) {
+				return true;
+			}
+
+			const taskToMove = tasks[fromIndex];
+			const progressToMove = session.taskProgress[fromIndex];
+			const currentIndex = session.currentTaskIndex;
+
+			// T040: Cannot move fixed tasks
+			if (taskToMove.type === 'fixed') {
+				return false;
+			}
+
+			// T041: Cannot move completed tasks
+			if (
+				progressToMove.status === 'complete' ||
+				progressToMove.status === 'missed'
+			) {
+				return false;
+			}
+
+			// T042: Cannot move current task
+			if (fromIndex === currentIndex) {
+				return false;
+			}
+
+			// Cannot move to a position before or at current task
+			if (toIndex <= currentIndex) {
+				return false;
+			}
+
+			// Cannot move from before current task
+			if (fromIndex <= currentIndex) {
+				return false;
+			}
+
+			// Perform the reorder
+			const newTasks = [...tasks];
+			const newProgress = [...session.taskProgress];
+
+			// Remove from old position
+			const [movedTask] = newTasks.splice(fromIndex, 1);
+			const [movedProgress] = newProgress.splice(fromIndex, 1);
+
+			// Adjust target index if moving forward
+			const adjustedToIndex = fromIndex < toIndex ? toIndex - 1 : toIndex;
+
+			// Insert at new position
+			newTasks.splice(adjustedToIndex, 0, movedTask);
+			newProgress.splice(adjustedToIndex, 0, movedProgress);
+
+			// T043: Update sortOrder fields
+			for (let i = 0; i < newTasks.length; i++) {
+				newTasks[i] = {
+					...newTasks[i],
+					sortOrder: i
+				};
+			}
+
+			// Update state
+			tasks = newTasks;
+			session = {
+				...session,
+				taskProgress: newProgress,
+				lastPersistedAt: Date.now()
+			};
+
+			// Persist changes (T056 will be handled by calling code)
+			storage.saveSession(session);
+			storage.saveTasks(newTasks);
+
+			return true;
 		}
 	};
 }

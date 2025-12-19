@@ -23,63 +23,43 @@ This document describes the public interfaces, Svelte stores, and service module
 
 ## Stores
 
-All stores follow Svelte 5 runes conventions and are reactive.
+All stores use Svelte 5 runes for reactivity.
 
 ### Timer Store
 
-Manages the countdown timer state.
+Manages countdown timer state with precision timing.
+
+**Location:** `src/lib/stores/timerStore.svelte.ts`
 
 ```typescript
-// src/lib/stores/timer.ts
-
-interface TimerState {
-  /** Remaining seconds (negative = overrun) */
-  remainingSeconds: number;
-  /** Total planned seconds for current task */
-  plannedSeconds: number;
-  /** Whether timer is actively counting down */
-  isRunning: boolean;
-  /** Whether timer is paused (interruption) */
-  isPaused: boolean;
-  /** High-precision timestamp of last tick */
-  lastTickTime: number;
-}
-
 interface TimerStore {
-  /** Current timer state (readonly) */
-  readonly state: TimerState;
+  /** Elapsed milliseconds on current task */
+  readonly elapsedMs: number;
+
+  /** Remaining milliseconds (negative = overtime) */
+  readonly remainingMs: number;
+
+  /** Display color: 'green' | 'yellow' | 'red' */
+  readonly color: TimerColor;
+
+  /** Whether timer is actively running */
+  readonly isRunning: boolean;
+
+  /** Formatted display time (e.g., "12:34" or "-2:15") */
+  readonly displayTime: string;
 
   /**
-   * Start the timer for a task
-   * @param durationSeconds - Total seconds to count down
+   * Start the timer
+   * @param plannedDurationSec - Task duration in seconds
+   * @param initialElapsedMs - Optional starting elapsed time (for recovery)
    */
-  start(durationSeconds: number): void;
+  start(plannedDurationSec: number, initialElapsedMs?: number): void;
 
-  /**
-   * Pause the timer (for interruption)
-   */
-  pause(): void;
+  /** Stop the timer and return elapsed milliseconds */
+  stop(): number;
 
-  /**
-   * Resume from paused state
-   */
-  resume(): void;
-
-  /**
-   * Stop and reset the timer
-   */
-  stop(): void;
-
-  /**
-   * Get formatted time string
-   * @returns Formatted time (e.g., "05:30" or "-02:15")
-   */
-  getFormattedTime(): string;
-
-  /**
-   * Check if timer is in overrun state
-   */
-  isOverrun(): boolean;
+  /** Reset timer state */
+  reset(): void;
 }
 ```
 
@@ -87,111 +67,71 @@ interface TimerStore {
 
 ```svelte
 <script>
-  import { timerStore } from '$lib/stores/timer';
-
-  // Reactive access to state
-  $: remaining = timerStore.state.remainingSeconds;
-  $: formatted = timerStore.getFormattedTime();
+  import { timerStore } from '$lib/stores/timerStore.svelte';
 </script>
 
-<div class:overrun={timerStore.isOverrun()}>
-  {formatted}
+<div class="timer" class:overtime={timerStore.remainingMs < 0}>
+  <span style="color: {timerStore.color}">{timerStore.displayTime}</span>
 </div>
 ```
 
 ---
 
-### Tasks Store
+### Session Store
 
-Manages the task list and current task state.
+Manages day session state, task progress, and current task tracking.
+
+**Location:** `src/lib/stores/sessionStore.svelte.ts`
 
 ```typescript
-// src/lib/stores/tasks.ts
+interface SessionStore {
+  /** Current session or null */
+  readonly session: DaySession | null;
 
-interface Task {
-  taskId: string;
-  name: string;
-  type: 'fixed' | 'flexible';
-  plannedStart: Date;
-  actualStart: Date | null;
-  plannedDurationSec: number;
-  actualDurationSec: number;
-  status: 'pending' | 'active' | 'complete';
-  sortOrder: number;
-  interruptionCount: number;
-  totalInterruptionSec: number;
-}
+  /** Session status: 'idle' | 'running' | 'complete' */
+  readonly status: SessionStatus;
 
-interface TasksState {
-  /** All tasks in order */
-  tasks: Task[];
-  /** Currently active task ID */
-  currentTaskId: string | null;
-  /** Schedule lag in seconds (positive = behind) */
-  lagSeconds: number;
-}
+  /** Current task's ConfirmedTask or null */
+  readonly currentTask: ConfirmedTask | null;
 
-interface TasksStore {
-  /** Current tasks state (readonly) */
-  readonly state: TasksState;
+  /** Current task's progress record or null */
+  readonly currentProgress: TaskProgress | null;
 
-  /**
-   * Load tasks from parsed import data
-   * @param tasks - Array of task objects
-   */
-  loadTasks(tasks: Task[]): void;
+  /** 0-based index of current task */
+  readonly currentTaskIndex: number;
 
-  /**
-   * Get the current active task
-   */
-  getCurrentTask(): Task | null;
+  /** Total number of tasks */
+  readonly totalTasks: number;
 
-  /**
-   * Get the next task in queue
-   */
-  getNextTask(): Task | null;
+  /** Current lag in seconds (positive = behind) */
+  readonly lagSec: number;
 
-  /**
-   * Start tracking a specific task
-   * @param taskId - Task ID to activate
-   */
-  startTask(taskId: string): void;
+  /** Formatted lag display (e.g., "2:30 behind" or "1:15 ahead") */
+  readonly lagDisplay: string;
 
-  /**
-   * Complete the current task and advance
-   * @returns The next task, or null if no more tasks
-   */
-  completeCurrentTask(): Task | null;
+  /** Warning for at-risk fixed tasks or null */
+  readonly fixedTaskWarning: FixedTaskWarning | null;
 
-  /**
-   * Update actual duration for current task
-   * @param seconds - Seconds to add
-   */
-  addActualTime(seconds: number): void;
+  /** Start a new day session */
+  startDay(tasks: ConfirmedTask[]): void;
 
-  /**
-   * Reorder flexible tasks
-   * @param taskId - Task to move
-   * @param newIndex - New position in list
-   */
-  reorderTask(taskId: string, newIndex: number): void;
+  /** Complete current task and advance to next */
+  completeTask(elapsedMs: number): DaySummary | null;
 
-  /**
-   * Calculate current schedule lag
-   * @returns Lag in seconds (positive = behind schedule)
-   */
-  calculateLag(): number;
+  /** End the day early and get summary */
+  endDay(elapsedMs: number): DaySummary;
 
-  /**
-   * Get upcoming fixed tasks
-   * @param withinMinutes - Time window to check
-   */
-  getUpcomingFixedTasks(withinMinutes: number): Task[];
+  /** Restore session from localStorage (for page refresh) */
+  restore(session: DaySession, tasks: ConfirmedTask[]): void;
 
-  /**
-   * Clear all tasks (reset)
-   */
-  clear(): void;
+  /** Reorder tasks (drag-and-drop) */
+  reorderTasks(fromIndex: number, toIndex: number): boolean;
+
+  /** Update a task's properties */
+  updateTask(taskId: string, updates: Partial<ConfirmedTask>): boolean;
+
+  /** Reset to initial state */
+  reset(): void;
 }
 ```
 
@@ -199,95 +139,76 @@ interface TasksStore {
 
 ```svelte
 <script>
-  import { tasksStore } from '$lib/stores/tasks';
-
-  $: currentTask = tasksStore.getCurrentTask();
-  $: lag = tasksStore.state.lagSeconds;
+  import { sessionStore } from '$lib/stores/sessionStore.svelte';
 </script>
 
-{#if currentTask}
-  <TaskCard task={currentTask} />
-  <LagIndicator seconds={lag} />
+{#if sessionStore.status === 'running'}
+  <CurrentTask task={sessionStore.currentTask} />
+  <LagIndicator lagSec={sessionStore.lagSec} display={sessionStore.lagDisplay} />
 {/if}
 ```
 
 ---
 
-### Interruptions Store
+### Import Store
 
-Tracks interruption events.
+Manages the schedule import workflow.
+
+**Location:** `src/lib/stores/importStore.ts`
 
 ```typescript
-// src/lib/stores/interruptions.ts
+interface ImportStore {
+  /** Subscribable store with ImportState */
+  subscribe: Subscriber<ImportState>;
 
-interface Interruption {
-  interruptionId: string;
-  taskId: string;
-  startTime: Date;
-  endTime: Date | null;
-  durationSec: number;
-  category: 'phone' | 'colleague' | 'personal' | 'other';
-  note: string;
+  /** Upload and parse a file */
+  uploadFile(file: File): Promise<void>;
+
+  /** Update a single draft task */
+  updateTask(id: string, changes: Partial<DraftTask>): void;
+
+  /** Reorder tasks during preview */
+  reorderTasks(fromIndex: number, toIndex: number): void;
+
+  /** Confirm schedule and save to localStorage */
+  confirmSchedule(): ConfirmedTask[];
+
+  /** Reset to initial state */
+  reset(): void;
 }
 
-interface InterruptionsState {
-  /** All interruptions */
-  interruptions: Interruption[];
-  /** Currently active interruption */
-  activeInterruption: Interruption | null;
+interface ImportState {
+  status: 'idle' | 'parsing' | 'preview' | 'error' | 'ready';
+  file: File | null;
+  uploadedAt: Date | null;
+  tasks: DraftTask[];
+  errors: ValidationError[];
 }
+```
 
-interface InterruptionsStore {
-  /** Current state (readonly) */
-  readonly state: InterruptionsState;
+**Usage Example:**
 
-  /**
-   * Start a new interruption
-   * @param taskId - Task being interrupted
-   */
-  startInterruption(taskId: string): Interruption;
+```svelte
+<script>
+  import { importStore } from '$lib/stores/importStore';
 
-  /**
-   * End the active interruption
-   * @param category - Optional category
-   * @param note - Optional note
-   */
-  endInterruption(category?: string, note?: string): void;
+  async function handleFile(file: File) {
+    await importStore.uploadFile(file);
+  }
+</script>
 
-  /**
-   * Get interruptions for a specific task
-   * @param taskId - Task ID to filter by
-   */
-  getForTask(taskId: string): Interruption[];
-
-  /**
-   * Get total interruption time for a task
-   * @param taskId - Task ID
-   * @returns Total seconds
-   */
-  getTotalTimeForTask(taskId: string): number;
-
-  /**
-   * Get interruption count for current session
-   */
-  getTotalCount(): number;
-
-  /**
-   * Get total interruption time for current session
-   * @returns Total seconds
-   */
-  getTotalTime(): number;
-
-  /**
-   * Clear all interruptions (reset)
-   */
-  clear(): void;
-}
+{#if $importStore.status === 'preview'}
+  <SchedulePreview tasks={$importStore.tasks} />
+{:else if $importStore.status === 'error'}
+  <ValidationErrors errors={$importStore.errors} />
+{/if}
 ```
 
 ---
 
-### Notes Store
+### Notes Store (Planned)
+
+*Not yet implemented.*
 
 Manages quick notes.
 
@@ -351,7 +272,9 @@ interface NotesStore {
 
 ---
 
-### Settings Store
+### Settings Store (Planned)
+
+*Not yet implemented.*
 
 User preferences and configuration.
 
@@ -686,8 +609,8 @@ Custom events dispatched by components.
 
 ---
 
-**Document Version:** 1.0
-**Last Updated:** 2025-12-17
+**Document Version:** 1.1
+**Last Updated:** 2025-12-18
 
 See also:
 - [Architecture](ARCHITECTURE.md)

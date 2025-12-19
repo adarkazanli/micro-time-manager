@@ -40,6 +40,12 @@
 		e.preventDefault();
 		if (draggedIndex === null || draggedIndex === index) return;
 
+		// If dropping at end of list, always allow
+		if (index === sortedTasks.length) {
+			dropTargetIndex = index;
+			return;
+		}
+
 		// Only allow dropping on flexible tasks or between them
 		const targetTask = sortedTasks[index];
 		if (targetTask.type === 'fixed') return;
@@ -55,6 +61,13 @@
 		e.preventDefault();
 
 		if (draggedIndex === null || draggedIndex === targetIndex) {
+			handleDragEnd();
+			return;
+		}
+
+		// If dropping at end of list, allow it
+		if (targetIndex === sortedTasks.length) {
+			onReorder?.(draggedIndex, targetIndex);
 			handleDragEnd();
 			return;
 		}
@@ -102,6 +115,18 @@
 				/>
 			</div>
 		{/each}
+		<!-- Drop zone for moving tasks to end of list -->
+		{#if !readonly && draggedIndex !== null && draggedIndex < sortedTasks.length - 1}
+			<div
+				class="end-drop-zone"
+				class:is-drop-target={dropTargetIndex === sortedTasks.length}
+				ondragover={(e) => handleDragOver(e, sortedTasks.length)}
+				ondragleave={handleDragLeave}
+				ondrop={(e) => handleDrop(e, sortedTasks.length)}
+			>
+				<span class="drop-hint">Drop here to move to end</span>
+			</div>
+		{/if}
 	</div>
 
 	{#if !readonly}
@@ -163,6 +188,21 @@
 	.task-wrapper.is-drop-target::before {
 		content: '';
 		@apply absolute inset-0 border-2 border-dashed border-blue-400 rounded-lg pointer-events-none;
+	}
+
+	/* End drop zone */
+	.end-drop-zone {
+		@apply py-3 px-4 border-2 border-dashed border-gray-300 rounded-lg;
+		@apply text-center text-sm text-gray-400;
+		@apply transition-all duration-150;
+	}
+
+	.end-drop-zone.is-drop-target {
+		@apply border-blue-400 bg-blue-50 text-blue-600;
+	}
+
+	.drop-hint {
+		@apply pointer-events-none;
 	}
 
 	.preview-actions {

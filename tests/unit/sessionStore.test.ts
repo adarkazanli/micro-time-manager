@@ -664,7 +664,7 @@ describe('sessionStore', () => {
 		it('should be null when no session active', async () => {
 			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
 
-			expect(sessionStore.fixedTaskWarning).toBeNull();
+			expect(sessionStore.getFixedTaskWarning(0)).toBeNull();
 		});
 
 		it('should be null when on schedule', async () => {
@@ -673,15 +673,19 @@ describe('sessionStore', () => {
 
 			sessionStore.startDay(tasks);
 
-			expect(sessionStore.fixedTaskWarning).toBeNull();
+			// With 0 elapsed time and on first task, we're on schedule
+			expect(sessionStore.getFixedTaskWarning(0)).toBeNull();
 		});
 
 		it('should generate warning when behind and fixed task at risk', async () => {
+			vi.useFakeTimers();
+			const now = new Date('2025-12-18T09:00:00.000Z');
+			vi.setSystemTime(now);
+
 			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
 			// Create tasks: flexible task, another flexible task, then fixed task
 			// After completing first task late, we'll be on second flexible,
 			// and should warn about the upcoming fixed task
-			const now = new Date('2025-12-18T09:00:00.000Z');
 			const tasks: ConfirmedTask[] = [
 				{
 					taskId: 'task-1',
@@ -713,20 +717,32 @@ describe('sessionStore', () => {
 			];
 
 			sessionStore.startDay(tasks);
-			// Complete first task late (10 min behind schedule)
-			sessionStore.completeTask(2400); // 40 min instead of 30
+			// Complete first task late (10 min behind schedule = 40 min instead of 30)
+			sessionStore.completeTask(2400);
+
+			// Advance time to 40 min after start (simulating the 40 min we spent)
+			vi.setSystemTime(new Date(now.getTime() + 2400000));
 
 			// Now on flexible task 2, running 10 min behind
 			// Should warn about fixed meeting
-			expect(sessionStore.fixedTaskWarning).not.toBeNull();
-			expect(sessionStore.fixedTaskWarning?.taskId).toBe('task-3');
-			expect(sessionStore.fixedTaskWarning?.taskName).toBe('Fixed Meeting');
-			expect(sessionStore.fixedTaskWarning?.minutesLate).toBe(10);
+			// With 0 elapsed on current task (just started), we have 30 min remaining
+			// Projected start for fixed = now (09:40) + 30 min = 10:10
+			// Scheduled = 10:00, so 10 min late
+			const warning = sessionStore.getFixedTaskWarning(0);
+			expect(warning).not.toBeNull();
+			expect(warning?.taskId).toBe('task-3');
+			expect(warning?.taskName).toBe('Fixed Meeting');
+			expect(warning?.minutesLate).toBe(10);
+
+			vi.useRealTimers();
 		});
 
 		it('should not warn when ahead of schedule', async () => {
-			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			vi.useFakeTimers();
 			const now = new Date('2025-12-18T09:00:00.000Z');
+			vi.setSystemTime(now);
+
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
 			const tasks: ConfirmedTask[] = [
 				{
 					taskId: 'task-1',
@@ -758,16 +774,26 @@ describe('sessionStore', () => {
 			];
 
 			sessionStore.startDay(tasks);
-			// Complete first task early (5 min ahead)
-			sessionStore.completeTask(1500); // 25 min instead of 30
+			// Complete first task early (5 min ahead = 25 min instead of 30)
+			sessionStore.completeTask(1500);
+
+			// Advance time to 25 min after start
+			vi.setSystemTime(new Date(now.getTime() + 1500000));
 
 			// Ahead of schedule - no warning
-			expect(sessionStore.fixedTaskWarning).toBeNull();
+			// Projected: now (09:25) + 30 min = 09:55, scheduled = 10:00
+			// 5 min buffer, so no warning
+			expect(sessionStore.getFixedTaskWarning(0)).toBeNull();
+
+			vi.useRealTimers();
 		});
 
 		it('should not warn when no upcoming fixed tasks', async () => {
-			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			vi.useFakeTimers();
 			const now = new Date('2025-12-18T09:00:00.000Z');
+			vi.setSystemTime(now);
+
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
 			const tasks: ConfirmedTask[] = [
 				{
 					taskId: 'task-1',
@@ -792,12 +818,18 @@ describe('sessionStore', () => {
 			sessionStore.startDay(tasks);
 			sessionStore.completeTask(2400); // 10 min late
 
-			expect(sessionStore.fixedTaskWarning).toBeNull();
+			// No fixed tasks to warn about
+			expect(sessionStore.getFixedTaskWarning(0)).toBeNull();
+
+			vi.useRealTimers();
 		});
 
 		it('should warn about first at-risk fixed task only', async () => {
-			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			vi.useFakeTimers();
 			const now = new Date('2025-12-18T09:00:00.000Z');
+			vi.setSystemTime(now);
+
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
 			const tasks: ConfirmedTask[] = [
 				{
 					taskId: 'task-1',
@@ -840,13 +872,21 @@ describe('sessionStore', () => {
 			sessionStore.startDay(tasks);
 			sessionStore.completeTask(2400); // 10 min late
 
+			// Advance time to 40 min after start
+			vi.setSystemTime(new Date(now.getTime() + 2400000));
+
 			// Now on Flexible 2, should warn about First Fixed (first upcoming fixed)
-			expect(sessionStore.fixedTaskWarning?.taskName).toBe('First Fixed');
+			expect(sessionStore.getFixedTaskWarning(0)?.taskName).toBe('First Fixed');
+
+			vi.useRealTimers();
 		});
 
 		it('should clear warning when catching up', async () => {
-			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			vi.useFakeTimers();
 			const now = new Date('2025-12-18T09:00:00.000Z');
+			vi.setSystemTime(now);
+
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
 			const tasks: ConfirmedTask[] = [
 				{
 					taskId: 'task-1',
@@ -878,18 +918,26 @@ describe('sessionStore', () => {
 			];
 
 			sessionStore.startDay(tasks);
-			sessionStore.completeTask(2400); // 10 min late - warning should show
-			expect(sessionStore.fixedTaskWarning).not.toBeNull();
+			sessionStore.completeTask(2400); // 10 min late
+			vi.setSystemTime(new Date(now.getTime() + 2400000)); // 09:40 - warning should show
+			expect(sessionStore.getFixedTaskWarning(0)).not.toBeNull();
 
-			// Complete second task early to catch up
-			sessionStore.completeTask(1200); // 20 min instead of 30, now on schedule
+			// Complete second task early to catch up (20 min instead of 30)
+			sessionStore.completeTask(1200);
+			vi.setSystemTime(new Date(now.getTime() + 3600000)); // 10:00 - exactly on schedule
 
-			expect(sessionStore.fixedTaskWarning).toBeNull();
+			// Now on Fixed Meeting, no future fixed tasks to warn about
+			expect(sessionStore.getFixedTaskWarning(0)).toBeNull();
+
+			vi.useRealTimers();
 		});
 
 		it('should include plannedStart in warning', async () => {
-			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			vi.useFakeTimers();
 			const now = new Date('2025-12-18T09:00:00.000Z');
+			vi.setSystemTime(now);
+
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
 			const fixedStart = new Date(now.getTime() + 3600000); // 10:00
 			const tasks: ConfirmedTask[] = [
 				{
@@ -924,13 +972,21 @@ describe('sessionStore', () => {
 			sessionStore.startDay(tasks);
 			sessionStore.completeTask(2400); // 10 min late
 
+			// Advance time
+			vi.setSystemTime(new Date(now.getTime() + 2400000));
+
 			// Now on Flexible 2, should warn about Fixed Meeting with plannedStart
-			expect(sessionStore.fixedTaskWarning?.plannedStart).toBeDefined();
+			expect(sessionStore.getFixedTaskWarning(0)?.plannedStart).toBeDefined();
+
+			vi.useRealTimers();
 		});
 
 		it('should not warn when fixed task already being worked on', async () => {
-			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			vi.useFakeTimers();
 			const now = new Date('2025-12-18T09:00:00.000Z');
+			vi.setSystemTime(now);
+
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
 			const tasks: ConfirmedTask[] = [
 				{
 					taskId: 'task-1',
@@ -946,7 +1002,9 @@ describe('sessionStore', () => {
 			sessionStore.startDay(tasks);
 
 			// Currently working on the fixed task - no warning needed
-			expect(sessionStore.fixedTaskWarning).toBeNull();
+			expect(sessionStore.getFixedTaskWarning(0)).toBeNull();
+
+			vi.useRealTimers();
 		});
 	});
 
@@ -1165,6 +1223,175 @@ describe('sessionStore', () => {
 			const summary = sessionStore.endDay();
 
 			expect(summary.tasksMissed).toBe(1);
+		});
+	});
+
+	// ==========================================================================
+	// T036: Unit tests for reorderTasks() - impact panel drag-drop
+	// ==========================================================================
+
+	describe('reorderTasks()', () => {
+		it('should return false when no session active', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+
+			const result = sessionStore.reorderTasks(1, 2);
+
+			expect(result).toBe(false);
+		});
+
+		it('should return false for invalid indices', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(3);
+			// Make all flexible for this test
+			tasks.forEach((t) => (t.type = 'flexible'));
+
+			sessionStore.startDay(tasks);
+
+			expect(sessionStore.reorderTasks(-1, 2)).toBe(false);
+			expect(sessionStore.reorderTasks(1, 10)).toBe(false);
+		});
+
+		it('should return true for same position (no-op)', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(3);
+			tasks.forEach((t) => (t.type = 'flexible'));
+
+			sessionStore.startDay(tasks);
+
+			const result = sessionStore.reorderTasks(1, 1);
+
+			expect(result).toBe(true);
+		});
+
+		it('should prevent moving fixed tasks (T040)', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(3);
+			tasks[1].type = 'fixed'; // Make task at index 1 fixed
+
+			sessionStore.startDay(tasks);
+
+			const result = sessionStore.reorderTasks(1, 2);
+
+			expect(result).toBe(false);
+		});
+
+		it('should prevent moving completed tasks (T041)', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(3);
+			tasks.forEach((t) => (t.type = 'flexible'));
+
+			sessionStore.startDay(tasks);
+			sessionStore.completeTask(1800); // Complete first task
+
+			// Try to move the completed task
+			const result = sessionStore.reorderTasks(0, 2);
+
+			expect(result).toBe(false);
+		});
+
+		it('should prevent moving current task (T042)', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(3);
+			tasks.forEach((t) => (t.type = 'flexible'));
+
+			sessionStore.startDay(tasks);
+
+			// Current task is at index 0, try to move it
+			const result = sessionStore.reorderTasks(0, 2);
+
+			expect(result).toBe(false);
+		});
+
+		it('should prevent moving to position before current task', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(4);
+			tasks.forEach((t) => (t.type = 'flexible'));
+
+			sessionStore.startDay(tasks);
+			sessionStore.completeTask(1800); // Current is now at index 1
+
+			// Try to move task 2 to before current (index 0)
+			const result = sessionStore.reorderTasks(2, 0);
+
+			expect(result).toBe(false);
+		});
+
+		it('should successfully reorder flexible pending tasks after current', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(4);
+			tasks.forEach((t) => (t.type = 'flexible'));
+
+			sessionStore.startDay(tasks);
+			sessionStore.completeTask(1800); // Current is now at index 1
+
+			// Move task 3 to position 2 (before task 2)
+			const result = sessionStore.reorderTasks(3, 2);
+
+			expect(result).toBe(true);
+		});
+
+		it('should update sortOrder fields after reorder (T043)', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(4);
+			tasks.forEach((t, i) => {
+				t.type = 'flexible';
+				t.name = `Task ${i + 1}`;
+			});
+
+			sessionStore.startDay(tasks);
+			sessionStore.completeTask(1800); // Current is now at index 1
+
+			// Capture the taskId of the task being moved (from index 3)
+			const movedTaskId = tasks[3].taskId;
+
+			// Move task from index 3 to position 2
+			const result = sessionStore.reorderTasks(3, 2);
+			expect(result).toBe(true);
+
+			// After reorder, verify the moved task is now at the expected position (index 2)
+			const reorderedTasks = sessionStore.tasks;
+			const progress = sessionStore.taskProgress;
+
+			// The moved task should now be at index 2
+			expect(reorderedTasks[2].taskId).toBe(movedTaskId);
+			expect(progress[2].taskId).toBe(movedTaskId);
+
+			// Verify all tasks have sequential sortOrder values matching their indices (0-based)
+			reorderedTasks.forEach((task, index) => {
+				expect(typeof task.sortOrder).toBe('number');
+				expect(task.sortOrder).toBe(index);
+			});
+		});
+
+		it('should persist changes after reorder', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(4);
+			tasks.forEach((t) => (t.type = 'flexible'));
+
+			sessionStore.startDay(tasks);
+			sessionStore.completeTask(1800);
+
+			const lastPersistedBefore = sessionStore.session?.lastPersistedAt;
+
+			// Wait a tiny bit to ensure timestamp differs
+			vi.advanceTimersByTime(10);
+
+			sessionStore.reorderTasks(2, 3);
+
+			expect(sessionStore.session?.lastPersistedAt).toBeGreaterThan(lastPersistedBefore!);
+		});
+
+		it('should not allow moving task from before current to after', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(4);
+			tasks.forEach((t) => (t.type = 'flexible'));
+
+			sessionStore.startDay(tasks);
+			sessionStore.completeTask(1800); // Complete task 0, current is now 1
+			// Task 0 is completed, cannot move it
+			const result = sessionStore.reorderTasks(0, 3);
+
+			expect(result).toBe(false);
 		});
 	});
 });

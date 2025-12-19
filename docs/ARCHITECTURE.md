@@ -250,62 +250,60 @@ See [DATA_SCHEMA.md](DATA_SCHEMA.md) for detailed localStorage schema and file f
 
 ## Component Architecture
 
-### UI Components
+### UI Components (Implemented)
 
 | Component | Purpose | Key Functions |
 |-----------|---------|---------------|
-| **TimerDisplay** | Show countdown/overrun | Render time, color states, animations |
-| **TaskCard** | Current task info | Name, type badge, progress bar |
-| **InterruptButton** | Toggle interruption | Pause/resume with single click |
-| **ScheduleList** | Show all tasks | Drag reorder, status indicators |
-| **NoteInput** | Quick capture | Modal/inline, keyboard shortcut |
-| **NotesList** | Browse notes | Search, filter, edit, delete |
-| **AnalyticsDashboard** | Show metrics | Gauges, charts, summary cards |
-| **FileUploader** | Import spreadsheet | Drag-drop, validation feedback |
-| **ExportButton** | Generate export | Progress indicator, download |
+| **TimerDisplay** | Show countdown/overrun | Render time with color states (green/yellow/red) |
+| **CurrentTask** | Current task info | Name, type badge, task index |
+| **TaskControls** | Session control buttons | Start Day, Complete Task, End Day |
+| **ImpactPanel** | Show all tasks with projections | Task list, drag reorder, real-time projections |
+| **ImpactTaskRow** | Individual task in panel | Time, duration, name, type badge, drag handle |
+| **EditTaskDialog** | Edit task properties | Modal for name, time, duration, type editing |
+| **FileUploader** | Import spreadsheet | Drag-drop, file validation |
+| **SchedulePreview** | Preview imported schedule | Inline editing, task reordering |
+| **TaskRow** | Task row in preview | Editable fields, drag handle |
+| **TemplateDownload** | Download template file | Generate sample Excel file |
+| **DaySummary** | End-of-day summary | Tasks completed, time stats |
+| **FixedTaskWarning** | Alert for at-risk fixed tasks | Warning message with time info |
 
-### Service Modules
+### Service Modules (Implemented)
 
 | Module | Responsibility |
 |--------|----------------|
-| **TimerManager** | Manages countdown logic, detects overrun, handles pause/resume |
-| **ScheduleManager** | Maintains task queue, calculates lag, detects fixed task conflicts |
-| **InterruptionManager** | Tracks interruption state, calculates cumulative time |
-| **NotesManager** | CRUD operations, task association, search indexing |
-| **AnalyticsManager** | Computes concentration score, aggregates metrics |
-| **StorageManager** | Abstracts localStorage operations, handles serialization |
-| **FileParser** | Parses XLSX/CSV, validates schema, transforms data |
-| **Exporter** | Generates Excel/CSV files, formats reports |
+| **storage** | localStorage operations with Date serialization |
+| **parser** | XLSX/CSV parsing with SheetJS, schema validation |
+| **timer** | Low-level timer with `performance.now()` precision |
+| **projection** | Calculate projected task start times based on current progress |
+| **tabSync** | Multi-tab coordination with BroadcastChannel API |
+| **template** | Generate downloadable Excel template |
 
-### Component Hierarchy
+### Svelte Stores (Implemented)
+
+| Store | Responsibility |
+|-------|----------------|
+| **sessionStore** | Day session state, task progress, current task tracking |
+| **timerStore** | Timer state, elapsed time, color states |
+| **importStore** | File upload workflow, draft tasks, validation |
+
+### Component Hierarchy (Implemented)
 
 ```
-App
-├── Header
-│   ├── Logo
-│   ├── NavMenu
-│   └── SettingsButton
-├── MainView (route-based)
-│   ├── SetupView
-│   │   ├── FileUploader
-│   │   └── SchedulePreview
-│   ├── TrackingView
-│   │   ├── TimerDisplay
-│   │   ├── TaskCard
-│   │   ├── InterruptButton
-│   │   ├── LagIndicator
-│   │   └── QuickNoteButton
-│   ├── ScheduleView
-│   │   └── ScheduleList
-│   ├── NotesView
-│   │   ├── NoteInput
-│   │   └── NotesList
-│   └── AnalyticsView
-│       ├── ConcentrationGauge
-│       ├── MetricsCards
-│       └── TaskPerformanceTable
-└── Footer
-    └── ExportButton
++page.svelte (Main Page)
+├── FileUploader              # File selection
+├── TemplateDownload          # Template download
+├── SchedulePreview           # Import preview
+│   └── TaskRow               # Individual task editing
+└── TrackingView              # Day tracking
+    ├── TimerDisplay          # Countdown timer
+    ├── CurrentTask           # Current task info
+    ├── LagIndicator          # Schedule lag display
+    ├── FixedTaskWarning      # At-risk fixed task alert
+    ├── TaskControls          # Action buttons
+    ├── ImpactPanel           # All tasks view
+    │   ├── ImpactTaskRow     # Task row with projections
+    │   └── EditTaskDialog    # Task editing modal
+    └── DaySummary            # End-of-day summary
 ```
 
 ## Data Flow
@@ -417,8 +415,8 @@ function tick() {
 
 ---
 
-**Document Version:** 1.0
-**Last Updated:** 2025-12-17
+**Document Version:** 1.1
+**Last Updated:** 2025-12-18
 
 See also:
 - [API Reference](API.md)

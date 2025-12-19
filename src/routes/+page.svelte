@@ -15,6 +15,7 @@
 	import TaskControls from '$lib/components/TaskControls.svelte';
 	import DaySummary from '$lib/components/DaySummary.svelte';
 	import FixedTaskWarning from '$lib/components/FixedTaskWarning.svelte';
+	import ImpactPanel from '$lib/components/ImpactPanel.svelte';
 	import type { DaySummary as DaySummaryType } from '$lib/types';
 
 	// State for confirmed tasks
@@ -184,6 +185,27 @@
 		showTracking = false;
 	}
 
+	// Impact panel reorder handler (T051)
+	function handleImpactReorder(fromIndex: number, toIndex: number) {
+		const success = sessionStore.reorderTasks(fromIndex, toIndex);
+		if (success) {
+			// Update local reference from in-memory store (no storage round-trip)
+			confirmedTasks = sessionStore.tasks;
+		}
+	}
+
+	// Impact panel task update handler
+	function handleImpactUpdateTask(
+		taskId: string,
+		updates: Partial<Pick<ConfirmedTask, 'name' | 'plannedStart' | 'plannedDurationSec' | 'type'>>
+	) {
+		const success = sessionStore.updateTask(taskId, updates);
+		if (success) {
+			// Update local reference from in-memory store (no storage round-trip)
+			confirmedTasks = sessionStore.tasks;
+		}
+	}
+
 	// Derived state for UI
 	const isLastTask = $derived(
 		sessionStore.currentTaskIndex === sessionStore.totalTasks - 1
@@ -201,7 +223,96 @@
 	</header>
 
 	<div class="app-content">
-		{#if $importStore.status === 'idle'}
+		{#if showTracking}
+			<!-- Day Tracking View - prioritized when we have persisted tasks -->
+			<div class="tracking-view" data-testid="tracking-view">
+				{#if daySummary}
+					<DaySummary summary={daySummary} onDismiss={handleDismissSummary} />
+				{:else}
+					{#if sessionStore.status === 'running'}
+						<!-- Side-by-side layout: timer left, impact panel right (T024) -->
+						<div class="tracking-layout">
+							<!-- Left: Timer and current task -->
+							<div class="timer-column">
+								<div class="timer-section">
+									<TimerDisplay
+										displayTime={timerStore.displayTime}
+										color={timerStore.color}
+										isRunning={timerStore.isRunning}
+									/>
+								</div>
+
+								<div class="task-section">
+									<CurrentTask
+										task={sessionStore.currentTask}
+										currentIndex={sessionStore.currentTaskIndex}
+										totalTasks={sessionStore.totalTasks}
+									/>
+								</div>
+
+								<div class="lag-section" data-testid="lag-display">
+									<span class="lag-label">Schedule:</span>
+									<span class="lag-value" class:ahead={sessionStore.lagSec < 0} class:behind={sessionStore.lagSec > 0}>
+										{sessionStore.lagDisplay}
+									</span>
+								</div>
+
+								{#if sessionStore.getFixedTaskWarning(timerStore.elapsedMs)}
+									<div class="warning-section">
+										<FixedTaskWarning warning={sessionStore.getFixedTaskWarning(timerStore.elapsedMs)} />
+									</div>
+								{/if}
+
+								<div class="controls-section">
+									<TaskControls
+										status={sessionStore.status}
+										hasSchedule={confirmedTasks.length > 0}
+										{isLastTask}
+										{isLeader}
+										onStartDay={handleStartDay}
+										onCompleteTask={handleCompleteTask}
+										onEndDay={handleEndDay}
+									/>
+								</div>
+							</div>
+
+							<!-- Right: Impact panel (T025) -->
+							<div class="impact-column">
+								<ImpactPanel
+									tasks={confirmedTasks}
+									progress={sessionStore.session?.taskProgress ?? []}
+									currentIndex={sessionStore.currentTaskIndex}
+									elapsedMs={timerStore.elapsedMs}
+									onReorder={handleImpactReorder}
+									onUpdateTask={handleImpactUpdateTask}
+								/>
+							</div>
+						</div>
+					{:else}
+						<!-- Idle state: show controls centered -->
+						<div class="controls-section">
+							<TaskControls
+								status={sessionStore.status}
+								hasSchedule={confirmedTasks.length > 0}
+								{isLastTask}
+								{isLeader}
+								onStartDay={handleStartDay}
+								onCompleteTask={handleCompleteTask}
+								onEndDay={handleEndDay}
+							/>
+						</div>
+					{/if}
+
+					{#if sessionStore.status === 'idle'}
+						<div class="back-link">
+							<button type="button" class="btn-link" onclick={handleBackToImport}>
+								Import a different schedule
+							</button>
+						</div>
+					{/if}
+				{/if}
+			</div>
+		{:else if $importStore.status === 'idle'}
 			<FileUploader onFileSelect={handleFileSelect} />
 			<div class="template-section">
 				<TemplateDownload />
@@ -257,73 +368,15 @@
 				onConfirm={handleConfirm}
 				onCancel={handleCancel}
 			/>
-		{:else if $importStore.status === 'ready' || showTracking}
-			<!-- Day Tracking View -->
-			<div class="tracking-view" data-testid="tracking-view">
-				{#if daySummary}
-					<DaySummary summary={daySummary} onDismiss={handleDismissSummary} />
-				{:else}
-					{#if sessionStore.status === 'running'}
-						<div class="timer-section">
-							<TimerDisplay
-								displayTime={timerStore.displayTime}
-								color={timerStore.color}
-								isRunning={timerStore.isRunning}
-							/>
-						</div>
-
-						<div class="task-section">
-							<CurrentTask
-								task={sessionStore.currentTask}
-								currentIndex={sessionStore.currentTaskIndex}
-								totalTasks={sessionStore.totalTasks}
-							/>
-						</div>
-
-						<div class="lag-section" data-testid="lag-display">
-							<span class="lag-label">Schedule:</span>
-							<span class="lag-value" class:ahead={sessionStore.lagSec < 0} class:behind={sessionStore.lagSec > 0}>
-								{sessionStore.lagDisplay}
-							</span>
-						</div>
-
-						{#if sessionStore.fixedTaskWarning}
-							<div class="warning-section">
-								<FixedTaskWarning warning={sessionStore.fixedTaskWarning} />
-							</div>
-						{/if}
-					{/if}
-
-					<div class="controls-section">
-						<TaskControls
-							status={sessionStore.status}
-							hasSchedule={confirmedTasks.length > 0}
-							{isLastTask}
-							{isLeader}
-							onStartDay={handleStartDay}
-							onCompleteTask={handleCompleteTask}
-							onEndDay={handleEndDay}
-						/>
-					</div>
-
-					{#if sessionStore.status === 'idle'}
-						<div class="back-link">
-							<button type="button" class="btn-link" onclick={handleBackToImport}>
-								Import a different schedule
-							</button>
-						</div>
-					{/if}
-				{/if}
-			</div>
 		{/if}
 	</div>
 </main>
 
 <style>
-	@reference "tailwindcss";
+	@import "tailwindcss";
 
 	.app-container {
-		@apply max-w-3xl mx-auto p-6;
+		@apply max-w-5xl mx-auto p-6;
 	}
 
 	.app-header {
@@ -415,6 +468,19 @@
 	/* Tracking View */
 	.tracking-view {
 		@apply flex flex-col items-center gap-8 py-6;
+	}
+
+	/* Side-by-side layout for running state */
+	.tracking-layout {
+		@apply grid grid-cols-1 md:grid-cols-2 gap-6 w-full;
+	}
+
+	.timer-column {
+		@apply flex flex-col items-center gap-6;
+	}
+
+	.impact-column {
+		@apply w-full;
 	}
 
 	.timer-section {

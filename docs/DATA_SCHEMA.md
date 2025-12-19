@@ -20,16 +20,29 @@ This document describes the data structures used for localStorage persistence an
 
 All data is stored in the browser's localStorage under keys prefixed with `tm_`.
 
-### Session
+### Day Session
 
 **Key:** `tm_session`
 
 ```typescript
-interface Session {
-  sessionId: string;      // UUID v4
-  startTime: string;      // ISO 8601 datetime
-  endTime: string | null; // ISO 8601 datetime or null if active
-  status: 'active' | 'paused' | 'complete';
+interface DaySession {
+  sessionId: string;           // UUID v4
+  startedAt: string;           // ISO 8601 datetime
+  endedAt: string | null;      // ISO 8601 datetime or null if active
+  status: 'idle' | 'running' | 'complete';
+  currentTaskIndex: number;    // 0-based index of current task
+  currentTaskElapsedMs: number; // Milliseconds spent on current task
+  lastPersistedAt: number;     // Epoch ms, for recovery
+  totalLagSec: number;         // Cumulative lag (negative = ahead)
+  taskProgress: TaskProgress[]; // Progress records for all tasks
+}
+
+interface TaskProgress {
+  taskId: string;              // Reference to ConfirmedTask
+  plannedDurationSec: number;
+  actualDurationSec: number;
+  completedAt: string | null;  // ISO 8601 datetime
+  status: 'pending' | 'active' | 'complete' | 'missed';
 }
 ```
 
@@ -38,29 +51,47 @@ interface Session {
 ```json
 {
   "sessionId": "550e8400-e29b-41d4-a716-446655440000",
-  "startTime": "2025-12-17T09:00:00.000Z",
-  "endTime": null,
-  "status": "active"
+  "startedAt": "2025-12-17T09:00:00.000Z",
+  "endedAt": null,
+  "status": "running",
+  "currentTaskIndex": 1,
+  "currentTaskElapsedMs": 450000,
+  "lastPersistedAt": 1702810000000,
+  "totalLagSec": 120,
+  "taskProgress": [
+    {
+      "taskId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "plannedDurationSec": 1800,
+      "actualDurationSec": 1920,
+      "completedAt": "2025-12-17T09:32:00.000Z",
+      "status": "complete"
+    },
+    {
+      "taskId": "b2c3d4e5-f6a7-8901-bcde-f23456789012",
+      "plannedDurationSec": 900,
+      "actualDurationSec": 450,
+      "completedAt": null,
+      "status": "active"
+    }
+  ]
 }
 ```
 
 ---
 
-### Tasks
+### Tasks (Confirmed)
 
 **Key:** `tm_tasks`
 
 ```typescript
-interface Task {
+interface ConfirmedTask {
   taskId: string;           // UUID v4
   name: string;             // Task name from import
   type: 'fixed' | 'flexible';
-  plannedStart: string;     // ISO 8601 datetime
-  actualStart: string | null;
+  plannedStart: string;     // ISO 8601 datetime (serialized Date)
   plannedDurationSec: number;
-  actualDurationSec: number;
-  status: 'pending' | 'active' | 'complete';
   sortOrder: number;        // 0-based index
+  status: 'pending' | 'active' | 'complete';
 }
 ```
 
@@ -73,31 +104,27 @@ interface Task {
     "name": "Email review",
     "type": "flexible",
     "plannedStart": "2025-12-17T09:00:00.000Z",
-    "actualStart": "2025-12-17T09:02:30.000Z",
     "plannedDurationSec": 1800,
-    "actualDurationSec": 2100,
-    "status": "complete",
-    "sortOrder": 0
+    "sortOrder": 0,
+    "status": "pending"
   },
   {
     "taskId": "b2c3d4e5-f6a7-8901-bcde-f23456789012",
     "name": "Team standup",
     "type": "fixed",
     "plannedStart": "2025-12-17T09:30:00.000Z",
-    "actualStart": null,
     "plannedDurationSec": 900,
-    "actualDurationSec": 0,
-    "status": "pending",
-    "sortOrder": 1
+    "sortOrder": 1,
+    "status": "pending"
   }
 ]
 ```
 
 ---
 
-### Interruptions
+### Interruptions (Planned)
 
-**Key:** `tm_interruptions`
+**Key:** `tm_interruptions` *(not yet implemented)*
 
 ```typescript
 interface Interruption {
@@ -129,9 +156,9 @@ interface Interruption {
 
 ---
 
-### Notes
+### Notes (Planned)
 
-**Key:** `tm_notes`
+**Key:** `tm_notes` *(not yet implemented)*
 
 ```typescript
 interface Note {
@@ -159,9 +186,9 @@ interface Note {
 
 ---
 
-### Settings
+### Settings (Planned)
 
-**Key:** `tm_settings`
+**Key:** `tm_settings` *(not yet implemented)*
 
 ```typescript
 interface Settings {
@@ -365,8 +392,8 @@ At this rate, ~500 days of data could be stored before hitting the 5MB limit. Th
 
 ---
 
-**Document Version:** 1.0
-**Last Updated:** 2025-12-17
+**Document Version:** 1.1
+**Last Updated:** 2025-12-18
 
 See also:
 - [Architecture](ARCHITECTURE.md)

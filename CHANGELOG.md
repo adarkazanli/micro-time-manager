@@ -8,21 +8,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Initial project documentation structure
-- Project constitution with 6 core principles
-- Architecture documentation with Mermaid diagrams
-- User stories (33 stories across 9 epics)
-- Data schema specification
-- API reference documentation
-- Contributing guidelines
+- **003-impact-panel**: Impact panel showing all tasks with projected times
+  - Task reordering via drag-and-drop (flexible tasks only)
+  - Drop zone for moving tasks to end of list
+  - Task duration display in each row
+  - Double-click to edit task properties (name, start time, duration, type)
+  - Real-time projection updates as timer runs
+- **002-day-tracking**: Day tracking with timer and session management
+  - Countdown timer with green/yellow/red color states
+  - Current task display with progress tracking
+  - Lag indicator showing schedule adherence
+  - Fixed task warnings when at risk
+  - Session persistence across page refreshes
+  - Tab sync for multi-tab leadership
+  - Day summary on completion
+- **001-schedule-import**: Excel/CSV schedule import workflow
+  - File upload with drag-and-drop support
+  - Schedule preview with inline editing
+  - Task reordering in preview
+  - Flexible duration parsing (30m, 1h 30m, etc.)
+  - Time format support (12h and 24h)
+  - Template download for easy schedule creation
 
-### Planned
-- Project scaffolding with Svelte 5 + Vite
-- Core timer functionality
-- Schedule import/export
-- Interruption tracking
-- Notes system
-- Analytics dashboard
+### Fixed
+- Page refresh now correctly returns to day tracking view when tasks exist
 
 ## [0.1.0] - 2025-12-17
 
