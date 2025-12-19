@@ -7,7 +7,7 @@
 	import { noteStore } from '$lib/stores/noteStore.svelte';
 	import { storage } from '$lib/services/storage';
 	import { createTabSync, type TabSyncService } from '$lib/services/tabSync';
-	import type { ConfirmedTask } from '$lib/types';
+	import type { ConfirmedTask, ExportResult } from '$lib/types';
 	import { PERSIST_INTERVAL_MS } from '$lib/types';
 	import FileUploader from '$lib/components/FileUploader.svelte';
 	import SchedulePreview from '$lib/components/SchedulePreview.svelte';
@@ -362,9 +362,11 @@
 		isAnalyticsOpen = !isAnalyticsOpen;
 	}
 
-	// T027, T038 (007-data-export): Handle Excel export
-	function handleExportExcel() {
-		if (!sessionStore.session) return;
+	// T027, T038, T050 (007-data-export): Handle Excel export with error handling
+	function handleExportExcel(): ExportResult {
+		if (!sessionStore.session) {
+			return { success: false, error: 'No active session to export' };
+		}
 
 		const progress = sessionStore.session.taskProgress;
 		const interruptions = interruptionStore.interruptions;
@@ -373,7 +375,7 @@
 		const sessionStart = sessionStore.session.startedAt;
 		const sessionEnd = sessionStore.session.endedAt;
 
-		exportToExcel(
+		return exportToExcel(
 			confirmedTasks,
 			progress,
 			interruptions,
@@ -384,9 +386,11 @@
 		);
 	}
 
-	// T027, T044 (007-data-export): Handle CSV export
-	function handleExportCSV() {
-		if (!sessionStore.session) return;
+	// T027, T044, T050 (007-data-export): Handle CSV export with error handling
+	function handleExportCSV(): ExportResult {
+		if (!sessionStore.session) {
+			return { success: false, error: 'No active session to export' };
+		}
 
 		const progress = sessionStore.session.taskProgress;
 		const interruptions = interruptionStore.interruptions;
@@ -395,7 +399,7 @@
 		const sessionStart = sessionStore.session.startedAt;
 		const sessionEnd = sessionStore.session.endedAt;
 
-		exportToCSV(
+		return exportToCSV(
 			confirmedTasks,
 			progress,
 			interruptions,

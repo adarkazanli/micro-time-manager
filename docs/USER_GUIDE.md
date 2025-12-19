@@ -260,33 +260,102 @@ See details for each task:
 
 ## Exporting Data
 
-### Excel Export
+Export your session data at any time during or after your day for analysis, backup, or integration with other tools.
 
-Export your complete day's data:
-1. Click **"Export"** (or go to Menu → Export)
-2. Choose Excel format
-3. Save the downloaded file
+### Accessing Export
 
-The Excel file contains:
-- **Tasks sheet**: All task details
-- **Interruptions sheet**: Complete interruption log
-- **Notes sheet**: All captured notes
-- **Summary sheet**: Analytics and metrics
+1. Click the **Export** button in the controls area (visible during an active session)
+2. A dropdown appears with format options
+3. Select your preferred format (Excel or CSV)
+4. Files download automatically
+
+### Excel Export (.xlsx)
+
+The Excel export creates a single workbook with four sheets:
+
+#### Tasks Sheet
+
+| Column | Description | Example |
+|--------|-------------|---------|
+| Task Name | Name of the task | "Email review" |
+| Type | Fixed or Flexible | "flexible" |
+| Planned Start | Scheduled start time | "09:00:00" |
+| Actual Start | When task actually started | "09:02:15" |
+| Planned Duration | Allocated time | "00:30:00" |
+| Actual Duration | Time actually spent | "00:28:45" |
+| Variance | Over/under time (+/-) | "-00:01:15" |
+| Interruptions | Count of interruptions | 2 |
+| Interruption Time | Total interruption duration | "00:05:30" |
+| Status | Complete/In Progress/Pending/Missed | "Complete" |
+
+#### Interruptions Sheet
+
+| Column | Description | Example |
+|--------|-------------|---------|
+| Task | Task during which interruption occurred | "Project work" |
+| Start Time | When interruption began | "10:15:30" |
+| End Time | When interruption ended | "10:20:45" |
+| Duration | Length of interruption | "00:05:15" |
+| Category | Type of interruption | "Phone" |
+| Note | Optional note about interruption | "Client callback" |
+
+#### Notes Sheet
+
+| Column | Description | Example |
+|--------|-------------|---------|
+| Time | When note was created | "11:30:00" |
+| Task | Associated task (if any) | "Team standup" |
+| Content | Note text | "Action: Follow up with Sarah" |
+
+#### Summary Sheet
+
+| Metric | Example Value |
+|--------|---------------|
+| Session Date | 2025-12-19 |
+| Session Start | 09:00:00 |
+| Session End | 17:00:00 |
+| Total Planned Time | 08:00:00 |
+| Total Actual Time | 07:45:30 |
+| Total Interruption Time | 00:45:00 |
+| Interruption Count | 8 |
+| Concentration Score | 91.3% |
+| Schedule Adherence | 96.9% |
+| Tasks Completed | 10 of 12 |
 
 ### CSV Export
 
-For compatibility with other tools:
-1. Click **"Export"**
-2. Choose CSV format
-3. Separate files are downloaded for each data type
+CSV export creates four separate files:
+
+| File | Content |
+|------|---------|
+| `YYYY-MM-DD_tasks.csv` | Task data |
+| `YYYY-MM-DD_interruptions.csv` | Interruption log |
+| `YYYY-MM-DD_notes.csv` | Notes |
+| `YYYY-MM-DD_summary.csv` | Analytics summary |
+
+Files are named with the session date for easy organization.
+
+### File Naming
+
+Export files are automatically named based on your session date:
+- Excel: `2025-12-19_productivity.xlsx`
+- CSV: `2025-12-19_tasks.csv`, `2025-12-19_interruptions.csv`, etc.
 
 ### Using Export Data
 
 Your exported data is perfect for:
-- Uploading to cloud storage
-- AI analysis of productivity patterns
-- Time tracking reports
-- Personal analytics
+- **Cloud backup**: Upload to Google Drive, Dropbox, etc.
+- **AI analysis**: Feed to ChatGPT/Claude for productivity insights
+- **Time reporting**: Import into time tracking systems
+- **Personal analytics**: Track patterns over time with spreadsheets
+- **Team reporting**: Share structured data with managers
+
+### Tips for Export
+
+- Export **during your session** to capture in-progress data
+- Export **after completing** for final statistics
+- Use **Excel** for comprehensive analysis with multiple sheets
+- Use **CSV** for importing into other tools or scripts
 
 ---
 

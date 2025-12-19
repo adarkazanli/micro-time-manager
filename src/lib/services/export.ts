@@ -26,7 +26,8 @@ import type {
 	InterruptionExportRow,
 	NoteExportRow,
 	SummaryExportRow,
-	ExportFormat
+	ExportFormat,
+	ExportResult
 } from '$lib/types';
 
 // =============================================================================
@@ -430,6 +431,7 @@ export function downloadBlob(blob: Blob, filename: string): void {
  * @param summary - Analytics summary
  * @param sessionStart - ISO string of session start time
  * @param sessionEnd - ISO string of session end time (null if in progress)
+ * @returns ExportResult indicating success or failure with error message
  */
 export function exportToExcel(
 	tasks: ConfirmedTask[],
@@ -439,21 +441,29 @@ export function exportToExcel(
 	summary: AnalyticsSummary,
 	sessionStart: string,
 	sessionEnd: string | null
-): void {
-	const workbook = generateExcelWorkbook(
-		tasks,
-		progress,
-		interruptions,
-		notes,
-		summary,
-		sessionStart,
-		sessionEnd
-	);
+): ExportResult {
+	try {
+		const workbook = generateExcelWorkbook(
+			tasks,
+			progress,
+			interruptions,
+			notes,
+			summary,
+			sessionStart,
+			sessionEnd
+		);
 
-	const filename = getExportFilename(sessionStart, 'excel');
+		const filename = getExportFilename(sessionStart, 'excel');
 
-	// Write workbook and trigger download
-	XLSX.writeFile(workbook, filename);
+		// Write workbook and trigger download
+		XLSX.writeFile(workbook, filename);
+
+		return { success: true, filesDownloaded: 1 };
+	} catch (err) {
+		const message = err instanceof Error ? err.message : 'Unknown error occurred';
+		console.error('Excel export failed:', err);
+		return { success: false, error: `Excel export failed: ${message}` };
+	}
 }
 
 // =============================================================================
@@ -564,6 +574,7 @@ export function prepareCSVExportData(
  * @param summary - Analytics summary
  * @param sessionStart - ISO string of session start time
  * @param sessionEnd - ISO string of session end time (null if in progress)
+ * @returns ExportResult indicating success or failure with error message
  */
 export function exportToCSV(
 	tasks: ConfirmedTask[],
@@ -573,34 +584,42 @@ export function exportToCSV(
 	summary: AnalyticsSummary,
 	sessionStart: string,
 	sessionEnd: string | null
-): void {
-	const csvData = prepareCSVExportData(
-		tasks,
-		progress,
-		interruptions,
-		notes,
-		summary,
-		sessionStart,
-		sessionEnd
-	);
+): ExportResult {
+	try {
+		const csvData = prepareCSVExportData(
+			tasks,
+			progress,
+			interruptions,
+			notes,
+			summary,
+			sessionStart,
+			sessionEnd
+		);
 
-	// Download tasks CSV
-	const tasksCSV = generateCSV(csvData.tasks.headers, csvData.tasks.data);
-	const tasksBlob = new Blob([tasksCSV], { type: 'text/csv;charset=utf-8;' });
-	downloadBlob(tasksBlob, getExportFilename(sessionStart, 'csv', 'tasks'));
+		// Download tasks CSV
+		const tasksCSV = generateCSV(csvData.tasks.headers, csvData.tasks.data);
+		const tasksBlob = new Blob([tasksCSV], { type: 'text/csv;charset=utf-8;' });
+		downloadBlob(tasksBlob, getExportFilename(sessionStart, 'csv', 'tasks'));
 
-	// Download interruptions CSV
-	const interruptionsCSV = generateCSV(csvData.interruptions.headers, csvData.interruptions.data);
-	const interruptionsBlob = new Blob([interruptionsCSV], { type: 'text/csv;charset=utf-8;' });
-	downloadBlob(interruptionsBlob, getExportFilename(sessionStart, 'csv', 'interruptions'));
+		// Download interruptions CSV
+		const interruptionsCSV = generateCSV(csvData.interruptions.headers, csvData.interruptions.data);
+		const interruptionsBlob = new Blob([interruptionsCSV], { type: 'text/csv;charset=utf-8;' });
+		downloadBlob(interruptionsBlob, getExportFilename(sessionStart, 'csv', 'interruptions'));
 
-	// Download notes CSV
-	const notesCSV = generateCSV(csvData.notes.headers, csvData.notes.data);
-	const notesBlob = new Blob([notesCSV], { type: 'text/csv;charset=utf-8;' });
-	downloadBlob(notesBlob, getExportFilename(sessionStart, 'csv', 'notes'));
+		// Download notes CSV
+		const notesCSV = generateCSV(csvData.notes.headers, csvData.notes.data);
+		const notesBlob = new Blob([notesCSV], { type: 'text/csv;charset=utf-8;' });
+		downloadBlob(notesBlob, getExportFilename(sessionStart, 'csv', 'notes'));
 
-	// Download summary CSV
-	const summaryCSV = generateCSV(csvData.summary.headers, csvData.summary.data);
-	const summaryBlob = new Blob([summaryCSV], { type: 'text/csv;charset=utf-8;' });
-	downloadBlob(summaryBlob, getExportFilename(sessionStart, 'csv', 'summary'));
+		// Download summary CSV
+		const summaryCSV = generateCSV(csvData.summary.headers, csvData.summary.data);
+		const summaryBlob = new Blob([summaryCSV], { type: 'text/csv;charset=utf-8;' });
+		downloadBlob(summaryBlob, getExportFilename(sessionStart, 'csv', 'summary'));
+
+		return { success: true, filesDownloaded: 4 };
+	} catch (err) {
+		const message = err instanceof Error ? err.message : 'Unknown error occurred';
+		console.error('CSV export failed:', err);
+		return { success: false, error: `CSV export failed: ${message}` };
+	}
 }

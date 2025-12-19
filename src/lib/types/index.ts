@@ -602,3 +602,16 @@ export interface SummaryExportRow {
 	/** Formatted value */
 	value: string;
 }
+
+/**
+ * Result of an export operation.
+ * Used to communicate success/failure to the UI for user feedback.
+ */
+export interface ExportResult {
+	/** Whether the export succeeded */
+	success: boolean;
+	/** Error message if failed, undefined if successful */
+	error?: string;
+	/** Number of files downloaded (for CSV this is 4, for Excel this is 1) */
+	filesDownloaded?: number;
+}

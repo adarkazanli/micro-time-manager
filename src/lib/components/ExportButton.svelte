@@ -4,21 +4,32 @@
 	 *
 	 * Feature: 007-data-export
 	 * Tasks: T022-T026 - Export button with inline format selector
+	 * Task: T050 - Download error handling with user feedback
 	 *
 	 * Shows an Export button that reveals Excel/CSV format options when clicked.
 	 * Disabled when session is idle (no data to export).
+	 * Shows brief success/error feedback after export attempt.
 	 */
+
+	import type { ExportResult } from '$lib/types';
+
+	type FeedbackState = 'idle' | 'success' | 'error';
 
 	interface Props {
 		disabled: boolean;
-		onExportExcel: () => void;
-		onExportCSV: () => void;
+		onExportExcel: () => ExportResult;
+		onExportCSV: () => ExportResult;
 	}
 
 	let { disabled, onExportExcel, onExportCSV }: Props = $props();
 
 	// T024: State for inline format selector expansion
 	let isExpanded = $state(false);
+
+	// T050: Feedback state for user notification
+	let feedbackState = $state<FeedbackState>('idle');
+	let feedbackMessage = $state('');
+	let feedbackTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	// Reference to the component root for click-outside detection
 	let containerRef: HTMLDivElement | null = $state(null);
@@ -29,15 +40,39 @@
 		isExpanded = !isExpanded;
 	}
 
+	// T050: Show feedback and auto-clear after delay
+	function showFeedback(result: ExportResult) {
+		// Clear any existing timeout
+		if (feedbackTimeout) {
+			clearTimeout(feedbackTimeout);
+		}
+
+		if (result.success) {
+			feedbackState = 'success';
+			feedbackMessage = result.filesDownloaded === 1 ? 'Downloaded!' : `${result.filesDownloaded} files downloaded!`;
+		} else {
+			feedbackState = 'error';
+			feedbackMessage = result.error || 'Export failed';
+		}
+
+		// Auto-clear feedback after 3 seconds
+		feedbackTimeout = setTimeout(() => {
+			feedbackState = 'idle';
+			feedbackMessage = '';
+		}, 3000);
+	}
+
 	// T038: Handle Excel format selection
 	function handleExcelClick() {
-		onExportExcel();
+		const result = onExportExcel();
+		showFeedback(result);
 		isExpanded = false;
 	}
 
 	// T044: Handle CSV format selection
 	function handleCSVClick() {
-		onExportCSV();
+		const result = onExportCSV();
+		showFeedback(result);
 		isExpanded = false;
 	}
 
@@ -105,6 +140,28 @@
 			</button>
 		</div>
 	{/if}
+
+	{#if feedbackState !== 'idle'}
+		<div
+			class="feedback-toast"
+			class:success={feedbackState === 'success'}
+			class:error={feedbackState === 'error'}
+			data-testid="export-feedback"
+			role="status"
+			aria-live="polite"
+		>
+			{#if feedbackState === 'success'}
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="feedback-icon">
+					<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
+				</svg>
+			{:else}
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="feedback-icon">
+					<path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+				</svg>
+			{/if}
+			<span class="feedback-text">{feedbackMessage}</span>
+		</div>
+	{/if}
 </div>
 
 <style>
@@ -168,5 +225,44 @@
 
 	.format-icon {
 		@apply w-4 h-4;
+	}
+
+	/* T050: Feedback toast styles */
+	.feedback-toast {
+		@apply absolute top-full left-0 mt-1 z-20;
+		@apply flex items-center gap-2 px-3 py-2 rounded-lg;
+		@apply text-sm font-medium whitespace-nowrap;
+		@apply shadow-lg animate-fade-in;
+	}
+
+	.feedback-toast.success {
+		@apply bg-green-100 text-green-800 border border-green-200;
+	}
+
+	.feedback-toast.error {
+		@apply bg-red-100 text-red-800 border border-red-200;
+	}
+
+	.feedback-icon {
+		@apply w-4 h-4 flex-shrink-0;
+	}
+
+	.feedback-text {
+		@apply truncate max-w-[200px];
+	}
+
+	@keyframes fade-in {
+		from {
+			opacity: 0;
+			transform: translateY(-4px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+
+	.animate-fade-in {
+		animation: fade-in 0.2s ease-out;
 	}
 </style>

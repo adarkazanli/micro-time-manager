@@ -146,10 +146,10 @@ Based on plan.md structure (SvelteKit SPA):
 - [x] T047 [P] Add edge case handling for empty notes array in src/lib/services/export.ts
 - [x] T048 [P] Add edge case handling for in-progress tasks in src/lib/services/export.ts
 - [x] T049 [P] Add edge case handling for in-progress interruptions in src/lib/services/export.ts
-- [ ] T050 [P] Add download error handling with user feedback in src/lib/services/export.ts
-- [ ] T051 [P] Update docs/USER_GUIDE.md with "Exporting Data" section
-- [ ] T052 [P] Update docs/API.md with Export Service documentation
-- [ ] T053 [P] Update docs/DATA_SCHEMA.md with export file format documentation
+- [x] T050 [P] Add download error handling with user feedback in src/lib/services/export.ts
+- [x] T051 [P] Update docs/USER_GUIDE.md with "Exporting Data" section
+- [x] T052 [P] Update docs/API.md with Export Service documentation
+- [x] T053 [P] Update docs/DATA_SCHEMA.md with export file format documentation
 - [x] T054 Run npm test && npm run lint to verify all tests pass
 - [x] T055 Run quickstart.md validation checklist
 
