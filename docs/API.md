@@ -316,68 +316,135 @@ interface ImportState {
 
 ---
 
-### Notes Store (Planned)
+### Notes Store
 
-*Not yet implemented.*
+Manages note capture state including input visibility, notes list, search/filter state, and persistence.
 
-Manages quick notes.
+**Location:** `src/lib/stores/noteStore.svelte.ts`
 
 ```typescript
-// src/lib/stores/notes.ts
+interface NoteStore {
+  /** All notes */
+  readonly notes: Note[];
 
-interface Note {
-  noteId: string;
-  taskId: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-  content: string;
-}
+  /** Whether note input field is open */
+  readonly isInputOpen: boolean;
 
-interface NotesState {
-  notes: Note[];
-}
+  /** Whether notes view panel is open */
+  readonly isViewOpen: boolean;
 
-interface NotesStore {
-  /** Current state (readonly) */
-  readonly state: NotesState;
+  /** Current search query */
+  readonly searchQuery: string;
+
+  /** Current task filter (null = all tasks) */
+  readonly taskFilter: string | null;
+
+  /** Notes filtered by search/task, sorted newest-first */
+  readonly filteredNotes: Note[];
+
+  /** Open the note input field */
+  openInput(): void;
+
+  /** Close the note input field */
+  closeInput(): void;
 
   /**
-   * Create a new note
-   * @param content - Note content
-   * @param taskId - Optional associated task
+   * Add a new note
+   * @param content - Note content (max 500 chars, trimmed)
+   * @param taskId - Optional task association
+   * @returns The created note
+   * @throws If content is empty or exceeds max length
    */
-  create(content: string, taskId?: string): Note;
+  addNote(content: string, taskId?: string | null): Note;
 
   /**
-   * Update an existing note
+   * Update an existing note's content
    * @param noteId - Note to update
-   * @param content - New content
+   * @param content - New content (max 500 chars, trimmed)
+   * @throws If note not found, content empty, or exceeds max length
    */
-  update(noteId: string, content: string): void;
+  updateNote(noteId: string, content: string): void;
 
   /**
    * Delete a note
    * @param noteId - Note to delete
+   * @throws If note not found
    */
-  delete(noteId: string): void;
+  deleteNote(noteId: string): void;
+
+  /** Toggle notes view panel visibility */
+  toggleView(): void;
 
   /**
-   * Get notes for a specific task
-   * @param taskId - Task ID
+   * Set search query for filtering notes
+   * @param query - Search string (case-insensitive)
    */
-  getForTask(taskId: string): Note[];
+  setSearchQuery(query: string): void;
 
   /**
-   * Search notes by content
-   * @param query - Search string
+   * Set task filter
+   * @param taskId - Task ID to filter by, or null for all
    */
-  search(query: string): Note[];
+  setTaskFilter(taskId: string | null): void;
+
+  /** Clear all filters (search and task) */
+  clearFilters(): void;
 
   /**
-   * Clear all notes (reset)
+   * Restore notes from saved data (session recovery)
+   * @param saved - Array of saved notes
    */
-  clear(): void;
+  restore(saved: Note[]): void;
+
+  /** Reset all note state and clear storage */
+  reset(): void;
 }
+```
+
+**Types:**
+
+```typescript
+interface Note {
+  noteId: string;        // UUID v4
+  content: string;       // Note text (max 500 chars)
+  createdAt: string;     // ISO 8601 timestamp
+  updatedAt: string | null; // ISO 8601 timestamp or null if never edited
+  taskId: string | null; // Associated task ID or null for general notes
+}
+
+/** Maximum note content length */
+const MAX_NOTE_LENGTH = 500;
+
+/** Character count warning threshold (yellow) */
+const NOTE_CHAR_WARNING_THRESHOLD = 50;
+
+/** Character count danger threshold (red) */
+const NOTE_CHAR_DANGER_THRESHOLD = 10;
+```
+
+**Usage Example:**
+
+```svelte
+<script>
+  import { noteStore } from '$lib/stores/noteStore.svelte';
+
+  function handleSave(content: string) {
+    noteStore.addNote(content, currentTaskId);
+  }
+</script>
+
+{#if noteStore.isInputOpen}
+  <NoteInput onSave={handleSave} onCancel={() => noteStore.closeInput()} />
+{/if}
+
+<button onclick={() => noteStore.openInput()}>Add Note</button>
+<button onclick={() => noteStore.toggleView()}>
+  View Notes ({noteStore.notes.length})
+</button>
+
+{#if noteStore.isViewOpen}
+  <NotesView tasks={tasks} onClose={() => noteStore.toggleView()} />
+{/if}
 ```
 
 ---
@@ -719,8 +786,8 @@ Custom events dispatched by components.
 
 ---
 
-**Document Version:** 1.1
-**Last Updated:** 2025-12-18
+**Document Version:** 1.2
+**Last Updated:** 2025-12-19
 
 See also:
 - [Architecture](ARCHITECTURE.md)

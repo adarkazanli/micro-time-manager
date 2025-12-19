@@ -174,19 +174,27 @@ interface Interruption {
 
 ---
 
-### Notes (Planned)
+### Notes
 
-**Key:** `tm_notes` *(not yet implemented)*
+**Key:** `tm_notes`
 
 ```typescript
 interface Note {
-  noteId: string;           // UUID v4
-  taskId: string | null;    // Optional task association
-  createdAt: string;        // ISO 8601 datetime
-  updatedAt: string;        // ISO 8601 datetime
-  content: string;          // Note text
+  noteId: string;              // UUID v4
+  taskId: string | null;       // Optional task association
+  createdAt: string;           // ISO 8601 datetime
+  updatedAt: string | null;    // ISO 8601 datetime (null if never edited)
+  content: string;             // Note text (max 500 characters)
 }
 ```
+
+**Constants:**
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `MAX_NOTE_LENGTH` | 500 | Maximum characters for note content |
+| `NOTE_CHAR_WARNING_THRESHOLD` | 50 | Show yellow warning when chars remaining < 50 |
+| `NOTE_CHAR_DANGER_THRESHOLD` | 10 | Show red warning when chars remaining < 10 |
 
 **Example:**
 
@@ -253,7 +261,7 @@ interface SchemaVersion {
 }
 ```
 
-**Current Version:** `3`
+**Current Version:** `4`
 
 ### Version History
 
@@ -262,6 +270,7 @@ interface SchemaVersion {
 | 1 | Initial schema |
 | 2 | Added session persistence |
 | 3 | Added interruption tracking (`tm_interruptions` storage key) |
+| 4 | Added note capture (`tm_notes` storage key) |
 
 ### Migration Strategy
 
@@ -418,8 +427,8 @@ At this rate, ~500 days of data could be stored before hitting the 5MB limit. Th
 
 ---
 
-**Document Version:** 1.1
-**Last Updated:** 2025-12-18
+**Document Version:** 1.2
+**Last Updated:** 2025-12-19
 
 See also:
 - [Architecture](ARCHITECTURE.md)
