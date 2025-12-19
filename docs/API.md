@@ -150,6 +150,116 @@ interface SessionStore {
 
 ---
 
+### Interruption Store
+
+Manages interruption tracking state for pausing/resuming tasks.
+
+**Location:** `src/lib/stores/interruptionStore.svelte.ts`
+
+```typescript
+interface InterruptionStore {
+  /** Whether currently in interrupted state */
+  readonly isInterrupted: boolean;
+
+  /** Current active interruption or null */
+  readonly activeInterruption: Interruption | null;
+
+  /** Elapsed milliseconds during current interruption */
+  readonly elapsedMs: number;
+
+  /** All completed interruptions in current session */
+  readonly interruptions: Interruption[];
+
+  /**
+   * Start a new interruption for a task
+   * @param taskId - ID of the task being interrupted
+   * @returns The created interruption record
+   */
+  startInterruption(taskId: string): Interruption;
+
+  /**
+   * End the current interruption
+   * @returns The completed interruption record
+   * @throws If no active interruption
+   */
+  endInterruption(): Interruption;
+
+  /**
+   * Update an interruption's category and note
+   * @param interruptionId - ID of interruption to update
+   * @param updates - Category and/or note to set
+   */
+  updateInterruption(
+    interruptionId: string,
+    updates: { category?: InterruptionCategory | null; note?: string | null }
+  ): void;
+
+  /**
+   * Get summary stats for a specific task
+   * @param taskId - Task to get summary for
+   * @returns Count and total duration of interruptions
+   */
+  getTaskSummary(taskId: string): InterruptionSummary;
+
+  /**
+   * Auto-end current interruption (for task/session completion)
+   * @returns Completed interruption or null if none active
+   */
+  autoEndInterruption(): Interruption | null;
+
+  /**
+   * Restore interruption state from localStorage
+   * @param saved - Previously saved interruptions
+   */
+  restore(saved: Interruption[]): void;
+
+  /** Reset to initial state */
+  reset(): void;
+}
+```
+
+**Types:**
+
+```typescript
+/** Interruption categories */
+type InterruptionCategory = 'Phone' | 'Luci' | 'Colleague' | 'Personal' | 'Other';
+
+interface Interruption {
+  interruptionId: string;
+  taskId: string;
+  startedAt: string; // ISO timestamp
+  endedAt: string | null;
+  durationSec: number;
+  category: InterruptionCategory | null;
+  note: string | null;
+}
+
+interface InterruptionSummary {
+  taskId: string;
+  count: number;
+  totalDurationSec: number;
+}
+```
+
+**Usage Example:**
+
+```svelte
+<script>
+  import { interruptionStore } from '$lib/stores/interruptionStore.svelte';
+</script>
+
+{#if interruptionStore.isInterrupted}
+  <InterruptionTimer elapsedMs={interruptionStore.elapsedMs} />
+  <button onclick={() => interruptionStore.endInterruption()}>Resume</button>
+{:else}
+  <button onclick={() => interruptionStore.startInterruption(currentTaskId)}>
+    Interrupt
+  </button>
+{/if}
+```
+
+---
+
 ### Import Store
 
 Manages the schedule import workflow.

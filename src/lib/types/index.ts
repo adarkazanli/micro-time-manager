@@ -314,7 +314,7 @@ export const STORAGE_KEY_SESSION = 'tm_session';
 export const STORAGE_KEY_TAB = 'tm_active_tab';
 
 /** Current schema version */
-export const CURRENT_SCHEMA_VERSION = 2;
+export const CURRENT_SCHEMA_VERSION = 3;
 
 // =============================================================================
 // Day Tracking Constants (002-day-tracking)
@@ -331,3 +331,78 @@ export const TAB_HEARTBEAT_INTERVAL_MS = 2000;
 
 /** How often to persist timer state to localStorage (ms) */
 export const PERSIST_INTERVAL_MS = 5000;
+
+// =============================================================================
+// Interruption Tracking Types (004-interruption-tracking)
+// =============================================================================
+
+/** Category for classifying interruptions */
+export type InterruptionCategory = 'Phone' | 'Luci' | 'Colleague' | 'Personal' | 'Other';
+
+/**
+ * A single interruption event during task execution.
+ * Created when user clicks "Interrupt", finalized on "Resume".
+ */
+export interface Interruption {
+	/** Unique identifier (UUID v4) */
+	interruptionId: string;
+	/** Reference to the task that was interrupted */
+	taskId: string;
+	/** When the interruption started (ISO 8601 string) */
+	startedAt: string;
+	/** When the interruption ended (ISO 8601 string), null if ongoing */
+	endedAt: string | null;
+	/** Duration in seconds (calculated on end), 0 if ongoing */
+	durationSec: number;
+	/** Optional category selected by user */
+	category: InterruptionCategory | null;
+	/** Optional note added by user (max 200 chars) */
+	note: string | null;
+}
+
+/**
+ * Aggregated interruption data for a single task.
+ * Computed at runtime from Interruption[].
+ */
+export interface InterruptionSummary {
+	/** Reference to task */
+	taskId: string;
+	/** Total number of interruptions for this task */
+	count: number;
+	/** Total interruption time in seconds */
+	totalDurationSec: number;
+}
+
+/**
+ * Runtime state for the interruption store.
+ * Manages active interruption and history.
+ */
+export interface InterruptionState {
+	/** Whether an interruption is currently active */
+	isInterrupted: boolean;
+	/** The currently active interruption, null if not interrupted */
+	activeInterruption: Interruption | null;
+	/** Elapsed milliseconds on current interruption (for display) */
+	elapsedMs: number;
+	/** All interruptions for the current session */
+	interruptions: Interruption[];
+}
+
+// =============================================================================
+// Interruption Tracking Constants (004-interruption-tracking)
+// =============================================================================
+
+/** localStorage key for interruptions */
+export const STORAGE_KEY_INTERRUPTIONS = 'tm_interruptions';
+
+/** Maximum note length */
+export const MAX_INTERRUPTION_NOTE_LENGTH = 200;
+
+/** Interruption categories for UI iteration */
+export const INTERRUPTION_CATEGORIES: InterruptionCategory[] = [
+	'Phone',
+	'Luci',
+	'Colleague',
+	'Personal',
+	'Other'
+];

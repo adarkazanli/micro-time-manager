@@ -3,6 +3,7 @@
 	import { importStore } from '$lib/stores/importStore';
 	import { timerStore } from '$lib/stores/timerStore.svelte';
 	import { sessionStore } from '$lib/stores/sessionStore.svelte';
+	import { interruptionStore } from '$lib/stores/interruptionStore.svelte';
 	import { storage } from '$lib/services/storage';
 	import { createTabSync, type TabSyncService } from '$lib/services/tabSync';
 	import type { ConfirmedTask } from '$lib/types';
@@ -16,6 +17,11 @@
 	import DaySummary from '$lib/components/DaySummary.svelte';
 	import FixedTaskWarning from '$lib/components/FixedTaskWarning.svelte';
 	import ImpactPanel from '$lib/components/ImpactPanel.svelte';
+	import InterruptButton from '$lib/components/InterruptButton.svelte';
+	import InterruptionTimer from '$lib/components/InterruptionTimer.svelte';
+	import InterruptionSummary from '$lib/components/InterruptionSummary.svelte';
+	import EditInterruptionDialog from '$lib/components/EditInterruptionDialog.svelte';
+	import InterruptionLog from '$lib/components/InterruptionLog.svelte';
 	import type { DaySummary as DaySummaryType } from '$lib/types';
 
 	// State for confirmed tasks
@@ -27,6 +33,12 @@
 	let tabSync: TabSyncService | null = $state(null);
 	let isLeader = $state(true);
 	let persistInterval: ReturnType<typeof setInterval> | null = null;
+
+	// Interruption state (T029, T037)
+	let pausedTaskElapsedMs = $state(0);
+	let lastInterruptionId = $state<string | null>(null);
+	let showEditDialog = $state(false);
+	let showInterruptionLog = $state(false);
 
 	/**
 	 * Persist current session state to localStorage
@@ -78,6 +90,12 @@
 					savedSession.currentTaskElapsedMs
 				);
 			}
+		}
+
+		// T053: Restore interruption state on session recovery
+		const savedInterruptions = storage.loadInterruptions();
+		if (savedInterruptions.length > 0) {
+			interruptionStore.restore(savedInterruptions);
 		}
 
 		// T052: Set up visibility change listener
@@ -151,6 +169,11 @@
 	}
 
 	function handleCompleteTask() {
+		// T051: Auto-end any active interruption before completing task
+		if (interruptionStore.isInterrupted) {
+			interruptionStore.autoEndInterruption();
+		}
+
 		const elapsedMs = timerStore.stop();
 		const elapsedSec = Math.floor(elapsedMs / 1000);
 		sessionStore.completeTask(elapsedSec);
@@ -162,6 +185,11 @@
 	}
 
 	function handleEndDay() {
+		// T052: Auto-end any active interruption before ending day
+		if (interruptionStore.isInterrupted) {
+			interruptionStore.autoEndInterruption();
+		}
+
 		const summary = sessionStore.endDay();
 		daySummary = summary;
 	}
@@ -170,19 +198,23 @@
 		daySummary = null;
 		sessionStore.reset();
 		timerStore.reset();
+		interruptionStore.reset(); // T054: Clear interruptions on session reset
 		importStore.reset();
 		storage.clearTasks();
 		confirmedTasks = [];
 		showTracking = false;
+		lastInterruptionId = null;
 	}
 
 	function handleBackToImport() {
 		sessionStore.reset();
 		timerStore.reset();
+		interruptionStore.reset();
 		importStore.reset();
 		storage.clearTasks();
 		confirmedTasks = [];
 		showTracking = false;
+		lastInterruptionId = null;
 	}
 
 	// Impact panel reorder handler (T051)
@@ -206,11 +238,96 @@
 		}
 	}
 
+	// T025: Handle starting an interruption
+	function handleInterrupt() {
+		const taskId = sessionStore.currentTask?.taskId;
+		if (!taskId || interruptionStore.isInterrupted) return;
+
+		// Pause task timer and store elapsed time for resume
+		pausedTaskElapsedMs = timerStore.stop();
+
+		// Start interruption
+		interruptionStore.startInterruption(taskId);
+	}
+
+	// T035: Handle resuming from an interruption
+	function handleResume() {
+		if (!interruptionStore.isInterrupted) return;
+
+		// End interruption and get the completed record
+		const completed = interruptionStore.endInterruption();
+		lastInterruptionId = completed.interruptionId;
+
+		// Resume task timer from where it left off
+		if (sessionStore.currentProgress) {
+			timerStore.start(sessionStore.currentProgress.plannedDurationSec, pausedTaskElapsedMs);
+		}
+	}
+
+	// T026, T036: Global keydown listener for I/R keys
+	function handleKeydown(event: KeyboardEvent) {
+		// Skip if in input/textarea
+		if (
+			event.target instanceof HTMLInputElement ||
+			event.target instanceof HTMLTextAreaElement
+		) {
+			return;
+		}
+
+		const key = event.key.toLowerCase();
+
+		// I key - start interruption
+		if (key === 'i' && sessionStore.status === 'running' && !interruptionStore.isInterrupted) {
+			handleInterrupt();
+		}
+
+		// R key - resume from interruption
+		if (key === 'r' && interruptionStore.isInterrupted) {
+			handleResume();
+		}
+	}
+
+	// T037: Handle editing last interruption
+	function handleEditLastInterruption() {
+		if (lastInterruptionId) {
+			showEditDialog = true;
+		}
+	}
+
+	// T038: Handle saving interruption edits
+	function handleSaveInterruption(updates: { category: import('$lib/types').InterruptionCategory | null; note: string | null }) {
+		if (lastInterruptionId) {
+			interruptionStore.updateInterruption(lastInterruptionId, updates);
+		}
+		showEditDialog = false;
+	}
+
+	// T050: Toggle interruption log view
+	function toggleInterruptionLog() {
+		showInterruptionLog = !showInterruptionLog;
+	}
+
+	// T043: Derived current task summary
+	const currentTaskSummary = $derived(
+		sessionStore.currentTask
+			? interruptionStore.getTaskSummary(sessionStore.currentTask.taskId)
+			: null
+	);
+
+	// Get the last interruption for editing
+	const lastInterruption = $derived(
+		lastInterruptionId
+			? interruptionStore.interruptions.find((i) => i.interruptionId === lastInterruptionId) ?? null
+			: null
+	);
+
 	// Derived state for UI
 	const isLastTask = $derived(
 		sessionStore.currentTaskIndex === sessionStore.totalTasks - 1
 	);
 </script>
+
+<svelte:window onkeydown={handleKeydown} />
 
 <svelte:head>
 	<title>Micro Time Manager - Schedule Import</title>
@@ -258,9 +375,12 @@
 								</div>
 
 								{#if sessionStore.getFixedTaskWarning(timerStore.elapsedMs)}
-									<div class="warning-section">
-										<FixedTaskWarning warning={sessionStore.getFixedTaskWarning(timerStore.elapsedMs)} />
-									</div>
+									{@const fixedTaskWarning = sessionStore.getFixedTaskWarning(timerStore.elapsedMs)}
+									{#if fixedTaskWarning}
+										<div class="warning-section">
+											<FixedTaskWarning warning={fixedTaskWarning} />
+										</div>
+									{/if}
 								{/if}
 
 								<div class="controls-section">
@@ -273,7 +393,46 @@
 										onCompleteTask={handleCompleteTask}
 										onEndDay={handleEndDay}
 									/>
+									<!-- T027: InterruptButton for starting/resuming interruptions -->
+									<InterruptButton
+										isInterrupted={interruptionStore.isInterrupted}
+										canInterrupt={sessionStore.status === 'running' && sessionStore.currentTask !== null}
+										onInterrupt={handleInterrupt}
+										onResume={handleResume}
+									/>
 								</div>
+
+								<!-- T028: InterruptionTimer shows when interrupted -->
+								{#if interruptionStore.isInterrupted}
+									<div class="interruption-section">
+										<InterruptionTimer elapsedMs={interruptionStore.elapsedMs} />
+									</div>
+								{/if}
+
+								<!-- T044: InterruptionSummary shows count/duration for current task -->
+								{#if currentTaskSummary && currentTaskSummary.count > 0}
+									<div class="interruption-summary-section">
+										<InterruptionSummary
+											count={currentTaskSummary.count}
+											totalDurationSec={currentTaskSummary.totalDurationSec}
+											onEditLast={lastInterruptionId ? handleEditLastInterruption : undefined}
+										/>
+									</div>
+								{/if}
+
+								<!-- T049: View full interruption log button -->
+								{#if interruptionStore.interruptions.length > 0}
+									<div class="view-log-section">
+										<button
+											type="button"
+											class="btn-link view-log-btn"
+											data-testid="view-interruption-log-btn"
+											onclick={toggleInterruptionLog}
+										>
+											View interruption log ({interruptionStore.interruptions.length})
+										</button>
+									</div>
+								{/if}
 							</div>
 
 							<!-- Right: Impact panel (T025) -->
@@ -371,6 +530,25 @@
 		{/if}
 	</div>
 </main>
+
+<!-- T038: EditInterruptionDialog for editing category/note -->
+<EditInterruptionDialog
+	interruption={lastInterruption}
+	open={showEditDialog}
+	onSave={handleSaveInterruption}
+	onClose={() => (showEditDialog = false)}
+/>
+
+<!-- T049: InterruptionLog overlay -->
+{#if showInterruptionLog}
+	<div class="interruption-log-overlay">
+		<InterruptionLog
+			interruptions={interruptionStore.interruptions}
+			tasks={confirmedTasks}
+			onClose={toggleInterruptionLog}
+		/>
+	</div>
+{/if}
 
 <style>
 	@import "tailwindcss";
@@ -516,7 +694,7 @@
 	}
 
 	.controls-section {
-		@apply w-full flex justify-center;
+		@apply w-full flex flex-col items-center gap-4;
 	}
 
 	.back-link {
@@ -526,5 +704,27 @@
 	.btn-link {
 		@apply text-sm text-gray-500 hover:text-gray-700 underline;
 		@apply transition-colors duration-150;
+	}
+
+	/* Interruption sections */
+
+	.interruption-section {
+		@apply w-full flex justify-center;
+	}
+
+	.interruption-summary-section {
+		@apply w-full flex justify-center;
+	}
+
+	.view-log-section {
+		@apply w-full flex justify-center;
+	}
+
+	.view-log-btn {
+		@apply text-xs;
+	}
+
+	.interruption-log-overlay {
+		@apply fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4;
 	}
 </style>

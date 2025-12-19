@@ -223,12 +223,12 @@ describe('storage service', () => {
 
 			expect(localStorageMock.setItem).toHaveBeenCalledWith(
 				STORAGE_KEY_SCHEMA,
-				'2'
+				'3'
 			);
 		});
 
 		it('does not update schema when version matches', () => {
-			localStorageMock.setItem(STORAGE_KEY_SCHEMA, '2');
+			localStorageMock.setItem(STORAGE_KEY_SCHEMA, '3');
 			vi.clearAllMocks(); // Clear the manual setItem call
 
 			storage.init();
@@ -241,9 +241,9 @@ describe('storage service', () => {
 		});
 
 		it('returns current schema version', () => {
-			localStorageMock.setItem(STORAGE_KEY_SCHEMA, '2');
+			localStorageMock.setItem(STORAGE_KEY_SCHEMA, '3');
 
-			expect(storage.getSchemaVersion()).toBe(2);
+			expect(storage.getSchemaVersion()).toBe(3);
 		});
 
 		it('returns 0 when no schema version set', () => {
@@ -435,8 +435,8 @@ describe('storage service', () => {
 		});
 	});
 
-	describe('schema migration v1 to v2', () => {
-		it('migrates schema from v1 to v2', () => {
+	describe('schema migration v1 to v2 to v3', () => {
+		it('migrates schema from v1 to v3', () => {
 			// Set up v1 state (only tasks, no session)
 			localStorageMock.setItem(STORAGE_KEY_SCHEMA, '1');
 			const v1Tasks = [
@@ -455,8 +455,8 @@ describe('storage service', () => {
 			// Initialize storage (triggers migration)
 			storage.init();
 
-			// Schema version should be updated to 2
-			expect(storage.getSchemaVersion()).toBe(2);
+			// Schema version should be updated to 3
+			expect(storage.getSchemaVersion()).toBe(3);
 
 			// Tasks should still be accessible
 			const tasks = storage.loadTasks();
@@ -464,8 +464,8 @@ describe('storage service', () => {
 			expect(tasks[0].taskId).toBe('task-1');
 		});
 
-		it('does not run migration when already at v2', () => {
-			localStorageMock.setItem(STORAGE_KEY_SCHEMA, '2');
+		it('does not run migration when already at v3', () => {
+			localStorageMock.setItem(STORAGE_KEY_SCHEMA, '3');
 			vi.clearAllMocks();
 
 			storage.init();

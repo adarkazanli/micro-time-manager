@@ -5,12 +5,13 @@
  * schema versioning, and migration support.
  */
 
-import type { ConfirmedTask, DaySession, TabInfo } from '$lib/types';
+import type { ConfirmedTask, DaySession, TabInfo, Interruption } from '$lib/types';
 import {
 	STORAGE_KEY_TASKS,
 	STORAGE_KEY_SCHEMA,
 	STORAGE_KEY_SESSION,
 	STORAGE_KEY_TAB,
+	STORAGE_KEY_INTERRUPTIONS,
 	CURRENT_SCHEMA_VERSION
 } from '$lib/types';
 
@@ -62,6 +63,25 @@ function migrateV1toV2(): void {
 }
 
 /**
+ * Migrate from schema v2 to v3
+ *
+ * v2 -> v3 changes:
+ * - Added interruptions storage (STORAGE_KEY_INTERRUPTIONS)
+ * - Initialize as empty array if missing
+ */
+function migrateV2toV3(): void {
+	try {
+		// Initialize interruptions storage if it doesn't exist
+		const stored = localStorage.getItem(STORAGE_KEY_INTERRUPTIONS);
+		if (!stored) {
+			localStorage.setItem(STORAGE_KEY_INTERRUPTIONS, JSON.stringify([]));
+		}
+	} catch {
+		// Ignore errors during migration
+	}
+}
+
+/**
  * Run migrations if needed based on schema version
  */
 function migrateIfNeeded(): void {
@@ -76,6 +96,9 @@ function migrateIfNeeded(): void {
 		// Run migrations in order
 		if (version < 2) {
 			migrateV1toV2();
+		}
+		if (version < 3) {
+			migrateV2toV3();
 		}
 
 		// Update schema version
@@ -331,6 +354,66 @@ export const storage = {
 			return true;
 		} catch (error) {
 			console.error('Failed to clear tab info:', error);
+			return false;
+		}
+	},
+
+	// =========================================================================
+	// Interruption Storage (004-interruption-tracking)
+	// =========================================================================
+
+	/**
+	 * Save interruptions to localStorage
+	 */
+	saveInterruptions(interruptions: Interruption[]): boolean {
+		if (!isLocalStorageAvailable()) {
+			console.warn('localStorage not available');
+			return false;
+		}
+
+		try {
+			localStorage.setItem(STORAGE_KEY_INTERRUPTIONS, JSON.stringify(interruptions));
+			return true;
+		} catch (error) {
+			console.error('Failed to save interruptions:', error);
+			return false;
+		}
+	},
+
+	/**
+	 * Load interruptions from localStorage
+	 */
+	loadInterruptions(): Interruption[] {
+		if (!isLocalStorageAvailable()) {
+			return [];
+		}
+
+		try {
+			const stored = localStorage.getItem(STORAGE_KEY_INTERRUPTIONS);
+			if (!stored) {
+				return [];
+			}
+
+			return JSON.parse(stored) as Interruption[];
+		} catch (error) {
+			console.error('Failed to load interruptions:', error);
+			return [];
+		}
+	},
+
+	/**
+	 * Clear interruptions from localStorage
+	 */
+	clearInterruptions(): boolean {
+		if (!isLocalStorageAvailable()) {
+			return false;
+		}
+
+		try {
+			localStorage.removeItem(STORAGE_KEY_INTERRUPTIONS);
+			return true;
+		} catch (error) {
+			console.error('Failed to clear interruptions:', error);
 			return false;
 		}
 	}
