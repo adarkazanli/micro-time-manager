@@ -29,6 +29,7 @@
 	let duration = $state('');
 	let type = $state<TaskType>('flexible');
 	let durationError = $state('');
+	let nameError = $state('');
 
 	// Initialize form when task changes
 	$effect(() => {
@@ -41,10 +42,19 @@
 			duration = formatDuration(task.plannedDurationSec);
 			type = task.type;
 			durationError = '';
+			nameError = '';
 		}
 	});
 
 	function handleSave() {
+		// Validate name (trim and check non-empty)
+		const trimmedName = name.trim();
+		if (!trimmedName) {
+			nameError = 'Task name is required';
+			return;
+		}
+		nameError = '';
+
 		// Validate duration
 		const parsedDuration = parseDuration(duration);
 		if (parsedDuration === null || parsedDuration <= 0) {
@@ -65,7 +75,7 @@
 		);
 
 		onSave({
-			name: name.trim(),
+			name: trimmedName,
 			plannedStart: newPlannedStart,
 			plannedDurationSec: parsedDuration,
 			type
@@ -109,10 +119,14 @@
 						id="task-name"
 						type="text"
 						class="form-input"
+						class:error={nameError}
 						bind:value={name}
 						required
 						maxlength="200"
 					/>
+					{#if nameError}
+						<span class="error-message">{nameError}</span>
+					{/if}
 				</div>
 
 				<!-- Start Time -->
@@ -182,7 +196,7 @@
 {/if}
 
 <style>
-	@reference "tailwindcss";
+	@import "tailwindcss";
 
 	.dialog-backdrop {
 		@apply fixed inset-0 bg-black/50 flex items-center justify-center z-50;
