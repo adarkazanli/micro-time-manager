@@ -178,6 +178,7 @@ When the interruption ends:
 | Category | Use For |
 |----------|---------|
 | Phone | Calls, messages |
+| Luci | Anything to do with Luci |
 | Colleague | In-person questions |
 | Personal | Bathroom, coffee, etc. |
 | Other | Everything else |

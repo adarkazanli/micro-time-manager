@@ -1341,14 +1341,25 @@ describe('sessionStore', () => {
 			sessionStore.startDay(tasks);
 			sessionStore.completeTask(1800); // Current is now at index 1
 
-			// Move task 3 (index 3) to position 2
-			sessionStore.reorderTasks(3, 2);
+			// Capture the taskId of the task being moved (from index 3)
+			const movedTaskId = tasks[3].taskId;
 
-			// After reorder, sortOrder should be updated sequentially
+			// Move task from index 3 to position 2
+			const result = sessionStore.reorderTasks(3, 2);
+			expect(result).toBe(true);
+
+			// After reorder, verify the moved task is now at the expected position (index 2)
+			const reorderedTasks = sessionStore.tasks;
 			const progress = sessionStore.taskProgress;
-			progress.forEach((p, _i) => {
-				// taskProgress should be in the new order
-				expect(typeof p.taskId).toBe('string');
+
+			// The moved task should now be at index 2
+			expect(reorderedTasks[2].taskId).toBe(movedTaskId);
+			expect(progress[2].taskId).toBe(movedTaskId);
+
+			// Verify all tasks have sequential sortOrder values matching their indices (0-based)
+			reorderedTasks.forEach((task, index) => {
+				expect(typeof task.sortOrder).toBe('number');
+				expect(task.sortOrder).toBe(index);
 			});
 		});
 
