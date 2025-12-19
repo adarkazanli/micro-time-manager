@@ -189,8 +189,8 @@
 	function handleImpactReorder(fromIndex: number, toIndex: number) {
 		const success = sessionStore.reorderTasks(fromIndex, toIndex);
 		if (success) {
-			// Update local reference to tasks
-			confirmedTasks = storage.loadTasks();
+			// Update local reference from in-memory store (no storage round-trip)
+			confirmedTasks = sessionStore.tasks;
 		}
 	}
 
@@ -201,8 +201,8 @@
 	) {
 		const success = sessionStore.updateTask(taskId, updates);
 		if (success) {
-			// Update local reference to tasks
-			confirmedTasks = storage.loadTasks();
+			// Update local reference from in-memory store (no storage round-trip)
+			confirmedTasks = sessionStore.tasks;
 		}
 	}
 
