@@ -232,7 +232,19 @@
 		@apply absolute top-full left-0 mt-1 z-20;
 		@apply flex items-center gap-2 px-3 py-2 rounded-lg;
 		@apply text-sm font-medium whitespace-nowrap;
-		@apply shadow-lg animate-fade-in;
+		@apply shadow-lg;
+		animation: feedback-fade-in 0.2s ease-out;
+	}
+
+	@keyframes feedback-fade-in {
+		from {
+			opacity: 0;
+			transform: translateY(-4px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
 	}
 
 	.feedback-toast.success {
@@ -249,20 +261,5 @@
 
 	.feedback-text {
 		@apply truncate max-w-[200px];
-	}
-
-	@keyframes fade-in {
-		from {
-			opacity: 0;
-			transform: translateY(-4px);
-		}
-		to {
-			opacity: 1;
-			transform: translateY(0);
-		}
-	}
-
-	.animate-fade-in {
-		animation: fade-in 0.2s ease-out;
 	}
 </style>
