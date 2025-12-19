@@ -643,51 +643,201 @@ interface FileParserService {
 
 ---
 
-### Exporter Service
+### Export Service
 
-Generates export files.
+Handles data export to Excel and CSV formats with comprehensive error handling.
+
+**Location:** `src/lib/services/export.ts`
+
+#### Main Export Functions
 
 ```typescript
-// src/lib/services/exporter.ts
+/**
+ * Export session data to Excel file and trigger download.
+ * Creates a multi-sheet workbook (Tasks, Interruptions, Notes, Summary).
+ * @returns ExportResult indicating success or failure
+ */
+function exportToExcel(
+  tasks: ConfirmedTask[],
+  progress: TaskProgress[],
+  interruptions: Interruption[],
+  notes: Note[],
+  summary: AnalyticsSummary,
+  sessionStart: string,
+  sessionEnd: string | null
+): ExportResult;
 
-interface ExportData {
-  tasks: Task[];
-  interruptions: Interruption[];
-  notes: Note[];
-  summary: SessionSummary;
+/**
+ * Export session data to CSV files and trigger downloads.
+ * Downloads four separate CSV files.
+ * @returns ExportResult indicating success or failure
+ */
+function exportToCSV(
+  tasks: ConfirmedTask[],
+  progress: TaskProgress[],
+  interruptions: Interruption[],
+  notes: Note[],
+  summary: AnalyticsSummary,
+  sessionStart: string,
+  sessionEnd: string | null
+): ExportResult;
+```
+
+#### Data Preparation Functions
+
+```typescript
+/**
+ * Prepare tasks data for export.
+ * Calculates actual start times, variance, and aggregates interruption stats per task.
+ */
+function prepareTasksExport(
+  tasks: ConfirmedTask[],
+  progress: TaskProgress[],
+  interruptions: Interruption[],
+  sessionStart: string
+): TaskExportRow[];
+
+/**
+ * Prepare interruptions data for export.
+ * Maps task IDs to names and formats timestamps.
+ */
+function prepareInterruptionsExport(
+  interruptions: Interruption[],
+  tasks: ConfirmedTask[]
+): InterruptionExportRow[];
+
+/**
+ * Prepare notes data for export.
+ * Associates notes with task names and formats timestamps.
+ */
+function prepareNotesExport(
+  notes: Note[],
+  tasks: ConfirmedTask[]
+): NoteExportRow[];
+
+/**
+ * Prepare summary metrics for export.
+ * Creates key-value pairs of all analytics metrics.
+ */
+function prepareSummaryExport(
+  summary: AnalyticsSummary,
+  sessionStart: string,
+  sessionEnd: string | null
+): SummaryExportRow[];
+```
+
+#### Helper Functions
+
+```typescript
+/**
+ * Generate Excel workbook from session data.
+ * @returns XLSX.WorkBook with four sheets
+ */
+function generateExcelWorkbook(...): XLSX.WorkBook;
+
+/**
+ * Generate CSV content from headers and data.
+ * Properly escapes values per RFC 4180.
+ */
+function generateCSV(headers: string[], data: (string | number)[][]): string;
+
+/**
+ * Generate filename for export.
+ * Format: YYYY-MM-DD_productivity.xlsx or YYYY-MM-DD_[type].csv
+ */
+function getExportFilename(
+  sessionStart: string,
+  format: ExportFormat,
+  dataType?: 'tasks' | 'interruptions' | 'notes' | 'summary'
+): string;
+
+/**
+ * Trigger browser file download from a Blob.
+ */
+function downloadBlob(blob: Blob, filename: string): void;
+```
+
+#### Types
+
+```typescript
+interface ExportResult {
+  success: boolean;
+  error?: string;
+  filesDownloaded?: number; // 1 for Excel, 4 for CSV
 }
 
-interface SessionSummary {
-  totalPlannedSec: number;
-  totalActualSec: number;
-  totalInterruptionSec: number;
+type ExportFormat = 'excel' | 'csv';
+
+interface TaskExportRow {
+  taskName: string;
+  type: string;
+  plannedStart: string;      // HH:MM:SS
+  actualStart: string;       // HH:MM:SS
+  plannedDuration: string;   // HH:MM:SS
+  actualDuration: string;    // HH:MM:SS
+  variance: string;          // +/-HH:MM:SS
   interruptionCount: number;
-  concentrationScore: number;
-  scheduleAdherence: number;
-  tasksCompleted: number;
-  tasksTotal: number;
+  interruptionTime: string;  // HH:MM:SS
+  status: string;
 }
 
-interface ExporterService {
-  /**
-   * Export data to Excel workbook
-   * @param data - Data to export
-   * @param filename - Output filename (without extension)
-   */
-  toExcel(data: ExportData, filename?: string): void;
-
-  /**
-   * Export data to CSV
-   * @param data - Data to export
-   * @param filename - Output filename (without extension)
-   */
-  toCSV(data: ExportData, filename?: string): void;
-
-  /**
-   * Generate export data from current state
-   */
-  gatherData(): ExportData;
+interface InterruptionExportRow {
+  task: string;
+  startTime: string;         // HH:MM:SS
+  endTime: string;           // HH:MM:SS or "In Progress"
+  duration: string;          // HH:MM:SS
+  category: string;
+  note: string;
 }
+
+interface NoteExportRow {
+  time: string;              // HH:MM:SS
+  task: string;
+  content: string;
+}
+
+interface SummaryExportRow {
+  metric: string;
+  value: string;
+}
+```
+
+#### Usage Example
+
+```svelte
+<script>
+  import { exportToExcel, exportToCSV } from '$lib/services/export';
+  import { sessionStore } from '$lib/stores/sessionStore.svelte';
+  import { interruptionStore } from '$lib/stores/interruptionStore.svelte';
+  import { noteStore } from '$lib/stores/noteStore.svelte';
+  import { calculateAnalyticsSummary } from '$lib/services/analytics';
+
+  function handleExport(format: 'excel' | 'csv') {
+    if (!sessionStore.session) return;
+
+    const summary = calculateAnalyticsSummary(
+      sessionStore.session.taskProgress,
+      interruptionStore.interruptions
+    );
+
+    const result = format === 'excel'
+      ? exportToExcel(
+          tasks,
+          sessionStore.session.taskProgress,
+          interruptionStore.interruptions,
+          noteStore.notes,
+          summary,
+          sessionStore.session.startedAt,
+          sessionStore.session.endedAt
+        )
+      : exportToCSV(/* same parameters */);
+
+    if (!result.success) {
+      console.error(result.error);
+      // Show error to user
+    }
+  }
+</script>
 ```
 
 ---

@@ -342,64 +342,126 @@ const migrations: Record<number, (data: any) => any> = {
 
 ## Export File Format
 
-Exports generate an Excel workbook (`.xlsx`) with multiple sheets.
+Exports are available in two formats: Excel (single workbook) and CSV (multiple files).
 
-### Sheet 1: Tasks
+### Excel Export (.xlsx)
 
-| Column | Description | Example |
-|--------|-------------|---------|
-| Task Name | Name of the task | "Email review" |
-| Type | Fixed or Flexible | "flexible" |
-| Planned Start | HH:MM:SS | "09:00:00" |
-| Actual Start | HH:MM:SS | "09:02:30" |
-| Planned Duration | HH:MM:SS | "00:30:00" |
-| Actual Duration | HH:MM:SS | "00:35:00" |
-| Variance | +/- HH:MM:SS | "+00:05:00" |
-| Interruptions | Count | 2 |
-| Interruption Time | HH:MM:SS | "00:04:30" |
-| Status | Complete/Incomplete | "Complete" |
-
-### Sheet 2: Interruptions
-
-| Column | Description | Example |
-|--------|-------------|---------|
-| Task | Associated task name | "Email review" |
-| Start Time | HH:MM:SS | "09:15:00" |
-| End Time | HH:MM:SS | "09:17:30" |
-| Duration | HH:MM:SS | "00:02:30" |
-| Category | Type of interruption | "phone" |
-| Note | User description | "Client callback" |
-
-### Sheet 3: Notes
-
-| Column | Description | Example |
-|--------|-------------|---------|
-| Time | HH:MM:SS | "09:16:00" |
-| Task | Associated task (if any) | "Email review" |
-| Content | Note text | "Call back John..." |
-
-### Sheet 4: Summary
-
-| Metric | Value |
-|--------|-------|
-| Session Date | 2025-12-17 |
-| Session Start | 09:00:00 |
-| Session End | 17:30:00 |
-| Total Planned Time | 08:00:00 |
-| Total Actual Time | 08:25:00 |
-| Total Interruption Time | 00:45:00 |
-| Interruption Count | 12 |
-| Concentration Score | 91.1% |
-| Schedule Adherence | 94.8% |
-| Tasks Completed | 8 of 8 |
+Generates a single workbook named `YYYY-MM-DD_productivity.xlsx` with four sheets.
 
 ### CSV Export
 
-When exporting to CSV, separate files are generated:
-- `{date}_tasks.csv`
-- `{date}_interruptions.csv`
-- `{date}_notes.csv`
-- `{date}_summary.csv`
+Generates four separate files:
+- `YYYY-MM-DD_tasks.csv`
+- `YYYY-MM-DD_interruptions.csv`
+- `YYYY-MM-DD_notes.csv`
+- `YYYY-MM-DD_summary.csv`
+
+### Export Row Types
+
+```typescript
+interface TaskExportRow {
+  taskName: string;          // Task name
+  type: string;              // "fixed" or "flexible"
+  plannedStart: string;      // HH:MM:SS format
+  actualStart: string;       // HH:MM:SS format
+  plannedDuration: string;   // HH:MM:SS format
+  actualDuration: string;    // HH:MM:SS format
+  variance: string;          // +/-HH:MM:SS format
+  interruptionCount: number; // Integer count
+  interruptionTime: string;  // HH:MM:SS format
+  status: string;            // Complete/In Progress/Pending/Missed
+}
+
+interface InterruptionExportRow {
+  task: string;              // Task name (looked up from taskId)
+  startTime: string;         // HH:MM:SS format
+  endTime: string;           // HH:MM:SS format or "In Progress"
+  duration: string;          // HH:MM:SS format
+  category: string;          // Category or empty string
+  note: string;              // Note or empty string
+}
+
+interface NoteExportRow {
+  time: string;              // HH:MM:SS format
+  task: string;              // Task name or empty string
+  content: string;           // Note content
+}
+
+interface SummaryExportRow {
+  metric: string;            // Metric name
+  value: string;             // Formatted value
+}
+```
+
+### Sheet/File 1: Tasks
+
+| Column Header | Description | Example |
+|---------------|-------------|---------|
+| Task Name | Name of the task | "Email review" |
+| Type | Fixed or Flexible | "flexible" |
+| Planned Start | Scheduled start time (HH:MM:SS) | "09:00:00" |
+| Actual Start | When task actually started (HH:MM:SS) | "09:02:30" |
+| Planned Duration | Allocated time (HH:MM:SS) | "00:30:00" |
+| Actual Duration | Time actually spent (HH:MM:SS) | "00:35:00" |
+| Variance | Over/under time with +/- prefix | "+00:05:00" or "-00:02:00" |
+| Interruptions | Number of interruptions | 2 |
+| Interruption Time | Total interruption duration (HH:MM:SS) | "00:04:30" |
+| Status | Task completion status | "Complete", "In Progress", "Pending", "Missed" |
+
+**Actual Start Calculation:**
+- First task: Uses session start time
+- Subsequent tasks: Uses previous task's completion time (if available)
+
+### Sheet/File 2: Interruptions
+
+| Column Header | Description | Example |
+|---------------|-------------|---------|
+| Task | Task name during which interruption occurred | "Email review" |
+| Start Time | When interruption began (HH:MM:SS) | "09:15:00" |
+| End Time | When interruption ended (HH:MM:SS or "In Progress") | "09:17:30" |
+| Duration | Length of interruption (HH:MM:SS) | "00:02:30" |
+| Category | Interruption category | "Phone", "Luci", "Colleague", "Personal", "Other", or empty |
+| Note | Optional description | "Client callback" |
+
+### Sheet/File 3: Notes
+
+| Column Header | Description | Example |
+|---------------|-------------|---------|
+| Time | When note was created (HH:MM:SS) | "09:16:00" |
+| Task | Associated task name (if any) | "Email review" or empty |
+| Content | Note text | "Call back John at 555-1234" |
+
+### Sheet/File 4: Summary
+
+| Metric | Description | Example Value |
+|--------|-------------|---------------|
+| Session Date | Date of the session (YYYY-MM-DD) | "2025-12-19" |
+| Session Start | When session began (HH:MM:SS) | "09:00:00" |
+| Session End | When session ended (HH:MM:SS) | "17:30:00" |
+| Total Planned Time | Sum of all task durations (HH:MM:SS) | "08:00:00" |
+| Total Actual Time | Time spent on completed tasks (HH:MM:SS) | "08:25:00" |
+| Total Interruption Time | Sum of all interruptions (HH:MM:SS) | "00:45:00" |
+| Interruption Count | Total number of interruptions | "12" |
+| Concentration Score | Focus metric as percentage | "91.1%" |
+| Schedule Adherence | Plan accuracy as percentage | "94.8%" |
+| Tasks Completed | Completed vs total tasks | "8 of 8" |
+
+### Time Formatting
+
+| Format | Usage | Example |
+|--------|-------|---------|
+| HH:MM:SS | Duration and time of day | "01:30:00", "09:00:00" |
+| +HH:MM:SS | Positive variance (over time) | "+00:05:00" |
+| -HH:MM:SS | Negative variance (under time) | "-00:02:00" |
+| YYYY-MM-DD | Session date | "2025-12-19" |
+| XX.X% | Percentage metrics | "91.3%" |
+
+### CSV Escaping
+
+CSV files follow RFC 4180 standards:
+- Fields containing commas, quotes, or newlines are wrapped in double quotes
+- Double quotes within fields are escaped as two double quotes (`""`)
+- UTF-8 encoding with proper line endings
 
 ---
 

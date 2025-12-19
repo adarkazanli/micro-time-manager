@@ -525,3 +525,93 @@ export const CONCENTRATION_GOOD_THRESHOLD = 80;
 
 /** Concentration score threshold for "Fair" rating (≥70%) */
 export const CONCENTRATION_FAIR_THRESHOLD = 70;
+
+// =============================================================================
+// Data Export Types (007-data-export)
+// =============================================================================
+
+/** Export format options */
+export type ExportFormat = 'excel' | 'csv';
+
+/**
+ * Task data row for export.
+ * Represents a single task in the Tasks export sheet/file.
+ */
+export interface TaskExportRow {
+	/** Task name from ConfirmedTask */
+	taskName: string;
+	/** Task type (fixed or flexible) */
+	type: 'fixed' | 'flexible';
+	/** Planned start time in HH:MM:SS format */
+	plannedStart: string;
+	/** Actual start time in HH:MM:SS format */
+	actualStart: string;
+	/** Planned duration in HH:MM:SS format */
+	plannedDuration: string;
+	/** Actual duration in HH:MM:SS format */
+	actualDuration: string;
+	/** Variance (actual - planned) in +/-HH:MM:SS format */
+	variance: string;
+	/** Count of interruptions during this task */
+	interruptionCount: number;
+	/** Total interruption time in HH:MM:SS format */
+	interruptionTime: string;
+	/** Status display string: Complete, In Progress, Pending, Missed */
+	status: string;
+}
+
+/**
+ * Interruption data row for export.
+ * Represents a single interruption in the Interruptions export sheet/file.
+ */
+export interface InterruptionExportRow {
+	/** Task name (lookup from taskId) */
+	task: string;
+	/** Start time in HH:MM:SS format */
+	startTime: string;
+	/** End time in HH:MM:SS format (or 'In Progress') */
+	endTime: string;
+	/** Duration in HH:MM:SS format */
+	duration: string;
+	/** Category or empty string */
+	category: string;
+	/** Note content or empty string */
+	note: string;
+}
+
+/**
+ * Note data row for export.
+ * Represents a single note in the Notes export sheet/file.
+ */
+export interface NoteExportRow {
+	/** Creation time in HH:MM:SS format */
+	time: string;
+	/** Task name or empty if no association */
+	task: string;
+	/** Note content */
+	content: string;
+}
+
+/**
+ * Summary metric row for export.
+ * Key-value pair for the Summary export sheet/file.
+ */
+export interface SummaryExportRow {
+	/** Metric name */
+	metric: string;
+	/** Formatted value */
+	value: string;
+}
+
+/**
+ * Result of an export operation.
+ * Used to communicate success/failure to the UI for user feedback.
+ */
+export interface ExportResult {
+	/** Whether the export succeeded */
+	success: boolean;
+	/** Error message if failed, undefined if successful */
+	error?: string;
+	/** Number of files downloaded (for CSV this is 4, for Excel this is 1) */
+	filesDownloaded?: number;
+}
