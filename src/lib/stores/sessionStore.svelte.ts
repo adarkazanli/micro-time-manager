@@ -84,7 +84,7 @@ function calculateFixedTaskWarning(elapsedMs: number): FixedTaskWarning | null {
 		const task = tasks[i];
 		if (task.type === 'fixed') {
 			// Calculate projected start using projection service
-			const projectedStart = calculateProjectedStart(tasks, currentIndex, elapsedMs, i);
+			const projectedStart = calculateProjectedStart(tasks, currentIndex, elapsedMs, i, Date.now());
 			const scheduledStart = task.plannedStart;
 
 			// Calculate how late we'll be (negative = early)

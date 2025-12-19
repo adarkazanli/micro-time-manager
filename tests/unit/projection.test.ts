@@ -8,26 +8,20 @@ import type { ConfirmedTask, TaskProgress } from '$lib/types';
 import { WARNING_THRESHOLD_MS } from '$lib/types';
 
 describe('calculateProjectedStart', () => {
-	beforeEach(() => {
-		vi.useFakeTimers();
-		vi.setSystemTime(new Date('2025-12-18T09:00:00.000'));
-	});
-
-	afterEach(() => {
-		vi.useRealTimers();
-	});
+	// Fixed timestamp for deterministic tests
+	const nowMs = new Date('2025-12-18T09:00:00.000').getTime();
 
 	it('returns current time for the current task (index 0, elapsed 0)', () => {
 		const tasks = createMockTasks(3);
-		const result = calculateProjectedStart(tasks, 0, 0, 0);
-		expect(result.getTime()).toBe(new Date('2025-12-18T09:00:00.000').getTime());
+		const result = calculateProjectedStart(tasks, 0, 0, 0, nowMs);
+		expect(result.getTime()).toBe(nowMs);
 	});
 
 	it('projects start time for next task based on current task remaining time', () => {
 		const tasks = createMockTasks(3);
 		// Current task (index 0) has 30 min duration, 10 min elapsed
 		const currentElapsedMs = 10 * 60 * 1000; // 10 minutes
-		const result = calculateProjectedStart(tasks, 0, currentElapsedMs, 1);
+		const result = calculateProjectedStart(tasks, 0, currentElapsedMs, 1, nowMs);
 		// Should be now + (30 - 10) = 20 minutes from now
 		const expected = new Date('2025-12-18T09:20:00.000');
 		expect(result.getTime()).toBe(expected.getTime());
@@ -38,7 +32,7 @@ describe('calculateProjectedStart', () => {
 		// Current task (index 0) has 30 min duration, 10 min elapsed
 		// Next task (index 1) has 30 min duration
 		const currentElapsedMs = 10 * 60 * 1000;
-		const result = calculateProjectedStart(tasks, 0, currentElapsedMs, 2);
+		const result = calculateProjectedStart(tasks, 0, currentElapsedMs, 2, nowMs);
 		// Should be now + 20 (remaining on task 0) + 30 (task 1 duration) = 50 min
 		const expected = new Date('2025-12-18T09:50:00.000');
 		expect(result.getTime()).toBe(expected.getTime());
@@ -48,7 +42,7 @@ describe('calculateProjectedStart', () => {
 		const tasks = createMockTasks(3);
 		// Task has 30 min planned but we've spent 45 min (15 min overtime)
 		const currentElapsedMs = 45 * 60 * 1000;
-		const result = calculateProjectedStart(tasks, 0, currentElapsedMs, 1);
+		const result = calculateProjectedStart(tasks, 0, currentElapsedMs, 1, nowMs);
 		// Remaining on current is 0 (can't be negative), so next starts now
 		const expected = new Date('2025-12-18T09:00:00.000');
 		expect(result.getTime()).toBe(expected.getTime());
@@ -57,7 +51,7 @@ describe('calculateProjectedStart', () => {
 	it('returns correct start for already completed tasks (before current index)', () => {
 		const tasks = createMockTasks(3);
 		// We're on task 2, asking for task 1's projected start (completed)
-		const result = calculateProjectedStart(tasks, 2, 0, 1);
+		const result = calculateProjectedStart(tasks, 2, 0, 1, nowMs);
 		// Completed task should return its planned start
 		expect(result.getTime()).toBe(tasks[1].plannedStart.getTime());
 	});

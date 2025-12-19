@@ -13,8 +13,10 @@ import { WARNING_THRESHOLD_MS } from '$lib/types';
 /**
  * Calculates the projected start time for a task at the given index.
  *
+ * This is a pure function - all inputs including current time must be provided.
+ *
  * The projection is based on:
- * - Current time (now)
+ * - Current time (nowMs)
  * - Remaining time on the current task
  * - Sum of durations for all tasks between current and target
  * - Fixed task constraints (fixed tasks don't start before scheduled time)
@@ -25,12 +27,13 @@ import { WARNING_THRESHOLD_MS } from '$lib/types';
  * @param currentIndex - Index of the currently active task
  * @param currentElapsedMs - Milliseconds elapsed on the current task
  * @param targetIndex - Index of the task to calculate projected start for
+ * @param nowMs - Current time as milliseconds since epoch
  * @returns Projected start time as a Date object
  *
  * @example
  * ```ts
  * const tasks = [task1, task2, task3];
- * const projectedStart = calculateProjectedStart(tasks, 0, 600000, 2);
+ * const projectedStart = calculateProjectedStart(tasks, 0, 600000, 2, Date.now());
  * // Returns when task3 will start given 10min elapsed on task1
  * ```
  */
@@ -38,7 +41,8 @@ export function calculateProjectedStart(
 	tasks: ConfirmedTask[],
 	currentIndex: number,
 	currentElapsedMs: number,
-	targetIndex: number
+	targetIndex: number,
+	nowMs: number
 ): Date {
 	// For completed tasks (before current), return their planned start
 	if (targetIndex < currentIndex) {
@@ -47,12 +51,11 @@ export function calculateProjectedStart(
 
 	// For current task, return now
 	if (targetIndex === currentIndex) {
-		return new Date();
+		return new Date(nowMs);
 	}
 
 	// For future tasks, calculate iteratively respecting fixed task constraints
-	const now = new Date();
-	let projectedMs = now.getTime();
+	let projectedMs = nowMs;
 
 	// Add remaining time on current task
 	const currentTask = tasks[currentIndex];
