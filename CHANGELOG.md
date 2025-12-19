@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **004-interruption-tracking**: Interruption tracking for logging task pauses
+  - Interrupt/Resume button with keyboard shortcuts (I/R)
+  - Interruption timer showing elapsed pause time
+  - Category selection (Phone, Luci, Colleague, Personal, Other)
+  - Optional notes for each interruption (max 200 chars)
+  - Per-task interruption summary (count and total time)
+  - Full interruption log with session history
+  - Edit dialog for modifying category and note after resume
+  - Auto-end interruption on task/session completion
+  - Interruption state persistence across page refreshes
 - **003-impact-panel**: Impact panel showing all tasks with projected times
   - Task reordering via drag-and-drop (flexible tasks only)
   - Drop zone for moving tasks to end of list

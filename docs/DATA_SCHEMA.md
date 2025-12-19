@@ -122,19 +122,21 @@ interface ConfirmedTask {
 
 ---
 
-### Interruptions (Planned)
+### Interruptions
 
-**Key:** `tm_interruptions` *(not yet implemented)*
+**Key:** `tm_interruptions`
 
 ```typescript
+type InterruptionCategory = 'Phone' | 'Luci' | 'Colleague' | 'Personal' | 'Other';
+
 interface Interruption {
-  interruptionId: string;   // UUID v4
-  taskId: string;           // Reference to task
-  startTime: string;        // ISO 8601 datetime
-  endTime: string | null;   // ISO 8601 datetime or null if active
-  durationSec: number;      // Calculated duration
-  category: 'phone' | 'colleague' | 'personal' | 'other';
-  note: string;             // Optional description
+  interruptionId: string;       // UUID v4
+  taskId: string;               // Reference to task being interrupted
+  startedAt: string;            // ISO 8601 datetime
+  endedAt: string | null;       // ISO 8601 datetime or null if active
+  durationSec: number;          // Calculated duration in seconds
+  category: InterruptionCategory | null;  // Optional category
+  note: string | null;          // Optional description (max 200 chars)
 }
 ```
 
@@ -145,14 +147,30 @@ interface Interruption {
   {
     "interruptionId": "c3d4e5f6-a7b8-9012-cdef-345678901234",
     "taskId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-    "startTime": "2025-12-17T09:15:00.000Z",
-    "endTime": "2025-12-17T09:17:30.000Z",
+    "startedAt": "2025-12-17T09:15:00.000Z",
+    "endedAt": "2025-12-17T09:17:30.000Z",
     "durationSec": 150,
-    "category": "phone",
+    "category": "Phone",
     "note": "Client callback - urgent"
+  },
+  {
+    "interruptionId": "d4e5f6a7-b8c9-0123-def4-567890123456",
+    "taskId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "startedAt": "2025-12-17T10:30:00.000Z",
+    "endedAt": "2025-12-17T10:32:00.000Z",
+    "durationSec": 120,
+    "category": null,
+    "note": null
   }
 ]
 ```
+
+**Constants:**
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `MAX_INTERRUPTION_NOTE_LENGTH` | 200 | Maximum characters for note |
+| `INTERRUPTION_CATEGORIES` | `['Phone', 'Luci', 'Colleague', 'Personal', 'Other']` | Valid categories |
 
 ---
 
@@ -235,7 +253,15 @@ interface SchemaVersion {
 }
 ```
 
-**Current Version:** `1`
+**Current Version:** `3`
+
+### Version History
+
+| Version | Changes |
+|---------|---------|
+| 1 | Initial schema |
+| 2 | Added session persistence |
+| 3 | Added interruption tracking (`tm_interruptions` storage key) |
 
 ### Migration Strategy
 
