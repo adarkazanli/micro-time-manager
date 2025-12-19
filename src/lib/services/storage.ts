@@ -5,13 +5,14 @@
  * schema versioning, and migration support.
  */
 
-import type { ConfirmedTask, DaySession, TabInfo, Interruption, PersistedInterruptionState } from '$lib/types';
+import type { ConfirmedTask, DaySession, TabInfo, Interruption, PersistedInterruptionState, Note } from '$lib/types';
 import {
 	STORAGE_KEY_TASKS,
 	STORAGE_KEY_SCHEMA,
 	STORAGE_KEY_SESSION,
 	STORAGE_KEY_TAB,
 	STORAGE_KEY_INTERRUPTIONS,
+	STORAGE_KEY_NOTES,
 	CURRENT_SCHEMA_VERSION
 } from '$lib/types';
 
@@ -78,6 +79,24 @@ function migrateV2toV3(): void {
 }
 
 /**
+ * Ensure the notes storage key exists when migrating schema v3 to v4 by initializing STORAGE_KEY_NOTES to an empty array if missing.
+ *
+ * @remarks
+ * Errors encountered during migration are ignored.
+ */
+function migrateV3toV4(): void {
+	try {
+		// Initialize notes storage if it doesn't exist
+		const stored = localStorage.getItem(STORAGE_KEY_NOTES);
+		if (!stored) {
+			localStorage.setItem(STORAGE_KEY_NOTES, JSON.stringify([]));
+		}
+	} catch {
+		// Ignore errors during migration
+	}
+}
+
+/**
  * Ensure stored data matches the current schema by running any needed migrations.
  *
  * If localStorage is unavailable this function exits without action. It reads the stored schema
@@ -99,6 +118,9 @@ function migrateIfNeeded(): void {
 		}
 		if (version < 3) {
 			migrateV2toV3();
+		}
+		if (version < 4) {
+			migrateV3toV4();
 		}
 
 		// Update schema version
@@ -423,6 +445,66 @@ export const storage = {
 			return true;
 		} catch (error) {
 			console.error('Failed to clear interruptions:', error);
+			return false;
+		}
+	},
+
+	// =========================================================================
+	// Note Storage (005-note-capture)
+	// =========================================================================
+
+	/**
+	 * Save notes to localStorage
+	 */
+	saveNotes(notes: Note[]): boolean {
+		if (!isLocalStorageAvailable()) {
+			console.warn('localStorage not available');
+			return false;
+		}
+
+		try {
+			localStorage.setItem(STORAGE_KEY_NOTES, JSON.stringify(notes));
+			return true;
+		} catch (error) {
+			console.error('Failed to save notes:', error);
+			return false;
+		}
+	},
+
+	/**
+	 * Load notes from localStorage
+	 */
+	loadNotes(): Note[] {
+		if (!isLocalStorageAvailable()) {
+			return [];
+		}
+
+		try {
+			const stored = localStorage.getItem(STORAGE_KEY_NOTES);
+			if (!stored) {
+				return [];
+			}
+
+			return JSON.parse(stored) as Note[];
+		} catch (error) {
+			console.error('Failed to load notes:', error);
+			return [];
+		}
+	},
+
+	/**
+	 * Clear notes from localStorage
+	 */
+	clearNotes(): boolean {
+		if (!isLocalStorageAvailable()) {
+			return false;
+		}
+
+		try {
+			localStorage.removeItem(STORAGE_KEY_NOTES);
+			return true;
+		} catch (error) {
+			console.error('Failed to clear notes:', error);
 			return false;
 		}
 	}

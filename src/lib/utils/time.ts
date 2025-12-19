@@ -171,3 +171,37 @@ export function formatLag(lagSec: number): string {
 	}
 	return `${minutes} min ${direction}`;
 }
+
+/**
+ * Format ISO timestamp as human-readable relative time
+ *
+ * Feature: 005-note-capture
+ * Task: T023 - Add formatRelativeTime utility
+ *
+ * @param isoString - ISO 8601 timestamp string
+ * @returns Human-readable relative time string
+ *
+ * @example
+ * formatRelativeTime('2025-12-19T09:00:00Z')  // "Just now", "5 min ago", "Today 9:00 AM", etc.
+ */
+export function formatRelativeTime(isoString: string): string {
+	const date = new Date(isoString);
+	const now = new Date();
+	const diffMs = now.getTime() - date.getTime();
+	const diffMin = Math.floor(diffMs / 60000);
+
+	if (diffMin < 1) return 'Just now';
+	if (diffMin < 60) return `${diffMin} min ago`;
+
+	const isToday = date.toDateString() === now.toDateString();
+	const yesterday = new Date(now);
+	yesterday.setDate(yesterday.getDate() - 1);
+	const isYesterday = date.toDateString() === yesterday.toDateString();
+
+	const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+	if (isToday) return `Today ${timeStr}`;
+	if (isYesterday) return `Yesterday ${timeStr}`;
+
+	return date.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + timeStr;
+}
