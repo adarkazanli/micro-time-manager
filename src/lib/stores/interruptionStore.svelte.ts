@@ -30,7 +30,9 @@ let interruptionTimer: TimerService | null = null;
 // =============================================================================
 
 /**
- * Generate a UUID v4
+ * Generate an RFC4122 version 4 UUID string.
+ *
+ * @returns A UUID v4 string in the format `xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx`
  */
 function generateUUID(): string {
 	return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -42,7 +44,11 @@ function generateUUID(): string {
 
 // =============================================================================
 // Store Implementation
-// =============================================================================
+/**
+ * Creates an interruption tracking store that manages the active interruption, elapsed time, and interruption history.
+ *
+ * @returns An object exposing readable getters (isInterrupted, activeInterruption, elapsedMs, interruptions) and actions to start, end, update, summarize, reset, restore, and auto-end interruptions
+ */
 
 function createInterruptionStore() {
 	return {
