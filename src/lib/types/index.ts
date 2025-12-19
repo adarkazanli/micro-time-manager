@@ -314,7 +314,7 @@ export const STORAGE_KEY_SESSION = 'tm_session';
 export const STORAGE_KEY_TAB = 'tm_active_tab';
 
 /** Current schema version */
-export const CURRENT_SCHEMA_VERSION = 3;
+export const CURRENT_SCHEMA_VERSION = 4;
 
 // =============================================================================
 // Day Tracking Constants (002-day-tracking)
@@ -417,3 +417,40 @@ export const INTERRUPTION_CATEGORIES: InterruptionCategory[] = [
 	'Personal',
 	'Other'
 ];
+
+// =============================================================================
+// Note Capture Types (005-note-capture)
+// =============================================================================
+
+/**
+ * A quick note captured during task execution.
+ * Created when user saves a note, can be edited after creation.
+ */
+export interface Note {
+	/** Unique identifier (UUID v4) */
+	noteId: string;
+	/** Note content (max 500 characters) */
+	content: string;
+	/** When the note was created (ISO 8601 string) */
+	createdAt: string;
+	/** When the note was last updated (ISO 8601 string), null if never edited */
+	updatedAt: string | null;
+	/** Reference to the task during which note was created, null if no active task */
+	taskId: string | null;
+}
+
+// =============================================================================
+// Note Capture Constants (005-note-capture)
+// =============================================================================
+
+/** localStorage key for notes */
+export const STORAGE_KEY_NOTES = 'tm_notes';
+
+/** Maximum note content length */
+export const MAX_NOTE_LENGTH = 500;
+
+/** Character count threshold for yellow warning (remaining chars) */
+export const NOTE_CHAR_WARNING_THRESHOLD = 50;
+
+/** Character count threshold for red danger (remaining chars) */
+export const NOTE_CHAR_DANGER_THRESHOLD = 10;

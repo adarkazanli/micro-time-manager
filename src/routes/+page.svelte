@@ -4,6 +4,7 @@
 	import { timerStore } from '$lib/stores/timerStore.svelte';
 	import { sessionStore } from '$lib/stores/sessionStore.svelte';
 	import { interruptionStore } from '$lib/stores/interruptionStore.svelte';
+	import { noteStore } from '$lib/stores/noteStore.svelte';
 	import { storage } from '$lib/services/storage';
 	import { createTabSync, type TabSyncService } from '$lib/services/tabSync';
 	import type { ConfirmedTask } from '$lib/types';
@@ -22,6 +23,8 @@
 	import InterruptionSummary from '$lib/components/InterruptionSummary.svelte';
 	import EditInterruptionDialog from '$lib/components/EditInterruptionDialog.svelte';
 	import InterruptionLog from '$lib/components/InterruptionLog.svelte';
+	import NoteInput from '$lib/components/NoteInput.svelte';
+	import NotesView from '$lib/components/NotesView.svelte';
 	import type { DaySummary as DaySummaryType } from '$lib/types';
 
 	// State for confirmed tasks
@@ -82,6 +85,10 @@
 		// T053: Restore interruption state first (need to know if interrupted before starting timer)
 		const savedInterruptionState = storage.loadInterruptionState();
 		const wasInterrupted = interruptionStore.restore(savedInterruptionState.interruptions);
+
+		// T051 (005-note-capture): Restore notes from storage
+		const savedNotes = storage.loadNotes();
+		noteStore.restore(savedNotes);
 
 		// If there was an active interruption, restore the paused task elapsed time
 		if (wasInterrupted && savedInterruptionState.pausedTaskElapsedMs > 0) {
@@ -203,6 +210,7 @@
 		sessionStore.reset();
 		timerStore.reset();
 		interruptionStore.reset(); // T054: Clear interruptions on session reset
+		noteStore.reset(); // T018 (005-note-capture): Clear notes on session reset
 		importStore.reset();
 		storage.clearTasks();
 		confirmedTasks = [];
@@ -214,6 +222,7 @@
 		sessionStore.reset();
 		timerStore.reset();
 		interruptionStore.reset();
+		noteStore.reset(); // T018 (005-note-capture): Clear notes on back to import
 		importStore.reset();
 		storage.clearTasks();
 		confirmedTasks = [];
@@ -286,8 +295,19 @@
 	}
 
 	// T026, T036: Global keydown listener for I/R keys
+	// T014 (005-note-capture): Added Ctrl/Cmd+N for note capture
 	function handleKeydown(event: KeyboardEvent) {
-		// Skip if in input/textarea
+		// T014: Check for Ctrl/Cmd+N to open note input
+		const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+		const modifier = isMac ? event.metaKey : event.ctrlKey;
+
+		if (modifier && event.key.toLowerCase() === 'n') {
+			event.preventDefault();
+			noteStore.openInput();
+			return;
+		}
+
+		// Skip if in input/textarea for other shortcuts
 		if (
 			event.target instanceof HTMLInputElement ||
 			event.target instanceof HTMLTextAreaElement
@@ -305,6 +325,49 @@
 		// R key - resume from interruption
 		if (key === 'r' && interruptionStore.isInterrupted) {
 			handleResume();
+		}
+	}
+
+	// T016 (005-note-capture): Handle saving a note
+	function handleNoteSave(content: string) {
+		// Get current task ID if session is running
+		const taskId = sessionStore.status === 'running' && sessionStore.currentTask
+			? sessionStore.currentTask.taskId
+			: null;
+
+		noteStore.addNote(content, taskId);
+		// Persist to storage
+		storage.saveNotes(noteStore.notes);
+	}
+
+	// T016 (005-note-capture): Handle canceling note input
+	function handleNoteCancel() {
+		noteStore.closeInput();
+	}
+
+	// T026 (005-note-capture): Toggle notes view
+	function toggleNotesView() {
+		noteStore.toggleView();
+	}
+
+	// T049 (005-note-capture): Handle editing a note
+	function handleNoteEdit(noteId: string) {
+		// For now, we'll use a simple prompt - this will be replaced with a proper dialog in Phase 7
+		const note = noteStore.notes.find((n) => n.noteId === noteId);
+		if (!note) return;
+
+		const newContent = prompt('Edit note:', note.content);
+		if (newContent !== null && newContent.trim()) {
+			noteStore.updateNote(noteId, newContent);
+			storage.saveNotes(noteStore.notes);
+		}
+	}
+
+	// T050 (005-note-capture): Handle deleting a note
+	function handleNoteDelete(noteId: string) {
+		if (confirm('Are you sure you want to delete this note?')) {
+			noteStore.deleteNote(noteId);
+			storage.saveNotes(noteStore.notes);
 		}
 	}
 
@@ -363,6 +426,11 @@
 	</header>
 
 	<div class="app-content">
+		<!-- T015 (005-note-capture): Inline NoteInput at top -->
+		{#if noteStore.isInputOpen}
+			<NoteInput onSave={handleNoteSave} onCancel={handleNoteCancel} />
+		{/if}
+
 		{#if showTracking}
 			<!-- Day Tracking View - prioritized when we have persisted tasks -->
 			<div class="tracking-view" data-testid="tracking-view">
@@ -416,13 +484,42 @@
 										onCompleteTask={handleCompleteTask}
 										onEndDay={handleEndDay}
 									/>
-									<!-- T027: InterruptButton for starting/resuming interruptions -->
-									<InterruptButton
-										isInterrupted={interruptionStore.isInterrupted}
-										canInterrupt={sessionStore.status === 'running' && sessionStore.currentTask !== null}
-										onInterrupt={handleInterrupt}
-										onResume={handleResume}
-									/>
+									<div class="secondary-controls">
+										<!-- T027: InterruptButton for starting/resuming interruptions -->
+										<InterruptButton
+											isInterrupted={interruptionStore.isInterrupted}
+											canInterrupt={sessionStore.status === 'running' && sessionStore.currentTask !== null}
+											onInterrupt={handleInterrupt}
+											onResume={handleResume}
+										/>
+										<!-- T017 (005-note-capture): Add Note button -->
+										<button
+											type="button"
+											class="btn btn-note"
+											onclick={() => noteStore.openInput()}
+											data-testid="add-note-btn"
+											title="Add Note (Ctrl+N / Cmd+N)"
+										>
+											<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="note-icon">
+												<path d="M5.5 3A2.5 2.5 0 003 5.5v2.879a2.5 2.5 0 00.732 1.767l6.5 6.5a2.5 2.5 0 003.536 0l2.878-2.878a2.5 2.5 0 000-3.536l-6.5-6.5A2.5 2.5 0 008.379 3H5.5zM6 7a1 1 0 100-2 1 1 0 000 2z" />
+											</svg>
+											Add Note
+										</button>
+										<!-- T026 (005-note-capture): View Notes button -->
+										{#if noteStore.notes.length > 0}
+											<button
+												type="button"
+												class="btn btn-notes-view"
+												onclick={toggleNotesView}
+												data-testid="view-notes-btn"
+											>
+												<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="note-icon">
+													<path fill-rule="evenodd" d="M6 4.75A.75.75 0 016.75 4h10.5a.75.75 0 010 1.5H6.75A.75.75 0 016 4.75zM6 10a.75.75 0 01.75-.75h10.5a.75.75 0 010 1.5H6.75A.75.75 0 016 10zm0 5.25a.75.75 0 01.75-.75h10.5a.75.75 0 010 1.5H6.75a.75.75 0 01-.75-.75zM1.99 4.75a1 1 0 011-1H3a1 1 0 011 1v.01a1 1 0 01-1 1h-.01a1 1 0 01-1-1v-.01zM1.99 15.25a1 1 0 011-1H3a1 1 0 011 1v.01a1 1 0 01-1 1h-.01a1 1 0 01-1-1v-.01zM1.99 10a1 1 0 011-1H3a1 1 0 011 1v.01a1 1 0 01-1 1h-.01a1 1 0 01-1-1V10z" clip-rule="evenodd" />
+												</svg>
+												Notes ({noteStore.notes.length})
+											</button>
+										{/if}
+									</div>
 								</div>
 
 								<!-- T028: InterruptionTimer shows when interrupted -->
@@ -569,6 +666,18 @@
 			interruptions={interruptionStore.interruptions}
 			tasks={confirmedTasks}
 			onClose={toggleInterruptionLog}
+		/>
+	</div>
+{/if}
+
+<!-- T026 (005-note-capture): NotesView overlay -->
+{#if noteStore.isViewOpen}
+	<div class="notes-view-overlay" data-testid="notes-view-overlay">
+		<NotesView
+			tasks={confirmedTasks}
+			onEdit={handleNoteEdit}
+			onDelete={handleNoteDelete}
+			onClose={toggleNotesView}
 		/>
 	</div>
 {/if}
@@ -720,6 +829,26 @@
 		@apply w-full flex flex-col items-center gap-4;
 	}
 
+	.secondary-controls {
+		@apply flex items-center gap-3;
+	}
+
+	.btn-note {
+		@apply flex items-center gap-1.5;
+		@apply bg-amber-100 text-amber-700 hover:bg-amber-200;
+		@apply focus:ring-amber-500;
+	}
+
+	.btn-notes-view {
+		@apply flex items-center gap-1.5;
+		@apply bg-gray-100 text-gray-700 hover:bg-gray-200;
+		@apply focus:ring-gray-500;
+	}
+
+	.note-icon {
+		@apply w-4 h-4;
+	}
+
 	.back-link {
 		@apply mt-4;
 	}
@@ -748,6 +877,10 @@
 	}
 
 	.interruption-log-overlay {
+		@apply fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4;
+	}
+
+	.notes-view-overlay {
 		@apply fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4;
 	}
 </style>
