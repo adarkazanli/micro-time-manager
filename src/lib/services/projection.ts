@@ -155,10 +155,11 @@ export function createProjectedTasks(
 	const results: ProjectedTask[] = [];
 	let nextAvailableTime = new Date(); // When the next task can start
 
-	// Calculate initial next available time based on current task
+	// Calculate remaining time on current task (hoisted for use in loop)
+	let currentRemainingMs = 0;
 	if (currentIndex >= 0 && currentIndex < tasks.length) {
 		const currentTask = tasks[currentIndex];
-		const currentRemainingMs = Math.max(0, currentTask.plannedDurationSec * 1000 - currentElapsedMs);
+		currentRemainingMs = Math.max(0, currentTask.plannedDurationSec * 1000 - currentElapsedMs);
 		nextAvailableTime = new Date(Date.now() + currentRemainingMs);
 	}
 
@@ -197,9 +198,13 @@ export function createProjectedTasks(
 		}
 
 		// Calculate projected end
-		const projectedEnd = new Date(projectedStart.getTime() + task.plannedDurationSec * 1000);
+		// For current task, use remaining time; for others, use full planned duration
+		const durationMs = index === currentIndex
+			? currentRemainingMs
+			: task.plannedDurationSec * 1000;
+		const projectedEnd = new Date(projectedStart.getTime() + durationMs);
 
-		// Update next available time for subsequent tasks (only for future tasks)
+		// Update next available time for subsequent tasks (only for current and future tasks)
 		if (index >= currentIndex) {
 			nextAvailableTime = projectedEnd;
 		}
