@@ -132,7 +132,16 @@
 
 		// T053: Set up periodic persistence (every 5 seconds)
 		persistInterval = setInterval(persistSessionState, PERSIST_INTERVAL_MS);
+
+		// Release leadership when browser tab is closed (beforeunload doesn't trigger onDestroy)
+		window.addEventListener('beforeunload', handleBeforeUnload);
 	});
+
+	function handleBeforeUnload() {
+		if (tabSync) {
+			tabSync.releaseLeadership();
+		}
+	}
 
 	// Cleanup on destroy
 	onDestroy(() => {
@@ -142,6 +151,11 @@
 		// Clean up visibility listener
 		if (typeof document !== 'undefined') {
 			document.removeEventListener('visibilitychange', handleVisibilityChange);
+		}
+
+		// Clean up beforeunload listener
+		if (typeof window !== 'undefined') {
+			window.removeEventListener('beforeunload', handleBeforeUnload);
 		}
 
 		// Clean up periodic persistence
