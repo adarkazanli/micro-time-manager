@@ -33,14 +33,16 @@
 	const isFixed = $derived(projectedTask.task.type === 'fixed');
 	const showRiskIndicator = $derived(isFixed && projectedTask.displayStatus === 'pending');
 
-	// For pending tasks, show projected time if different from scheduled
+	// For FLEXIBLE pending tasks only, show projected time if different from scheduled
+	// Fixed tasks ALWAYS show their scheduled time - the risk indicator shows if we'll be late
 	// Check if we're behind schedule (projected is later than scheduled)
 	const isBehindSchedule = $derived(
 		projectedTask.displayStatus === 'pending' &&
+		!isFixed && // Only flexible tasks show projected time
 		projectedTask.projectedStart.getTime() > projectedTask.task.plannedStart.getTime()
 	);
 
-	// Display time: for completed/current, show scheduled; for pending, show projected if behind
+	// Display time: fixed tasks always show scheduled; flexible tasks show projected if behind
 	const displayTime = $derived(
 		projectedTask.displayStatus === 'pending' && isBehindSchedule
 			? projectedTime

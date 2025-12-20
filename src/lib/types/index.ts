@@ -78,6 +78,8 @@ export interface ConfirmedTask {
 	sortOrder: number;
 	/** Completion state */
 	status: TaskStatus;
+	/** True if task was created during session (ad-hoc), false/undefined if imported */
+	isAdHoc?: boolean;
 }
 
 /**
@@ -491,6 +493,10 @@ export interface AnalyticsSummary {
 	totalInterruptionCount: number;
 	/** Total interruption time across all tasks (seconds) */
 	totalInterruptionSec: number;
+	/** Number of ad-hoc tasks (created during session) - T042 (009-ad-hoc-tasks) */
+	adHocTaskCount: number;
+	/** Number of imported tasks (from schedule file) - T042 (009-ad-hoc-tasks) */
+	importedTaskCount: number;
 }
 
 /**
@@ -564,6 +570,8 @@ export interface TaskExportRow {
 	interruptionTime: string;
 	/** Status display string: Complete, In Progress, Pending, Missed */
 	status: string;
+	/** Source of the task: Imported or Ad-hoc - T045 (009-ad-hoc-tasks) */
+	source: 'Imported' | 'Ad-hoc';
 }
 
 /**

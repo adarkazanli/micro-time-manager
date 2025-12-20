@@ -12,6 +12,8 @@ Auto-generated from all feature plans. Last updated: 2025-12-17
 - localStorage (existing stores: sessionStore, interruptionStore, noteStore) (007-data-export)
 - TypeScript 5.x (strict mode) + Svelte 5.x, SvelteKit, Tailwind CSS 4.x (008-settings)
 - localStorage (existing `storage` service with `tm_settings` key) (008-settings)
+- TypeScript 5.x (strict mode) + Svelte 5.x (runes), SvelteKit 2.x, Tailwind CSS 4.x, Vite 7.x (009-ad-hoc-tasks)
+- localStorage (via existing `storage` service with schema v5) (009-ad-hoc-tasks)
 
 - TypeScript 5.x (strict mode) + Svelte 5.x, Vite 6.x, SheetJS (xlsx), Tailwind CSS 4.x (001-schedule-import)
 
@@ -47,9 +49,9 @@ npm test && npm run lint
 TypeScript 5.x (strict mode): Follow standard conventions
 
 ## Recent Changes
+- 009-ad-hoc-tasks: Added TypeScript 5.x (strict mode) + Svelte 5.x (runes), SvelteKit 2.x, Tailwind CSS 4.x, Vite 7.x
 - 008-settings: Added TypeScript 5.x (strict mode) + Svelte 5.x, SvelteKit, Tailwind CSS 4.x
 - 007-data-export: Added TypeScript 5.x (strict mode) + Svelte 5.x, SheetJS (xlsx) - already installed, Tailwind CSS 4.x
-- 006-analytics-dashboard: Added TypeScript 5.x (strict mode) + Svelte 5.x (runes syntax), SvelteKit, Tailwind CSS 4.x
 
 
 <!-- MANUAL ADDITIONS START -->

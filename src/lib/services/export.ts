@@ -126,7 +126,8 @@ export function prepareTasksExport(
 			variance: formatVarianceHHMMSS(varianceSec),
 			interruptionCount,
 			interruptionTime: formatDurationHHMMSS(interruptionTotalSec),
-			status: mapStatusToDisplay(status)
+			status: mapStatusToDisplay(status),
+			source: task.isAdHoc ? 'Ad-hoc' : 'Imported'
 		};
 	});
 }
@@ -248,10 +249,12 @@ export function getSessionDate(sessionStart: string): string {
 
 /**
  * Column headers for Tasks sheet
+ * T046, T047: Added Source column (009-ad-hoc-tasks)
  */
 const TASKS_HEADERS = [
 	'Task Name',
 	'Type',
+	'Source',
 	'Planned Start',
 	'Actual Start',
 	'Planned Duration',
@@ -279,11 +282,13 @@ const SUMMARY_HEADERS = ['Metric', 'Value'];
 
 /**
  * Convert TaskExportRow to array for sheet row.
+ * T046, T047: Added source field (009-ad-hoc-tasks)
  */
 function taskRowToArray(row: TaskExportRow): (string | number)[] {
 	return [
 		row.taskName,
 		row.type,
+		row.source,
 		row.plannedStart,
 		row.actualStart,
 		row.plannedDuration,

@@ -86,6 +86,8 @@ function createMockSummary(overrides: Partial<AnalyticsSummary> = {}): Analytics
 		concentrationRating: 'Excellent',
 		totalInterruptionCount: 5,
 		totalInterruptionSec: 450,
+		adHocTaskCount: 2,
+		importedTaskCount: 8,
 		...overrides
 	};
 }
@@ -625,7 +627,7 @@ describe('prepareCSVExportData', () => {
 		);
 
 		expect(result.tasks).toBeDefined();
-		expect(result.tasks.headers).toHaveLength(10);
+		expect(result.tasks.headers).toHaveLength(11); // T046, T047: Added Source column
 		expect(result.tasks.data).toHaveLength(1);
 	});
 

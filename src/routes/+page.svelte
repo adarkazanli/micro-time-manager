@@ -26,6 +26,7 @@
 	import EditInterruptionDialog from '$lib/components/EditInterruptionDialog.svelte';
 	import InterruptionLog from '$lib/components/InterruptionLog.svelte';
 	import NoteInput from '$lib/components/NoteInput.svelte';
+	import AddTaskDialog from '$lib/components/AddTaskDialog.svelte';
 	import NotesView from '$lib/components/NotesView.svelte';
 	import AnalyticsDashboard from '$lib/components/AnalyticsDashboard.svelte';
 	import SettingsPanel from '$lib/components/SettingsPanel.svelte';
@@ -51,6 +52,9 @@
 
 	// Analytics state (T045 - 006-analytics-dashboard)
 	let isAnalyticsOpen = $state(false);
+
+	// Add task dialog state (T034 - 009-ad-hoc-tasks)
+	let showAddTaskDialog = $state(false);
 
 	/**
 	 * Persist current session state to localStorage
@@ -310,14 +314,25 @@
 
 	// T026, T036: Global keydown listener for I/R keys
 	// T014 (005-note-capture): Added Ctrl/Cmd+N for note capture
+	// T033, T036 (009-ad-hoc-tasks): Added Ctrl/Cmd+T for quick task entry
 	function handleKeydown(event: KeyboardEvent) {
-		// T014: Check for Ctrl/Cmd+N to open note input
+		// Check for modifier key (Ctrl on Windows/Linux, Cmd on Mac)
 		const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0;
 		const modifier = isMac ? event.metaKey : event.ctrlKey;
 
+		// T014: Check for Ctrl/Cmd+N to open note input
 		if (modifier && event.key.toLowerCase() === 'n') {
 			event.preventDefault();
 			noteStore.openInput();
+			return;
+		}
+
+		// T033, T036: Check for Ctrl/Cmd+T to open add task dialog (only during active session)
+		if (modifier && event.key.toLowerCase() === 't') {
+			event.preventDefault();
+			if (sessionStore.status === 'running') {
+				showAddTaskDialog = true;
+			}
 			return;
 		}
 
@@ -667,8 +682,10 @@
 									progress={sessionStore.session?.taskProgress ?? []}
 									currentIndex={sessionStore.currentTaskIndex}
 									elapsedMs={timerStore.elapsedMs}
+									sessionActive={sessionStore.status === 'running'}
 									onReorder={handleImpactReorder}
 									onUpdateTask={handleImpactUpdateTask}
+									onTaskAdded={() => { confirmedTasks = sessionStore.tasks; }}
 								/>
 							</div>
 						</div>
@@ -804,6 +821,16 @@
 	onExportExcel={handleExportExcel}
 	onExportCSV={handleExportCSV}
 	hasSession={sessionStore.session !== null}
+/>
+
+<!-- T035 (009-ad-hoc-tasks): Add Task Dialog for keyboard shortcut access -->
+<AddTaskDialog
+	open={showAddTaskDialog}
+	onClose={() => showAddTaskDialog = false}
+	onTaskCreated={() => {
+		confirmedTasks = sessionStore.tasks;
+		showAddTaskDialog = false;
+	}}
 />
 
 <style>

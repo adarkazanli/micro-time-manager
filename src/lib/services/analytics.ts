@@ -43,21 +43,24 @@ export function getConcentrationRating(score: number): ConcentrationRating {
 }
 
 /**
- * Calculate day-level analytics summary from task progress and interruptions.
+ * Calculate day-level analytics summary from task progress, interruptions, and tasks.
  *
  * @param taskProgress - Array of task progress records from session
  * @param interruptions - Array of interruption records from session
+ * @param tasks - Optional array of tasks for ad-hoc vs imported breakdown (T043)
  * @returns Aggregated analytics summary
  *
  * @example
  * const summary = calculateAnalyticsSummary(
  *   sessionStore.taskProgress,
- *   interruptionStore.interruptions
+ *   interruptionStore.interruptions,
+ *   sessionStore.tasks
  * );
  */
 export function calculateAnalyticsSummary(
 	taskProgress: readonly TaskProgress[],
-	interruptions: readonly Interruption[]
+	interruptions: readonly Interruption[],
+	tasks?: readonly ConfirmedTask[]
 ): AnalyticsSummary {
 	// Aggregate task metrics
 	let totalPlannedSec = 0;
@@ -92,6 +95,22 @@ export function calculateAnalyticsSummary(
 			? Math.round(Math.max(0, ((workTime - totalInterruptionSec) / workTime) * 100) * 10) / 10
 			: 0;
 
+	// T043: Calculate ad-hoc vs imported task counts
+	let adHocTaskCount = 0;
+	let importedTaskCount = 0;
+	if (tasks) {
+		for (const task of tasks) {
+			if (task.isAdHoc) {
+				adHocTaskCount++;
+			} else {
+				importedTaskCount++;
+			}
+		}
+	} else {
+		// If tasks not provided, assume all are imported (backwards compatibility)
+		importedTaskCount = taskProgress.length;
+	}
+
 	return {
 		totalPlannedSec,
 		totalActualSec,
@@ -101,7 +120,9 @@ export function calculateAnalyticsSummary(
 		concentrationScore,
 		concentrationRating: getConcentrationRating(concentrationScore),
 		totalInterruptionCount: interruptions.length,
-		totalInterruptionSec
+		totalInterruptionSec,
+		adHocTaskCount,
+		importedTaskCount
 	};
 }
 

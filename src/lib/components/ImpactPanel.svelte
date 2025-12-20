@@ -16,21 +16,28 @@
 	import { createProjectedTasks } from '$lib/services/projection';
 	import ImpactTaskRow from './ImpactTaskRow.svelte';
 	import EditTaskDialog from './EditTaskDialog.svelte';
+	import AddTaskDialog from './AddTaskDialog.svelte';
 
 	interface Props {
 		tasks: ConfirmedTask[];
 		progress: TaskProgress[];
 		currentIndex: number;
 		elapsedMs: number;
+		/** Whether the session is active (for showing Add Task button) */
+		sessionActive?: boolean;
 		onReorder?: (fromIndex: number, toIndex: number) => void;
 		onUpdateTask?: (taskId: string, updates: Partial<Pick<ConfirmedTask, 'name' | 'plannedStart' | 'plannedDurationSec' | 'type'>>) => void;
+		onTaskAdded?: (task: ConfirmedTask) => void;
 	}
 
-	let { tasks, progress, currentIndex, elapsedMs, onReorder, onUpdateTask }: Props = $props();
+	let { tasks, progress, currentIndex, elapsedMs, sessionActive, onReorder, onUpdateTask, onTaskAdded }: Props = $props();
 
 	// Edit dialog state
 	let editingTask = $state<ConfirmedTask | null>(null);
 	let isEditDialogOpen = $state(false);
+
+	// Add task dialog state (T024)
+	let showAddTaskDialog = $state(false);
 
 	function handleEditTask(task: ConfirmedTask) {
 		editingTask = task;
@@ -130,16 +137,28 @@
 	<!-- Panel header with task count (T026) -->
 	<div class="panel-header">
 		<h3 class="panel-title">Schedule Impact</h3>
-		<div class="task-counts">
-			<span class="count-item" data-testid="completed-count">
-				<span class="count-value">{completedCount}</span>
-				<span class="count-label">done</span>
-			</span>
-			<span class="count-separator">/</span>
-			<span class="count-item" data-testid="total-count">
-				<span class="count-value">{tasks.length}</span>
-				<span class="count-label">total</span>
-			</span>
+		<div class="header-right">
+			<!-- T023, T025: Add Task button (only during active session) -->
+			{#if sessionActive}
+				<button
+					class="add-task-btn"
+					onclick={() => showAddTaskDialog = true}
+					data-testid="add-task-button"
+				>
+					+ Add Task
+				</button>
+			{/if}
+			<div class="task-counts">
+				<span class="count-item" data-testid="completed-count">
+					<span class="count-value">{completedCount}</span>
+					<span class="count-label">done</span>
+				</span>
+				<span class="count-separator">/</span>
+				<span class="count-item" data-testid="total-count">
+					<span class="count-value">{tasks.length}</span>
+					<span class="count-label">total</span>
+				</span>
+			</div>
 		</div>
 	</div>
 
@@ -228,6 +247,16 @@
 	/>
 {/if}
 
+<!-- Add Task Dialog (T024) -->
+<AddTaskDialog
+	open={showAddTaskDialog}
+	onClose={() => showAddTaskDialog = false}
+	onTaskCreated={(task) => {
+		onTaskAdded?.(task);
+		showAddTaskDialog = false;
+	}}
+/>
+
 <style>
 	@reference "tailwindcss";
 
@@ -243,6 +272,16 @@
 
 	.panel-title {
 		@apply text-lg font-semibold text-gray-900;
+	}
+
+	.header-right {
+		@apply flex items-center gap-3;
+	}
+
+	.add-task-btn {
+		@apply px-3 py-1.5 text-sm font-medium;
+		@apply bg-blue-600 text-white rounded-md;
+		@apply hover:bg-blue-700 transition-colors duration-150;
 	}
 
 	.task-counts {

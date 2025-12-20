@@ -15,10 +15,32 @@ import type {
 	DaySummary,
 	FixedTaskWarning,
 	SessionStatus,
-	ProgressStatus
+	ProgressStatus,
+	TaskType
 } from '$lib/types';
 import { storage } from '$lib/services/storage';
 import { calculateProjectedStart } from '$lib/services/projection';
+
+// =============================================================================
+// Types
+// =============================================================================
+
+/**
+ * Input for creating an ad-hoc task.
+ *
+ * Feature: 009-ad-hoc-tasks
+ * Task: T007 - Add AddTaskInput type definition
+ */
+export interface AddTaskInput {
+	/** Task name (1-200 characters, will be trimmed) */
+	name: string;
+	/** Duration in seconds (1-86400) */
+	durationSec: number;
+	/** Task type */
+	type: TaskType;
+	/** Start time (required for fixed tasks) */
+	startTime?: Date;
+}
 
 // =============================================================================
 // State
@@ -503,6 +525,106 @@ function createSessionStore() {
 			storage.saveTasks(newTasks);
 
 			return true;
+		},
+
+		/**
+		 * Add an ad-hoc task to the current session.
+		 *
+		 * Feature: 009-ad-hoc-tasks
+		 * Tasks: T008-T012 - Implement addTask() method
+		 *
+		 * Creates a new task with `isAdHoc: true` flag and inserts it at the
+		 * appropriate position based on task type:
+		 * - Fixed tasks: Inserted in chronological order by plannedStart
+		 * - Flexible tasks: Inserted immediately after the current task
+		 *
+		 * @param input - Task creation input
+		 * @returns The created ConfirmedTask, or null if session not active
+		 * @throws Error if validation fails
+		 */
+		addTask(input: AddTaskInput): ConfirmedTask | null {
+			// T008: Validation
+			if (!session || session.status !== 'running') {
+				return null;
+			}
+
+			const trimmedName = input.name.trim();
+			if (!trimmedName) {
+				throw new Error('Task name is required');
+			}
+			if (trimmedName.length > 200) {
+				throw new Error('Task name too long');
+			}
+			if (input.durationSec <= 0) {
+				throw new Error('Duration must be positive');
+			}
+			if (input.durationSec > 86400) {
+				throw new Error('Duration exceeds maximum');
+			}
+			if (input.type === 'fixed' && !input.startTime) {
+				throw new Error('Fixed tasks require start time');
+			}
+
+			// T009-T010: Determine insertion index
+			let insertIndex: number;
+			if (input.type === 'fixed' && input.startTime) {
+				// Insert in chronological order based on plannedStart
+				insertIndex = tasks.findIndex(
+					(t) => t.plannedStart.getTime() > input.startTime!.getTime()
+				);
+				if (insertIndex === -1) {
+					insertIndex = tasks.length;
+				}
+			} else {
+				// Insert after current task
+				insertIndex = session.currentTaskIndex + 1;
+			}
+
+			// Create the new task
+			const newTask: ConfirmedTask = {
+				taskId: generateUUID(),
+				name: trimmedName,
+				plannedStart: input.startTime ?? new Date(),
+				plannedDurationSec: input.durationSec,
+				type: input.type,
+				sortOrder: insertIndex, // Will be recalculated
+				status: 'pending',
+				isAdHoc: true
+			};
+
+			// T011: Create corresponding TaskProgress record
+			const newProgress: TaskProgress = {
+				taskId: newTask.taskId,
+				plannedDurationSec: input.durationSec,
+				actualDurationSec: 0,
+				completedAt: null,
+				status: 'pending'
+			};
+
+			// Insert task and progress at the correct position
+			const newTasks = [...tasks];
+			const newProgressArr = [...session.taskProgress];
+			newTasks.splice(insertIndex, 0, newTask);
+			newProgressArr.splice(insertIndex, 0, newProgress);
+
+			// Update sortOrder for all tasks
+			for (let i = 0; i < newTasks.length; i++) {
+				newTasks[i] = { ...newTasks[i], sortOrder: i };
+			}
+
+			// Update state
+			tasks = newTasks;
+			session = {
+				...session,
+				taskProgress: newProgressArr,
+				lastPersistedAt: Date.now()
+			};
+
+			// T012: Persist to storage
+			storage.saveTasks(newTasks);
+			storage.saveSession(session);
+
+			return newTask;
 		},
 
 		/**

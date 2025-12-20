@@ -30,6 +30,7 @@ interface SerializedTask {
 	type: 'fixed' | 'flexible';
 	sortOrder: number;
 	status: 'pending' | 'active' | 'complete';
+	isAdHoc?: boolean; // Optional for backward compatibility
 }
 
 /**
@@ -167,7 +168,8 @@ function serializeTask(task: ConfirmedTask): SerializedTask {
 		plannedDurationSec: task.plannedDurationSec,
 		type: task.type,
 		sortOrder: task.sortOrder,
-		status: task.status
+		status: task.status,
+		isAdHoc: task.isAdHoc || undefined // Only store if true
 	};
 }
 
@@ -182,7 +184,8 @@ function deserializeTask(data: SerializedTask): ConfirmedTask {
 		plannedDurationSec: data.plannedDurationSec,
 		type: data.type,
 		sortOrder: data.sortOrder,
-		status: data.status
+		status: data.status,
+		isAdHoc: data.isAdHoc // undefined if not present (backward compatible)
 	};
 }
 

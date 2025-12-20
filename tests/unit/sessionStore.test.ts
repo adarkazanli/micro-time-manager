@@ -1230,6 +1230,377 @@ describe('sessionStore', () => {
 	// T036: Unit tests for reorderTasks() - impact panel drag-drop
 	// ==========================================================================
 
+	// ==========================================================================
+	// Feature: 009-ad-hoc-tasks
+	// T005-T006: Unit tests for addTask()
+	// ==========================================================================
+
+	describe('addTask()', () => {
+		it('should return null if no active session', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+
+			const result = sessionStore.addTask({
+				name: 'New Task',
+				durationSec: 1800,
+				type: 'flexible'
+			});
+
+			expect(result).toBeNull();
+		});
+
+		it('should throw if name is empty', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(2);
+
+			sessionStore.startDay(tasks);
+
+			expect(() =>
+				sessionStore.addTask({
+					name: '',
+					durationSec: 1800,
+					type: 'flexible'
+				})
+			).toThrow('Task name is required');
+		});
+
+		it('should throw if name is only whitespace', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(2);
+
+			sessionStore.startDay(tasks);
+
+			expect(() =>
+				sessionStore.addTask({
+					name: '   ',
+					durationSec: 1800,
+					type: 'flexible'
+				})
+			).toThrow('Task name is required');
+		});
+
+		it('should throw if name exceeds 200 characters', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(2);
+
+			sessionStore.startDay(tasks);
+
+			const longName = 'a'.repeat(201);
+			expect(() =>
+				sessionStore.addTask({
+					name: longName,
+					durationSec: 1800,
+					type: 'flexible'
+				})
+			).toThrow('Task name too long');
+		});
+
+		it('should throw if duration is zero', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(2);
+
+			sessionStore.startDay(tasks);
+
+			expect(() =>
+				sessionStore.addTask({
+					name: 'New Task',
+					durationSec: 0,
+					type: 'flexible'
+				})
+			).toThrow('Duration must be positive');
+		});
+
+		it('should throw if duration is negative', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(2);
+
+			sessionStore.startDay(tasks);
+
+			expect(() =>
+				sessionStore.addTask({
+					name: 'New Task',
+					durationSec: -100,
+					type: 'flexible'
+				})
+			).toThrow('Duration must be positive');
+		});
+
+		it('should throw if duration exceeds 24 hours', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(2);
+
+			sessionStore.startDay(tasks);
+
+			expect(() =>
+				sessionStore.addTask({
+					name: 'New Task',
+					durationSec: 86401, // > 24 hours
+					type: 'flexible'
+				})
+			).toThrow('Duration exceeds maximum');
+		});
+
+		it('should throw if fixed task without start time', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(2);
+
+			sessionStore.startDay(tasks);
+
+			expect(() =>
+				sessionStore.addTask({
+					name: 'Fixed Task',
+					durationSec: 1800,
+					type: 'fixed'
+				})
+			).toThrow('Fixed tasks require start time');
+		});
+
+		it('should create flexible task and insert after current', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(3);
+
+			sessionStore.startDay(tasks);
+			expect(sessionStore.currentTaskIndex).toBe(0);
+
+			const result = sessionStore.addTask({
+				name: 'New Flexible Task',
+				durationSec: 900,
+				type: 'flexible'
+			});
+
+			expect(result).not.toBeNull();
+			expect(result?.name).toBe('New Flexible Task');
+			expect(result?.isAdHoc).toBe(true);
+			expect(result?.type).toBe('flexible');
+			// Should be inserted at index 1 (after current task at 0)
+			expect(sessionStore.tasks[1].name).toBe('New Flexible Task');
+			expect(sessionStore.tasks.length).toBe(4);
+		});
+
+		it('should create fixed task and insert in chronological order', async () => {
+			vi.useFakeTimers();
+			const now = new Date('2025-12-18T09:00:00.000Z');
+			vi.setSystemTime(now);
+
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks: ConfirmedTask[] = [
+				{
+					taskId: 'task-1',
+					name: 'Task 1',
+					plannedStart: now,
+					plannedDurationSec: 1800,
+					type: 'flexible',
+					sortOrder: 0,
+					status: 'pending'
+				},
+				{
+					taskId: 'task-2',
+					name: 'Task 2',
+					plannedStart: new Date(now.getTime() + 1800000), // 09:30
+					plannedDurationSec: 1800,
+					type: 'flexible',
+					sortOrder: 1,
+					status: 'pending'
+				},
+				{
+					taskId: 'task-3',
+					name: 'Task 3',
+					plannedStart: new Date(now.getTime() + 7200000), // 11:00
+					plannedDurationSec: 1800,
+					type: 'flexible',
+					sortOrder: 2,
+					status: 'pending'
+				}
+			];
+
+			sessionStore.startDay(tasks);
+
+			// Insert a fixed task at 10:00 - should go between task 2 and task 3
+			const fixedTaskTime = new Date(now.getTime() + 3600000); // 10:00
+			const result = sessionStore.addTask({
+				name: 'CEO Call',
+				durationSec: 1800,
+				type: 'fixed',
+				startTime: fixedTaskTime
+			});
+
+			expect(result).not.toBeNull();
+			expect(result?.name).toBe('CEO Call');
+			expect(result?.type).toBe('fixed');
+			expect(result?.isAdHoc).toBe(true);
+			expect(sessionStore.tasks.length).toBe(4);
+			// Should be at index 2 (after Task 2 at 09:30, before Task 3 at 11:00)
+			expect(sessionStore.tasks[2].name).toBe('CEO Call');
+
+			vi.useRealTimers();
+		});
+
+		it('should set isAdHoc to true', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(2);
+
+			sessionStore.startDay(tasks);
+
+			const result = sessionStore.addTask({
+				name: 'Ad-hoc Task',
+				durationSec: 1800,
+				type: 'flexible'
+			});
+
+			expect(result?.isAdHoc).toBe(true);
+		});
+
+		it('should generate UUID for taskId', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(2);
+
+			sessionStore.startDay(tasks);
+
+			const result = sessionStore.addTask({
+				name: 'New Task',
+				durationSec: 1800,
+				type: 'flexible'
+			});
+
+			const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+			expect(result?.taskId).toMatch(uuidRegex);
+		});
+
+		it('should create corresponding TaskProgress record', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(2);
+
+			sessionStore.startDay(tasks);
+			const initialProgressLength = sessionStore.taskProgress.length;
+
+			const result = sessionStore.addTask({
+				name: 'New Task',
+				durationSec: 900,
+				type: 'flexible'
+			});
+
+			expect(sessionStore.taskProgress.length).toBe(initialProgressLength + 1);
+			const newProgress = sessionStore.taskProgress.find((p) => p.taskId === result?.taskId);
+			expect(newProgress).toBeDefined();
+			expect(newProgress?.plannedDurationSec).toBe(900);
+			expect(newProgress?.actualDurationSec).toBe(0);
+			expect(newProgress?.status).toBe('pending');
+			expect(newProgress?.completedAt).toBeNull();
+		});
+
+		it('should update sortOrder for all tasks after insertion', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(3);
+
+			sessionStore.startDay(tasks);
+
+			sessionStore.addTask({
+				name: 'Inserted Task',
+				durationSec: 1800,
+				type: 'flexible'
+			});
+
+			// Verify all tasks have correct sortOrder
+			sessionStore.tasks.forEach((task, index) => {
+				expect(task.sortOrder).toBe(index);
+			});
+		});
+
+		it('should trim task name', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(2);
+
+			sessionStore.startDay(tasks);
+
+			const result = sessionStore.addTask({
+				name: '  Trimmed Name  ',
+				durationSec: 1800,
+				type: 'flexible'
+			});
+
+			expect(result?.name).toBe('Trimmed Name');
+		});
+
+		it('should persist to storage after adding task', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(2);
+
+			sessionStore.startDay(tasks);
+			const persistedAtBefore = sessionStore.session?.lastPersistedAt;
+
+			vi.advanceTimersByTime(10);
+
+			sessionStore.addTask({
+				name: 'New Task',
+				durationSec: 1800,
+				type: 'flexible'
+			});
+
+			expect(sessionStore.session?.lastPersistedAt).toBeGreaterThan(persistedAtBefore!);
+		});
+
+		it('should insert flexible task after current when current is not first', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(4);
+
+			sessionStore.startDay(tasks);
+			sessionStore.completeTask(1800); // Move to task 2 (index 1)
+
+			const result = sessionStore.addTask({
+				name: 'New Flexible',
+				durationSec: 900,
+				type: 'flexible'
+			});
+
+			// Should be inserted at index 2 (after current at index 1)
+			expect(sessionStore.tasks[2].name).toBe('New Flexible');
+			expect(result?.taskId).toBe(sessionStore.tasks[2].taskId);
+		});
+
+		it('should insert fixed task at end if start time is latest', async () => {
+			vi.useFakeTimers();
+			const now = new Date('2025-12-18T09:00:00.000Z');
+			vi.setSystemTime(now);
+
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks: ConfirmedTask[] = [
+				{
+					taskId: 'task-1',
+					name: 'Task 1',
+					plannedStart: now,
+					plannedDurationSec: 1800,
+					type: 'flexible',
+					sortOrder: 0,
+					status: 'pending'
+				},
+				{
+					taskId: 'task-2',
+					name: 'Task 2',
+					plannedStart: new Date(now.getTime() + 1800000),
+					plannedDurationSec: 1800,
+					type: 'flexible',
+					sortOrder: 1,
+					status: 'pending'
+				}
+			];
+
+			sessionStore.startDay(tasks);
+
+			// Insert a fixed task at 15:00 - later than all existing tasks
+			const fixedTaskTime = new Date(now.getTime() + 21600000); // 15:00
+			sessionStore.addTask({
+				name: 'Late Meeting',
+				durationSec: 1800,
+				type: 'fixed',
+				startTime: fixedTaskTime
+			});
+
+			expect(sessionStore.tasks.length).toBe(3);
+			expect(sessionStore.tasks[2].name).toBe('Late Meeting');
+
+			vi.useRealTimers();
+		});
+	});
+
 	describe('reorderTasks()', () => {
 		it('should return false when no session active', async () => {
 			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
