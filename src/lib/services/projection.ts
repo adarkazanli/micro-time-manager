@@ -8,7 +8,7 @@
  */
 
 import type { ConfirmedTask, TaskProgress, ProjectedTask, RiskLevel, DisplayStatus } from '$lib/types';
-import { WARNING_THRESHOLD_MS } from '$lib/types';
+import { settingsStore } from '$lib/stores/settingsStore.svelte';
 
 /**
  * Calculates the projected start time for a task at the given index.
@@ -109,7 +109,11 @@ export function calculateProjectedStart(
 export function calculateRiskLevel(projectedStart: Date, scheduledStart: Date): RiskLevel {
 	const bufferMs = scheduledStart.getTime() - projectedStart.getTime();
 
-	if (bufferMs > WARNING_THRESHOLD_MS) {
+	// T028/T029: Use dynamic fixed task alert threshold from settings
+	// fixedTaskAlertMin is in minutes, convert to milliseconds
+	const alertThresholdMs = settingsStore.fixedTaskAlertMin * 60 * 1000;
+
+	if (bufferMs > alertThresholdMs) {
 		return 'green';
 	}
 	if (bufferMs > 0) {

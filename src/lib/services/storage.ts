@@ -5,7 +5,7 @@
  * schema versioning, and migration support.
  */
 
-import type { ConfirmedTask, DaySession, TabInfo, Interruption, PersistedInterruptionState, Note } from '$lib/types';
+import type { ConfirmedTask, DaySession, TabInfo, Interruption, PersistedInterruptionState, Note, Settings, SettingsStorage } from '$lib/types';
 import {
 	STORAGE_KEY_TASKS,
 	STORAGE_KEY_SCHEMA,
@@ -13,7 +13,9 @@ import {
 	STORAGE_KEY_TAB,
 	STORAGE_KEY_INTERRUPTIONS,
 	STORAGE_KEY_NOTES,
-	CURRENT_SCHEMA_VERSION
+	STORAGE_KEY_SETTINGS,
+	CURRENT_SCHEMA_VERSION,
+	DEFAULT_SETTINGS
 } from '$lib/types';
 
 /**
@@ -97,6 +99,29 @@ function migrateV3toV4(): void {
 }
 
 /**
+ * Initialize settings storage when migrating schema v4 to v5.
+ * Creates default settings if none exist.
+ *
+ * @remarks
+ * Errors encountered during migration are ignored.
+ */
+function migrateV4toV5(): void {
+	try {
+		// Initialize settings storage if it doesn't exist
+		const stored = localStorage.getItem(STORAGE_KEY_SETTINGS);
+		if (!stored) {
+			const defaultStorage: SettingsStorage = {
+				version: 1,
+				data: { ...DEFAULT_SETTINGS }
+			};
+			localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(defaultStorage));
+		}
+	} catch {
+		// Ignore errors during migration
+	}
+}
+
+/**
  * Ensure stored data matches the current schema by running any needed migrations.
  *
  * If localStorage is unavailable this function exits without action. It reads the stored schema
@@ -121,6 +146,9 @@ function migrateIfNeeded(): void {
 		}
 		if (version < 4) {
 			migrateV3toV4();
+		}
+		if (version < 5) {
+			migrateV4toV5();
 		}
 
 		// Update schema version
@@ -505,6 +533,74 @@ export const storage = {
 			return true;
 		} catch (error) {
 			console.error('Failed to clear notes:', error);
+			return false;
+		}
+	},
+
+	// =========================================================================
+	// Settings Storage (008-settings)
+	// =========================================================================
+
+	/**
+	 * Save settings to localStorage
+	 * @param settings - Settings object to save
+	 * @returns true if successful, false on error
+	 */
+	saveSettings(settings: Settings): boolean {
+		if (!isLocalStorageAvailable()) {
+			console.warn('localStorage not available');
+			return false;
+		}
+
+		try {
+			const storage: SettingsStorage = {
+				version: 1,
+				data: { ...settings }
+			};
+			localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(storage));
+			return true;
+		} catch (error) {
+			console.error('Failed to save settings:', error);
+			return false;
+		}
+	},
+
+	/**
+	 * Load settings from localStorage
+	 * @returns Settings object or null if not found/error
+	 */
+	loadSettings(): Settings | null {
+		if (!isLocalStorageAvailable()) {
+			return null;
+		}
+
+		try {
+			const stored = localStorage.getItem(STORAGE_KEY_SETTINGS);
+			if (!stored) {
+				return null;
+			}
+
+			const parsed = JSON.parse(stored) as SettingsStorage;
+			return parsed.data ?? null;
+		} catch (error) {
+			console.error('Failed to load settings:', error);
+			return null;
+		}
+	},
+
+	/**
+	 * Clear settings from localStorage (reset to defaults on next load)
+	 */
+	clearSettings(): boolean {
+		if (!isLocalStorageAvailable()) {
+			return false;
+		}
+
+		try {
+			localStorage.removeItem(STORAGE_KEY_SETTINGS);
+			return true;
+		} catch (error) {
+			console.error('Failed to clear settings:', error);
 			return false;
 		}
 	}

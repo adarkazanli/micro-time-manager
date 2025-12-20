@@ -22,22 +22,27 @@
 
 	let { onClose }: Props = $props();
 
+	// Access session data directly for reactivity (like ImpactPanel does)
+	const taskProgress = $derived(sessionStore.session?.taskProgress ?? []);
+	const tasks = $derived(sessionStore.tasks);
+	const sessionStatus = $derived(sessionStore.session?.status ?? 'idle');
+
 	// Reactive analytics calculations from stores
 	const analyticsSummary = $derived(
-		calculateAnalyticsSummary(sessionStore.taskProgress, interruptionStore.interruptions)
+		calculateAnalyticsSummary(taskProgress, interruptionStore.interruptions)
 	);
 
 	const taskPerformance = $derived(
 		calculateTaskPerformance(
-			sessionStore.tasks,
-			sessionStore.taskProgress,
+			tasks,
+			taskProgress,
 			interruptionStore.interruptions
 		)
 	);
 
 	// Check if there's any session data to display
 	const hasSessionData = $derived(
-		sessionStore.status !== 'idle' && sessionStore.taskProgress.length > 0
+		sessionStatus !== 'idle' && taskProgress.length > 0
 	);
 </script>
 

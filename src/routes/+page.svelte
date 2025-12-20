@@ -5,7 +5,9 @@
 	import { sessionStore } from '$lib/stores/sessionStore.svelte';
 	import { interruptionStore } from '$lib/stores/interruptionStore.svelte';
 	import { noteStore } from '$lib/stores/noteStore.svelte';
+	import { settingsStore } from '$lib/stores/settingsStore.svelte';
 	import { storage } from '$lib/services/storage';
+	import { initTheme } from '$lib/services/theme';
 	import { createTabSync, type TabSyncService } from '$lib/services/tabSync';
 	import type { ConfirmedTask, ExportResult } from '$lib/types';
 	import { PERSIST_INTERVAL_MS } from '$lib/types';
@@ -26,7 +28,7 @@
 	import NoteInput from '$lib/components/NoteInput.svelte';
 	import NotesView from '$lib/components/NotesView.svelte';
 	import AnalyticsDashboard from '$lib/components/AnalyticsDashboard.svelte';
-	import ExportButton from '$lib/components/ExportButton.svelte';
+	import SettingsPanel from '$lib/components/SettingsPanel.svelte';
 	import { exportToExcel, exportToCSV } from '$lib/services/export';
 	import { calculateAnalyticsSummary } from '$lib/services/analytics';
 	import type { DaySummary as DaySummaryType } from '$lib/types';
@@ -78,6 +80,11 @@
 	// Load tasks on mount
 	onMount(() => {
 		storage.init();
+
+		// T007, T020: Load settings and initialize theme
+		settingsStore.load();
+		initTheme(settingsStore.theme);
+
 		confirmedTasks = storage.loadTasks();
 		showTracking = confirmedTasks.length > 0;
 
@@ -471,6 +478,30 @@
 	const isLastTask = $derived(
 		sessionStore.currentTaskIndex === sessionStore.totalTasks - 1
 	);
+
+	// T034, T040: Track timer color changes for sound/vibration alerts
+	let lastTimerColor = $state<string>('green');
+
+	$effect(() => {
+		const currentColor = timerStore.color;
+		// Only trigger alerts on transition to yellow or red
+		if (sessionStore.status === 'running' && !interruptionStore.isInterrupted) {
+			if (lastTimerColor === 'green' && (currentColor === 'yellow' || currentColor === 'red')) {
+				// T034: Play alert sound on warning
+				import('$lib/services/theme').then(({ playAlertSound, triggerVibration }) => {
+					playAlertSound(settingsStore.soundEnabled);
+					triggerVibration(settingsStore.vibrationEnabled);
+				});
+			} else if (lastTimerColor === 'yellow' && currentColor === 'red') {
+				// T034: Play alert sound on overtime
+				import('$lib/services/theme').then(({ playAlertSound, triggerVibration }) => {
+					playAlertSound(settingsStore.soundEnabled);
+					triggerVibration(settingsStore.vibrationEnabled);
+				});
+			}
+		}
+		lastTimerColor = currentColor;
+	});
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
@@ -481,8 +512,22 @@
 
 <main class="app-container">
 	<header class="app-header">
-		<h1 class="app-title">Micro Time Manager</h1>
-		<p class="app-subtitle">Import your daily schedule</p>
+		<div class="header-content">
+			<h1 class="app-title">Micro Time Manager</h1>
+			<p class="app-subtitle">Import your daily schedule</p>
+		</div>
+		<!-- T010: Settings gear icon -->
+		<button
+			type="button"
+			class="settings-btn"
+			onclick={() => settingsStore.openPanel()}
+			aria-label="Open settings"
+			data-testid="settings-btn"
+		>
+			<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="settings-icon">
+				<path fill-rule="evenodd" d="M7.84 1.804A1 1 0 018.82 1h2.36a1 1 0 01.98.804l.331 1.652a6.993 6.993 0 011.929 1.115l1.598-.54a1 1 0 011.186.447l1.18 2.044a1 1 0 01-.205 1.251l-1.267 1.113a7.047 7.047 0 010 2.228l1.267 1.113a1 1 0 01.206 1.25l-1.18 2.045a1 1 0 01-1.187.447l-1.598-.54a6.993 6.993 0 01-1.929 1.115l-.33 1.652a1 1 0 01-.98.804H8.82a1 1 0 01-.98-.804l-.331-1.652a6.993 6.993 0 01-1.929-1.115l-1.598.54a1 1 0 01-1.186-.447l-1.18-2.044a1 1 0 01.205-1.251l1.267-1.114a7.05 7.05 0 010-2.227L1.821 7.773a1 1 0 01-.206-1.25l1.18-2.045a1 1 0 011.187-.447l1.598.54A6.993 6.993 0 017.51 3.456l.33-1.652zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+			</svg>
+		</button>
 	</header>
 
 	<div class="app-content">
@@ -579,25 +624,6 @@
 												Notes ({noteStore.notes.length})
 											</button>
 										{/if}
-										<!-- T046 (006-analytics-dashboard): Analytics button -->
-										<button
-											type="button"
-											class="btn btn-analytics"
-											onclick={toggleAnalytics}
-											data-testid="analytics-btn"
-											title="View Analytics"
-										>
-											<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="analytics-icon">
-												<path d="M15.5 2A1.5 1.5 0 0014 3.5v13a1.5 1.5 0 001.5 1.5h1a1.5 1.5 0 001.5-1.5v-13A1.5 1.5 0 0016.5 2h-1zM9.5 6A1.5 1.5 0 008 7.5v9A1.5 1.5 0 009.5 18h1a1.5 1.5 0 001.5-1.5v-9A1.5 1.5 0 0010.5 6h-1zM3.5 10A1.5 1.5 0 002 11.5v5A1.5 1.5 0 003.5 18h1A1.5 1.5 0 006 16.5v-5A1.5 1.5 0 004.5 10h-1z" />
-											</svg>
-											Analytics
-										</button>
-										<!-- T028 (007-data-export): Export button with format selector -->
-										<ExportButton
-											disabled={false}
-											onExportExcel={handleExportExcel}
-											onExportCSV={handleExportCSV}
-										/>
 									</div>
 								</div>
 
@@ -770,6 +796,16 @@
 	</div>
 {/if}
 
+<!-- T008-T014 (008-settings): Settings panel -->
+<SettingsPanel
+	open={settingsStore.isPanelOpen}
+	onClose={() => settingsStore.closePanel()}
+	onAnalytics={toggleAnalytics}
+	onExportExcel={handleExportExcel}
+	onExportCSV={handleExportCSV}
+	hasSession={sessionStore.session !== null}
+/>
+
 <style>
 	@import "tailwindcss";
 
@@ -778,19 +814,50 @@
 	}
 
 	.app-header {
-		@apply text-center mb-8;
+		@apply flex items-start justify-between mb-8;
+	}
+
+	.header-content {
+		@apply text-center flex-1;
 	}
 
 	.app-title {
 		@apply text-3xl font-bold text-gray-900;
 	}
 
+	:global(.dark) .app-title {
+		@apply text-white;
+	}
+
 	.app-subtitle {
 		@apply text-gray-600 mt-1;
 	}
 
+	:global(.dark) .app-subtitle {
+		@apply text-gray-400;
+	}
+
+	/* Settings button */
+	.settings-btn {
+		@apply p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100;
+		@apply transition-colors duration-150;
+		@apply focus:outline-none focus:ring-2 focus:ring-blue-500;
+	}
+
+	:global(.dark) .settings-btn {
+		@apply text-gray-400 hover:text-gray-200 hover:bg-gray-700;
+	}
+
+	.settings-icon {
+		@apply w-6 h-6;
+	}
+
 	.app-content {
 		@apply bg-white rounded-xl shadow-sm border border-gray-200 p-6;
+	}
+
+	:global(.dark) .app-content {
+		@apply bg-gray-800 border-gray-700;
 	}
 
 	/* Loading State */
@@ -972,17 +1039,7 @@
 		@apply fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4;
 	}
 
-	/* Analytics button and overlay (006-analytics-dashboard) */
-	.btn-analytics {
-		@apply flex items-center gap-1.5;
-		@apply bg-indigo-100 text-indigo-700 hover:bg-indigo-200;
-		@apply focus:ring-indigo-500;
-	}
-
-	.analytics-icon {
-		@apply w-4 h-4;
-	}
-
+	/* Analytics overlay (006-analytics-dashboard) */
 	.analytics-overlay {
 		@apply fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4;
 	}

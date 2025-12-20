@@ -16,6 +16,7 @@ This document describes the public interfaces, Svelte stores, and service module
   - [File Parser Service](#file-parser-service)
   - [Exporter Service](#exporter-service)
   - [Analytics Service](#analytics-service)
+  - [Theme Service](#theme-service)
 - [Types](#types)
 - [Events](#events)
 
@@ -449,44 +450,130 @@ const NOTE_CHAR_DANGER_THRESHOLD = 10;
 
 ---
 
-### Settings Store (Planned)
+### Settings Store
 
-*Not yet implemented.*
+Manages user preferences with localStorage persistence and theme application.
 
-User preferences and configuration.
+**Location:** `src/lib/stores/settingsStore.svelte.ts`
 
 ```typescript
-// src/lib/stores/settings.ts
+interface SettingsStore {
+  /** Current theme setting */
+  readonly theme: Theme;
+
+  /** Warning threshold in seconds (0-1800) */
+  readonly warningThresholdSec: number;
+
+  /** Fixed task alert threshold in minutes (0-30) */
+  readonly fixedTaskAlertMin: number;
+
+  /** Whether sound alerts are enabled */
+  readonly soundEnabled: boolean;
+
+  /** Whether vibration alerts are enabled */
+  readonly vibrationEnabled: boolean;
+
+  /** Whether settings panel is open */
+  readonly isPanelOpen: boolean;
+
+  /** Last error message or null */
+  readonly lastError: string | null;
+
+  /**
+   * Set the theme and apply it to the DOM
+   * @param theme - 'light' | 'dark' | 'system'
+   */
+  setTheme(theme: Theme): void;
+
+  /**
+   * Set warning threshold in minutes (converted to seconds)
+   * @param minutes - 0-30
+   */
+  setWarningThresholdMinutes(minutes: number): void;
+
+  /**
+   * Set fixed task alert threshold
+   * @param minutes - 0-30
+   */
+  setFixedTaskAlert(minutes: number): void;
+
+  /**
+   * Enable or disable sound alerts
+   */
+  setSoundEnabled(enabled: boolean): void;
+
+  /**
+   * Enable or disable vibration alerts
+   */
+  setVibrationEnabled(enabled: boolean): void;
+
+  /** Open the settings panel */
+  openPanel(): void;
+
+  /** Close the settings panel */
+  closePanel(): void;
+
+  /** Clear the last error */
+  clearError(): void;
+
+  /** Load settings from localStorage */
+  load(): void;
+
+  /** Reset to default settings */
+  reset(): void;
+}
+```
+
+**Types:**
+
+```typescript
+type Theme = 'light' | 'dark' | 'system';
 
 interface Settings {
-  /** Theme preference */
-  theme: 'light' | 'dark' | 'system';
-  /** Seconds before task end to warn */
-  warningThresholdSec: number;
-  /** Minutes before fixed task to alert */
-  fixedTaskAlertMin: number;
-  /** Enable sound alerts */
+  theme: Theme;
+  warningThresholdSec: number;  // 0-1800 (0-30 minutes)
+  fixedTaskAlertMin: number;    // 0-30
   soundEnabled: boolean;
-  /** Enable vibration on mobile */
   vibrationEnabled: boolean;
 }
 
-interface SettingsStore {
-  /** Current settings (readonly) */
-  readonly settings: Settings;
+const DEFAULT_SETTINGS: Settings = {
+  theme: 'system',
+  warningThresholdSec: 300,    // 5 minutes
+  fixedTaskAlertMin: 10,
+  soundEnabled: true,
+  vibrationEnabled: true
+};
+```
 
-  /**
-   * Update a setting
-   * @param key - Setting key
-   * @param value - New value
-   */
-  set<K extends keyof Settings>(key: K, value: Settings[K]): void;
+**Usage Example:**
 
-  /**
-   * Reset to defaults
-   */
-  resetToDefaults(): void;
-}
+```svelte
+<script>
+  import { settingsStore } from '$lib/stores/settingsStore.svelte';
+  import { initTheme } from '$lib/services/theme';
+  import { onMount } from 'svelte';
+
+  onMount(() => {
+    settingsStore.load();
+    initTheme(settingsStore.theme);
+  });
+</script>
+
+<!-- Settings gear button -->
+<button onclick={() => settingsStore.openPanel()}>
+  Settings
+</button>
+
+<!-- Settings panel -->
+<SettingsPanel
+  open={settingsStore.isPanelOpen}
+  onClose={() => settingsStore.closePanel()}
+/>
+
+<!-- Use settings values -->
+<div>Theme: {settingsStore.theme}</div>
+<div>Warning at: {settingsStore.warningThresholdSec / 60} minutes</div>
 ```
 
 ---
@@ -944,6 +1031,91 @@ const CONCENTRATION_FAIR_THRESHOLD = 70;
 
 ---
 
+### Theme Service
+
+Manages theme application to the DOM, system preference detection, and alert functions.
+
+**Location:** `src/lib/services/theme.ts`
+
+```typescript
+/**
+ * Get the system's preferred color scheme
+ * @returns 'light' or 'dark'
+ */
+function getSystemTheme(): 'light' | 'dark';
+
+/**
+ * Apply theme to the document by toggling 'dark' class on <html>
+ * @param theme - 'light', 'dark', or 'system'
+ */
+function applyTheme(theme: Theme): void;
+
+/**
+ * Initialize theme with system preference listener
+ * @param theme - Initial theme setting
+ * @param onSystemChange - Callback when system theme changes (only if theme is 'system')
+ */
+function initTheme(theme: Theme, onSystemChange?: (isDark: boolean) => void): void;
+
+/**
+ * Clean up theme listeners
+ */
+function cleanupTheme(): void;
+
+/**
+ * Check if the browser supports audio playback
+ * @returns true if Audio API is available
+ */
+function canPlayAudio(): boolean;
+
+/**
+ * Check if the device supports vibration
+ * @returns true if vibration API is available
+ */
+function canVibrate(): boolean;
+
+/**
+ * Play an alert sound if sound is enabled
+ * @param enabled - Whether sound is enabled in settings
+ */
+function playAlertSound(enabled: boolean): void;
+
+/**
+ * Trigger device vibration if vibration is enabled
+ * @param enabled - Whether vibration is enabled in settings
+ * @param pattern - Vibration pattern in milliseconds (default: 200ms)
+ */
+function triggerVibration(enabled: boolean, pattern?: number | number[]): void;
+```
+
+**Usage Example:**
+
+```svelte
+<script>
+  import { initTheme, playAlertSound, triggerVibration } from '$lib/services/theme';
+  import { settingsStore } from '$lib/stores/settingsStore.svelte';
+  import { onMount } from 'svelte';
+
+  onMount(() => {
+    // Initialize theme on app load
+    initTheme(settingsStore.theme, (isDark) => {
+      // Re-apply theme when system preference changes
+      if (settingsStore.theme === 'system') {
+        applyTheme('system');
+      }
+    });
+  });
+
+  // Trigger alerts when timer reaches warning threshold
+  function onTimerWarning() {
+    playAlertSound(settingsStore.soundEnabled);
+    triggerVibration(settingsStore.vibrationEnabled);
+  }
+</script>
+```
+
+---
+
 ## Types
 
 Common type definitions used across the application.
@@ -992,8 +1164,8 @@ Custom events dispatched by components.
 
 ---
 
-**Document Version:** 1.2
-**Last Updated:** 2025-12-19
+**Document Version:** 1.3
+**Last Updated:** 2025-12-20
 
 See also:
 - [Architecture](ARCHITECTURE.md)

@@ -212,17 +212,23 @@ interface Note {
 
 ---
 
-### Settings (Planned)
+### Settings
 
-**Key:** `tm_settings` *(not yet implemented)*
+**Key:** `tm_settings`
 
 ```typescript
 interface Settings {
   theme: 'light' | 'dark' | 'system';
-  warningThresholdSec: number;  // Seconds before task end to warn
-  fixedTaskAlertMin: number;    // Minutes before fixed task to alert
+  warningThresholdSec: number;  // Seconds before task end to warn (0-1800)
+  fixedTaskAlertMin: number;    // Minutes before fixed task to alert (0-30)
   soundEnabled: boolean;
   vibrationEnabled: boolean;
+}
+
+// Stored with versioning wrapper
+interface SettingsStorage {
+  version: 1;
+  data: Settings;
 }
 ```
 
@@ -230,11 +236,14 @@ interface Settings {
 
 ```json
 {
-  "theme": "system",
-  "warningThresholdSec": 300,
-  "fixedTaskAlertMin": 10,
-  "soundEnabled": true,
-  "vibrationEnabled": true
+  "version": 1,
+  "data": {
+    "theme": "system",
+    "warningThresholdSec": 300,
+    "fixedTaskAlertMin": 10,
+    "soundEnabled": true,
+    "vibrationEnabled": true
+  }
 }
 ```
 
@@ -261,7 +270,7 @@ interface SchemaVersion {
 }
 ```
 
-**Current Version:** `4`
+**Current Version:** `5`
 
 ### Version History
 
@@ -271,6 +280,7 @@ interface SchemaVersion {
 | 2 | Added session persistence |
 | 3 | Added interruption tracking (`tm_interruptions` storage key) |
 | 4 | Added note capture (`tm_notes` storage key) |
+| 5 | Added settings persistence (`tm_settings` storage key) |
 
 ### Migration Strategy
 
@@ -541,8 +551,8 @@ At this rate, ~500 days of data could be stored before hitting the 5MB limit. Th
 
 ---
 
-**Document Version:** 1.2
-**Last Updated:** 2025-12-19
+**Document Version:** 1.3
+**Last Updated:** 2025-12-20
 
 See also:
 - [Architecture](ARCHITECTURE.md)
