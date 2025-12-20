@@ -13,6 +13,7 @@
 import type { TimerState, TimerColor } from '$lib/types';
 import { WARNING_THRESHOLD_MS } from '$lib/types';
 import { createTimer, type TimerService } from '$lib/services/timer';
+import { settingsStore } from '$lib/stores/settingsStore.svelte';
 
 // =============================================================================
 // State
@@ -34,7 +35,9 @@ const colorValue = $derived.by<TimerColor>(() => {
 	if (durationMs === 0 && !running) return 'green';
 	const remaining = durationMs - elapsedMsState;
 	if (remaining <= 0) return 'red';
-	if (remaining <= WARNING_THRESHOLD_MS) return 'yellow';
+	// T024/T025: Use dynamic warning threshold from settings
+	const warningThresholdMs = settingsStore.warningThresholdSec * 1000;
+	if (remaining <= warningThresholdMs) return 'yellow';
 	return 'green';
 });
 
@@ -188,7 +191,8 @@ function createTimerStore() {
 				color = 'green';
 			} else if (remaining <= 0) {
 				color = 'red';
-			} else if (remaining <= WARNING_THRESHOLD_MS) {
+			} else if (remaining <= settingsStore.warningThresholdSec * 1000) {
+				// T024/T025: Use dynamic warning threshold from settings
 				color = 'yellow';
 			} else {
 				color = 'green';

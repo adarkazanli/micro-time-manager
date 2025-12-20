@@ -5,7 +5,14 @@ import {
 	createProjectedTasks
 } from '$lib/services/projection';
 import type { ConfirmedTask, TaskProgress } from '$lib/types';
-import { WARNING_THRESHOLD_MS } from '$lib/types';
+import { settingsStore } from '$lib/stores/settingsStore.svelte';
+
+// Mock settingsStore for consistent test behavior
+vi.mock('$lib/stores/settingsStore.svelte', () => ({
+	settingsStore: {
+		fixedTaskAlertMin: 5 // Use 5 minutes for backwards-compatible tests
+	}
+}));
 
 describe('calculateProjectedStart', () => {
 	// Fixed timestamp for deterministic tests
@@ -100,9 +107,11 @@ describe('calculateRiskLevel', () => {
 		expect(calculateRiskLevel(projectedStart, scheduledStart)).toBe('red');
 	});
 
-	it('uses WARNING_THRESHOLD_MS constant (5 minutes = 300000ms)', () => {
-		// Verify the threshold is what we expect
-		expect(WARNING_THRESHOLD_MS).toBe(300000);
+	it('uses settingsStore.fixedTaskAlertMin for threshold (mocked to 5 minutes)', () => {
+		// Verify the mocked threshold is what we expect
+		expect(settingsStore.fixedTaskAlertMin).toBe(5);
+		// 5 minutes = 300000ms
+		expect(settingsStore.fixedTaskAlertMin * 60 * 1000).toBe(300000);
 	});
 });
 

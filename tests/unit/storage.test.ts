@@ -223,12 +223,12 @@ describe('storage service', () => {
 
 			expect(localStorageMock.setItem).toHaveBeenCalledWith(
 				STORAGE_KEY_SCHEMA,
-				'4'
+				'5'
 			);
 		});
 
 		it('does not update schema when version matches', () => {
-			localStorageMock.setItem(STORAGE_KEY_SCHEMA, '4');
+			localStorageMock.setItem(STORAGE_KEY_SCHEMA, '5');
 			vi.clearAllMocks(); // Clear the manual setItem call
 
 			storage.init();
@@ -455,8 +455,8 @@ describe('storage service', () => {
 			// Initialize storage (triggers migration)
 			storage.init();
 
-			// Schema version should be updated to 4
-			expect(storage.getSchemaVersion()).toBe(4);
+			// Schema version should be updated to 5
+			expect(storage.getSchemaVersion()).toBe(5);
 
 			// Tasks should still be accessible
 			const tasks = storage.loadTasks();
@@ -464,8 +464,8 @@ describe('storage service', () => {
 			expect(tasks[0].taskId).toBe('task-1');
 		});
 
-		it('does not run migration when already at v4', () => {
-			localStorageMock.setItem(STORAGE_KEY_SCHEMA, '4');
+		it('does not run migration when already at v5', () => {
+			localStorageMock.setItem(STORAGE_KEY_SCHEMA, '5');
 			vi.clearAllMocks();
 
 			storage.init();

@@ -1,1 +1,46 @@
 @import 'tailwindcss';
+
+/* =============================================================================
+   Dark Mode Support (008-settings)
+
+   Uses Tailwind's dark mode with `dark` class on <html> element.
+   CSS variables provide consistent theming across components.
+   ============================================================================= */
+
+:root {
+	/* Light mode colors */
+	--color-bg-primary: theme(colors.white);
+	--color-bg-secondary: theme(colors.gray.50);
+	--color-bg-tertiary: theme(colors.gray.100);
+	--color-text-primary: theme(colors.gray.900);
+	--color-text-secondary: theme(colors.gray.600);
+	--color-text-muted: theme(colors.gray.500);
+	--color-border: theme(colors.gray.200);
+	--color-border-light: theme(colors.gray.100);
+}
+
+.dark {
+	/* Dark mode colors */
+	--color-bg-primary: theme(colors.gray.900);
+	--color-bg-secondary: theme(colors.gray.800);
+	--color-bg-tertiary: theme(colors.gray.700);
+	--color-text-primary: theme(colors.white);
+	--color-text-secondary: theme(colors.gray.300);
+	--color-text-muted: theme(colors.gray.400);
+	--color-border: theme(colors.gray.700);
+	--color-border-light: theme(colors.gray.800);
+}
+
+/* Global dark mode styles */
+.dark body {
+	@apply bg-gray-900 text-white;
+}
+
+/* Ensure smooth transitions when theme changes */
+html {
+	transition: color-scheme 0.2s ease;
+}
+
+html.dark {
+	color-scheme: dark;
+}

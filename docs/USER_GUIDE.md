@@ -223,6 +223,8 @@ Access your notes from the Notes view:
 
 ## Viewing Analytics
 
+Access analytics by opening **Settings** (gear icon) and clicking **View** next to Analytics.
+
 ### Concentration Score
 
 Your concentration score measures focus quality:
@@ -264,9 +266,9 @@ Export your session data at any time during or after your day for analysis, back
 
 ### Accessing Export
 
-1. Click the **Export** button in the controls area (visible during an active session)
-2. A dropdown appears with format options
-3. Select your preferred format (Excel or CSV)
+1. Click the **Settings** gear icon (⚙️) in the top-right corner
+2. Scroll to the **Data** section
+3. Click **Excel** or **CSV** to download
 4. Files download automatically
 
 ### Excel Export (.xlsx)
@@ -361,24 +363,44 @@ Your exported data is perfect for:
 
 ## Settings
 
-Access settings from the menu or gear icon.
+Access settings by clicking the **gear icon** (⚙️) in the top-right corner of the screen. The settings panel slides out from the right.
 
 ### Theme
 
+Choose your preferred visual appearance:
+
 | Option | Description |
 |--------|-------------|
-| Light | Light background |
-| Dark | Dark background |
-| System | Match device preference |
+| Light | Light background, dark text |
+| Dark | Dark background, light text |
+| System | Automatically match your device's preference |
+
+Theme changes apply immediately—no need to refresh.
 
 ### Alerts
 
+Configure when and how you receive notifications:
+
 | Setting | Description | Default |
 |---------|-------------|---------|
-| Task Warning | Time before task end to warn | 5 minutes |
-| Fixed Task Alert | Time before fixed task alert | 10 minutes |
-| Sound | Enable audio alerts | On |
-| Vibration | Enable vibration (mobile) | On |
+| Task Warning | Minutes before task end to show warning (timer turns yellow) | 5 minutes |
+| Fixed Task Alert | Minutes before fixed task to show risk indicator | 10 minutes |
+| Sound | Play an audio beep when timer reaches warning/overtime | On |
+| Vibration | Vibrate device on warnings (mobile only) | On |
+
+**Note:** Vibration option only appears on devices that support it.
+
+### Data
+
+Access analytics and export features from the Settings panel:
+
+| Action | Description |
+|--------|-------------|
+| **Analytics** | View session statistics and concentration score |
+| **Export Excel** | Download a multi-sheet workbook with all session data |
+| **Export CSV** | Download four separate CSV files for tasks, interruptions, notes, and summary |
+
+These buttons are disabled until you have an active session.
 
 ---
 
@@ -424,7 +446,6 @@ Access settings from the menu or gear icon.
 | `I` | Start/stop interruption |
 | `R` | Resume from interruption |
 | `Ctrl/Cmd + N` | Add new note |
-| `Ctrl/Cmd + E` | Export data |
 | `Esc` | Close panels/modals |
 
 ---
@@ -475,5 +496,5 @@ For detailed user stories, see the [User Stories Document](../time-micromanager-
 
 ---
 
-**Document Version:** 1.0
-**Last Updated:** 2025-12-17
+**Document Version:** 1.1
+**Last Updated:** 2025-12-20

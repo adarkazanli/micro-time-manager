@@ -314,7 +314,10 @@ export const STORAGE_KEY_SESSION = 'tm_session';
 export const STORAGE_KEY_TAB = 'tm_active_tab';
 
 /** Current schema version */
-export const CURRENT_SCHEMA_VERSION = 4;
+export const CURRENT_SCHEMA_VERSION = 5;
+
+/** localStorage key for settings */
+export const STORAGE_KEY_SETTINGS = 'tm_settings';
 
 // =============================================================================
 // Day Tracking Constants (002-day-tracking)
@@ -533,6 +536,9 @@ export const CONCENTRATION_FAIR_THRESHOLD = 70;
 /** Export format options */
 export type ExportFormat = 'excel' | 'csv';
 
+/** Theme options for settings */
+export type Theme = 'light' | 'dark' | 'system';
+
 /**
  * Task data row for export.
  * Represents a single task in the Tasks export sheet/file.
@@ -615,3 +621,56 @@ export interface ExportResult {
 	/** Number of files downloaded (for CSV this is 4, for Excel this is 1) */
 	filesDownloaded?: number;
 }
+
+// =============================================================================
+// Settings Types (008-settings)
+// =============================================================================
+
+/**
+ * User preference settings.
+ * Persisted to localStorage under 'tm_settings'.
+ */
+export interface Settings {
+	/** UI theme preference */
+	theme: Theme;
+
+	/** Seconds before task end to show warning (0 = disabled, max 1800) */
+	warningThresholdSec: number;
+
+	/** Minutes before fixed task to show alert (0 = disabled, max 30) */
+	fixedTaskAlertMin: number;
+
+	/** Whether to play audio alerts */
+	soundEnabled: boolean;
+
+	/** Whether to vibrate on alerts (mobile only) */
+	vibrationEnabled: boolean;
+}
+
+/**
+ * Versioned storage wrapper for settings.
+ * Enables future schema migrations.
+ */
+export interface SettingsStorage {
+	/** Schema version for migrations */
+	version: 1;
+
+	/** Settings data */
+	data: Settings;
+}
+
+// =============================================================================
+// Settings Constants (008-settings)
+// =============================================================================
+
+/**
+ * Default settings values.
+ * Used when no settings exist in localStorage.
+ */
+export const DEFAULT_SETTINGS: Settings = {
+	theme: 'system',
+	warningThresholdSec: 300, // 5 minutes
+	fixedTaskAlertMin: 10, // 10 minutes
+	soundEnabled: true,
+	vibrationEnabled: true
+};
