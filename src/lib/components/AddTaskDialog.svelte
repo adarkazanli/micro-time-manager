@@ -50,10 +50,17 @@
 		}
 	});
 
+	// Reference to name input for auto-focus
+	let nameInputRef = $state<HTMLInputElement | null>(null);
+
 	// Reset form when dialog opens/closes (T037)
 	$effect(() => {
 		if (open) {
 			resetForm();
+			// Auto-focus the name input after a tick to ensure DOM is ready
+			setTimeout(() => {
+				nameInputRef?.focus();
+			}, 0);
 		}
 	});
 
@@ -227,9 +234,8 @@
 		aria-modal="true"
 		aria-labelledby="add-task-title"
 		onclick={handleBackdropClick}
-		onkeydown={handleKeydown}
 	>
-		<div class="dialog-content">
+		<div class="dialog-content" onkeydown={handleKeydown}>
 			<h2 id="add-task-title" class="dialog-title">Add Task</h2>
 
 			<form onsubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
@@ -237,6 +243,7 @@
 				<div class="form-group">
 					<label for="add-task-name" class="form-label">Task Name</label>
 					<input
+						bind:this={nameInputRef}
 						id="add-task-name"
 						type="text"
 						class="form-input"

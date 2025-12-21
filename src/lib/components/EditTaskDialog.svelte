@@ -31,6 +31,9 @@
 	let durationError = $state('');
 	let nameError = $state('');
 
+	// Reference to name input for auto-focus
+	let nameInputRef = $state<HTMLInputElement | null>(null);
+
 	// Initialize form when task changes
 	$effect(() => {
 		if (task && open) {
@@ -43,6 +46,10 @@
 			type = task.type;
 			durationError = '';
 			nameError = '';
+			// Auto-focus the name input after a tick to ensure DOM is ready
+			setTimeout(() => {
+				nameInputRef?.focus();
+			}, 0);
 		}
 	});
 
@@ -106,9 +113,8 @@
 		aria-modal="true"
 		aria-labelledby="dialog-title"
 		onclick={handleBackdropClick}
-		onkeydown={handleKeydown}
 	>
-		<div class="dialog-content">
+		<div class="dialog-content" onkeydown={handleKeydown}>
 			<h2 id="dialog-title" class="dialog-title">Edit Task</h2>
 
 			<form onsubmit={(e) => { e.preventDefault(); handleSave(); }}>
@@ -116,6 +122,7 @@
 				<div class="form-group">
 					<label for="task-name" class="form-label">Task Name</label>
 					<input
+						bind:this={nameInputRef}
 						id="task-name"
 						type="text"
 						class="form-input"
