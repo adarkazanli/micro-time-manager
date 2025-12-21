@@ -10,10 +10,11 @@
  * Per Constitution III: Uses performance.now() for accuracy.
  */
 
-import type { TimerState, TimerColor } from '$lib/types';
-import { WARNING_THRESHOLD_MS } from '$lib/types';
+import type { TimerState, TimerColor, TimerRecoveryResult, DaySession } from '$lib/types';
+import { WARNING_THRESHOLD_MS, TIMER_SYNC_INTERVAL_MS, MAX_RECOVERY_ELAPSED_MS } from '$lib/types';
 import { createTimer, type TimerService } from '$lib/services/timer';
 import { settingsStore } from '$lib/stores/settingsStore.svelte';
+import { storage } from '$lib/services/storage';
 
 // =============================================================================
 // State
@@ -23,6 +24,12 @@ let elapsedMsState = $state(0);
 let durationMs = $state(0);
 let running = $state(false);
 let timer: TimerService | null = null;
+
+// T012: Sync interval ID for periodic persistence
+let syncIntervalId: ReturnType<typeof setInterval> | null = null;
+
+// Flag to track if browser event listeners have been set up
+let listenersInitialized = false;
 
 // =============================================================================
 // Derived State
@@ -70,6 +77,190 @@ function formatTime(ms: number): string {
 	}
 
 	return `${prefix}${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+}
+
+// =============================================================================
+// Persistence Helpers (010-timer-persistence)
+// =============================================================================
+
+/**
+ * T019: Persist current timer state to storage.
+ * Called periodically and on browser events.
+ */
+function persistTimerState(): void {
+	if (!running) return;
+
+	const session = storage.getSession();
+	if (!session || session.status !== 'running') return;
+
+	// Get current elapsed from timer
+	let currentElapsed = elapsedMsState;
+	if (timer) {
+		currentElapsed = timer.getElapsed();
+		elapsedMsState = currentElapsed;
+	}
+
+	// Update session with current timer state
+	const updatedSession: DaySession = {
+		...session,
+		currentTaskElapsedMs: currentElapsed,
+		lastPersistedAt: Date.now()
+	};
+
+	storage.saveSession(updatedSession);
+}
+
+/**
+ * T013: Start periodic sync interval.
+ * Called internally when timer starts.
+ */
+function startPersistenceSync(): void {
+	if (syncIntervalId !== null) return;
+
+	syncIntervalId = setInterval(() => {
+		persistTimerState();
+	}, TIMER_SYNC_INTERVAL_MS);
+}
+
+/**
+ * T014: Stop periodic sync interval.
+ * Called internally when timer stops.
+ */
+function stopPersistenceSync(): void {
+	if (syncIntervalId !== null) {
+		clearInterval(syncIntervalId);
+		syncIntervalId = null;
+	}
+}
+
+/**
+ * T024/T025: Recalculate elapsed time on wake from sleep.
+ * Uses wall-clock recovery to add any time spent sleeping.
+ */
+function recalculateElapsedOnWake(): void {
+	if (!running) return;
+
+	const session = storage.getSession();
+	if (!session || session.status !== 'running') return;
+
+	const now = Date.now();
+	const lastSync = session.lastPersistedAt;
+	const savedElapsed = session.currentTaskElapsedMs;
+
+	// Calculate how much time passed since last sync
+	const awayTimeMs = now - lastSync;
+
+	// If significant time passed (more than sync interval), we were likely asleep
+	if (awayTimeMs > TIMER_SYNC_INTERVAL_MS + 1000) {
+		let newElapsed = savedElapsed + awayTimeMs;
+
+		// Cap at 24 hours
+		if (newElapsed > MAX_RECOVERY_ELAPSED_MS) {
+			newElapsed = MAX_RECOVERY_ELAPSED_MS;
+		}
+
+		// Update state
+		elapsedMsState = newElapsed;
+
+		// Restart timer from new position
+		if (timer) {
+			timer.destroy();
+			timer = createTimer({
+				onTick: (elapsed: number) => {
+					elapsedMsState = elapsed;
+				}
+			});
+			timer.start(newElapsed);
+		}
+
+		// Persist the updated state
+		persistTimerState();
+	}
+}
+
+/**
+ * T018: Set up browser event listeners for persistence.
+ * Called once when the store is first used.
+ */
+function setupBrowserEventListeners(): void {
+	if (listenersInitialized || typeof window === 'undefined') return;
+
+	// T024: Handle visibility change for both persist (hidden) and recalculate (visible)
+	document.addEventListener('visibilitychange', () => {
+		if (document.hidden && running) {
+			// Persist when tab becomes hidden
+			persistTimerState();
+		} else if (!document.hidden && running) {
+			// T025: Recalculate elapsed on wake (visibility becomes visible)
+			recalculateElapsedOnWake();
+		}
+	});
+
+	// Persist before page unloads
+	window.addEventListener('pagehide', () => {
+		if (running) persistTimerState();
+	});
+
+	window.addEventListener('beforeunload', () => {
+		if (running) persistTimerState();
+	});
+
+	listenersInitialized = true;
+}
+
+/**
+ * T017: Calculate timer recovery state from a persisted session.
+ *
+ * @param session - Previously saved session state
+ * @returns Recovery result with elapsed time and validation status
+ */
+function calculateRecovery(session: DaySession | null): TimerRecoveryResult {
+	// No session or not running
+	if (!session || session.status !== 'running') {
+		return {
+			success: false,
+			recoveredElapsedMs: 0,
+			awayTimeMs: 0,
+			isValid: true
+		};
+	}
+
+	const now = Date.now();
+	const lastSync = session.lastPersistedAt;
+	const savedElapsed = session.currentTaskElapsedMs;
+
+	// Validate: lastSync should not be in the future
+	if (lastSync > now) {
+		console.warn('Timer recovery: timestamp in future, resetting');
+		return {
+			success: false,
+			recoveredElapsedMs: 0,
+			awayTimeMs: 0,
+			isValid: false,
+			error: 'Future timestamp'
+		};
+	}
+
+	const awayTimeMs = now - lastSync;
+	let recoveredElapsedMs = savedElapsed + awayTimeMs;
+
+	// Validate: negative elapsed should be 0
+	if (recoveredElapsedMs < 0) {
+		recoveredElapsedMs = 0;
+	}
+
+	// Cap at 24 hours
+	if (recoveredElapsedMs > MAX_RECOVERY_ELAPSED_MS) {
+		console.warn('Timer recovery: elapsed exceeds 24h, capping');
+		recoveredElapsedMs = MAX_RECOVERY_ELAPSED_MS;
+	}
+
+	return {
+		success: true,
+		recoveredElapsedMs,
+		awayTimeMs,
+		isValid: true
+	};
 }
 
 // =============================================================================
@@ -137,6 +328,10 @@ function createTimerStore() {
 
 			timer.start(startFromMs);
 			running = true;
+
+			// T015: Start persistence sync and set up event listeners
+			setupBrowserEventListeners();
+			startPersistenceSync();
 		},
 
 		/**
@@ -145,6 +340,9 @@ function createTimerStore() {
 		 * @returns Final elapsed time in milliseconds
 		 */
 		stop(): number {
+			// T016: Stop persistence sync
+			stopPersistenceSync();
+
 			if (!running || !timer) {
 				return elapsedMsState;
 			}
@@ -153,7 +351,33 @@ function createTimerStore() {
 			elapsedMsState = finalElapsed;
 			running = false;
 
+			// Persist final state
+			persistTimerState();
+
 			return finalElapsed;
+		},
+
+		/**
+		 * Set elapsed time for the running timer (for corrections).
+		 *
+		 * @param elapsedMs - New elapsed time in milliseconds
+		 */
+		setElapsed(elapsedMs: number): void {
+			if (!running) return;
+
+			// Update state
+			elapsedMsState = elapsedMs;
+
+			// If timer is running, restart it from the new elapsed time
+			if (timer) {
+				timer.destroy();
+				timer = createTimer({
+					onTick: (elapsed: number) => {
+						elapsedMsState = elapsed;
+					}
+				});
+				timer.start(elapsedMs);
+			}
 		},
 
 		/**
@@ -205,6 +429,17 @@ function createTimerStore() {
 				isRunning: running,
 				displayTime: formatTime(remaining)
 			};
+		},
+
+		/**
+		 * T017: Recover timer state on app load.
+		 * Calculates elapsed time from persisted timestamps.
+		 *
+		 * @returns TimerRecoveryResult with success status and recovered elapsed
+		 */
+		recover(): TimerRecoveryResult {
+			const session = storage.getSession();
+			return calculateRecovery(session);
 		}
 	};
 }

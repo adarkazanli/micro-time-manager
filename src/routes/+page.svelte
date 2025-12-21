@@ -62,6 +62,7 @@
 	/**
 	 * Persist current session state to localStorage
 	 * T052/T053: Visibility change and periodic persistence
+	 * T036/T037 (010-timer-persistence): Also persist active interruption state
 	 */
 	function persistSessionState() {
 		if (sessionStore.session && sessionStore.status === 'running') {
@@ -72,15 +73,33 @@
 				currentTaskElapsedMs: elapsedMs,
 				lastPersistedAt: Date.now()
 			});
+
+			// T036: Also persist interruption state if interrupted
+			// The interruption uses wall-clock recovery via startedAt, so we just
+			// need to persist the active interruption record periodically
+			if (interruptionStore.isInterrupted) {
+				storage.saveInterruptionState({
+					interruptions: interruptionStore.allInterruptionsForPersistence,
+					pausedTaskElapsedMs
+				});
+			}
 		}
 	}
 
 	/**
 	 * Handle visibility change - persist when page becomes hidden
+	 * T037 (010-timer-persistence): Also persist interruption state on visibility change
 	 */
 	function handleVisibilityChange() {
 		if (document.hidden) {
 			persistSessionState();
+			// T037: Explicitly persist interruption state when page becomes hidden
+			if (interruptionStore.isInterrupted) {
+				storage.saveInterruptionState({
+					interruptions: interruptionStore.allInterruptionsForPersistence,
+					pausedTaskElapsedMs
+				});
+			}
 		}
 	}
 
@@ -117,16 +136,22 @@
 		}
 
 		// Restore session if exists
+		// T029-T032 (010-timer-persistence): Use wall-clock recovery for accurate elapsed time
 		const savedSession = storage.getSession();
 		if (savedSession && savedSession.status === 'running') {
 			sessionStore.restore(savedSession, confirmedTasks);
 
 			// Resume task timer ONLY if not currently interrupted
 			if (sessionStore.currentProgress && !wasInterrupted) {
-				timerStore.start(
-					sessionStore.currentProgress.plannedDurationSec,
-					savedSession.currentTaskElapsedMs
-				);
+				// T030: Use timerStore.recover() for wall-clock elapsed calculation
+				const recovery = timerStore.recover();
+				const startFromMs = recovery.success
+					? recovery.recoveredElapsedMs
+					: savedSession.currentTaskElapsedMs;
+
+				// T031: Silent recovery - no notification per FR-013
+				// T032: Start timer from recovered elapsed position
+				timerStore.start(sessionStore.currentProgress.plannedDurationSec, startFromMs);
 			}
 		}
 
@@ -297,6 +322,52 @@
 		if (success) {
 			// Update local reference from in-memory store (no storage round-trip)
 			confirmedTasks = sessionStore.tasks;
+		}
+	}
+
+	// Task correction: Update progress (actual duration) handler
+	function handleImpactUpdateProgress(taskId: string, updates: { actualDurationSec: number }) {
+		sessionStore.updateTaskProgress(taskId, updates);
+	}
+
+	// Task correction: Uncomplete task handler
+	function handleUncompleteTask(taskId: string) {
+		// Stop any running timer first (since we're switching tasks)
+		timerStore.stop();
+
+		const success = sessionStore.uncompleteTask(taskId);
+		if (success) {
+			// Update local reference
+			confirmedTasks = sessionStore.tasks;
+			// If this task becomes active, restart the timer from the preserved elapsed time
+			if (sessionStore.currentProgress && sessionStore.currentProgress.taskId === taskId) {
+				// Start timer from where it left off (actualDurationSec is preserved)
+				const previousElapsedMs = sessionStore.currentProgress.actualDurationSec * 1000;
+				timerStore.start(sessionStore.currentProgress.plannedDurationSec, previousElapsedMs);
+			}
+		}
+	}
+
+	// Task correction: Update elapsed time for current task
+	function handleUpdateElapsed(elapsedMs: number) {
+		timerStore.setElapsed(elapsedMs);
+	}
+
+	// Jump to a specific task (start it immediately)
+	function handleStartTask(taskId: string) {
+		// Auto-end any active interruption before jumping
+		if (interruptionStore.isInterrupted) {
+			interruptionStore.autoEndInterruption();
+		}
+
+		// Get current elapsed time and complete current task, then jump to target
+		const elapsedMs = timerStore.stop();
+		const elapsedSec = Math.floor(elapsedMs / 1000);
+		const success = sessionStore.jumpToTask(taskId, elapsedSec);
+
+		if (success && sessionStore.currentProgress) {
+			// Start timer for the new current task
+			timerStore.start(sessionStore.currentProgress.plannedDurationSec);
 		}
 	}
 
@@ -717,6 +788,10 @@
 									onReorder={handleImpactReorder}
 									onUpdateTask={handleImpactUpdateTask}
 									onAddTask={() => { showAddTaskDialog = true; }}
+									onUpdateProgress={handleImpactUpdateProgress}
+									onUncompleteTask={handleUncompleteTask}
+									onUpdateElapsed={handleUpdateElapsed}
+									onStartTask={handleStartTask}
 								/>
 							</div>
 						</div>

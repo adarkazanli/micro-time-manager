@@ -257,6 +257,7 @@ function createSessionStore() {
 			tasks = confirmedTasks;
 
 			// Create new session
+			// T020: Set timerStartedAtMs for timer persistence
 			const newSession: DaySession = {
 				sessionId: generateUUID(),
 				startedAt: new Date().toISOString(),
@@ -266,7 +267,8 @@ function createSessionStore() {
 				currentTaskElapsedMs: 0,
 				lastPersistedAt: Date.now(),
 				totalLagSec: 0,
-				taskProgress: createTaskProgress(confirmedTasks)
+				taskProgress: createTaskProgress(confirmedTasks),
+				timerStartedAtMs: Date.now()
 			};
 
 			session = newSession;
@@ -318,7 +320,8 @@ function createSessionStore() {
 					currentTaskElapsedMs: 0,
 					lastPersistedAt: Date.now(),
 					totalLagSec: newLag,
-					taskProgress: progress
+					taskProgress: progress,
+					timerStartedAtMs: 0 // T021: Clear timer start timestamp
 				};
 			} else {
 				// Advance to next task
@@ -327,13 +330,15 @@ function createSessionStore() {
 					status: 'active' as ProgressStatus
 				};
 
+				// T021: Reset timerStartedAtMs for new task
 				session = {
 					...session,
 					currentTaskIndex: nextIndex,
 					currentTaskElapsedMs: 0,
 					lastPersistedAt: Date.now(),
 					totalLagSec: newLag,
-					taskProgress: progress
+					taskProgress: progress,
+					timerStartedAtMs: Date.now()
 				};
 			}
 
@@ -680,24 +685,27 @@ function createSessionStore() {
 				return false;
 			}
 
-			// T042: Cannot move current task
-			if (fromIndex === currentIndex) {
+			// Cannot move from before current task (completed tasks)
+			if (fromIndex < currentIndex) {
 				return false;
 			}
 
-			// Cannot move to a position before or at current task
-			if (toIndex <= currentIndex) {
+			// Cannot move to a position before current task (unless moving the current task itself)
+			if (fromIndex !== currentIndex && toIndex <= currentIndex) {
 				return false;
 			}
 
-			// Cannot move from before current task
-			if (fromIndex <= currentIndex) {
+			// If moving current task, it must go to a position after itself
+			if (fromIndex === currentIndex && toIndex <= currentIndex) {
 				return false;
 			}
 
 			// Perform the reorder
 			const newTasks = [...tasks];
 			const newProgress = [...session.taskProgress];
+
+			// Track if we're moving the current task
+			const isMovingCurrentTask = fromIndex === currentIndex;
 
 			// Remove from old position
 			const [movedTask] = newTasks.splice(fromIndex, 1);
@@ -718,10 +726,18 @@ function createSessionStore() {
 				};
 			}
 
+			// Calculate new current task index
+			let newCurrentIndex = currentIndex;
+			if (isMovingCurrentTask) {
+				// Current task moved to new position
+				newCurrentIndex = adjustedToIndex;
+			}
+
 			// Update state
 			tasks = newTasks;
 			session = {
 				...session,
+				currentTaskIndex: newCurrentIndex,
 				taskProgress: newProgress,
 				lastPersistedAt: Date.now()
 			};
@@ -729,6 +745,227 @@ function createSessionStore() {
 			// Persist changes (T056 will be handled by calling code)
 			storage.saveSession(session);
 			storage.saveTasks(newTasks);
+
+			return true;
+		},
+
+		/**
+		 * Update a completed task's progress data.
+		 *
+		 * Feature: Task Correction
+		 *
+		 * Allows editing the actual duration of a completed task.
+		 * Recalculates totalLagSec to reflect the change.
+		 *
+		 * @param taskId - ID of task to update
+		 * @param updates - Progress properties to update
+		 * @returns true if update succeeded, false if task not found or not complete
+		 */
+		updateTaskProgress(
+			taskId: string,
+			updates: { actualDurationSec: number }
+		): boolean {
+			if (!session) {
+				return false;
+			}
+
+			const progressIndex = session.taskProgress.findIndex((p) => p.taskId === taskId);
+			if (progressIndex === -1) {
+				return false;
+			}
+
+			const oldProgress = session.taskProgress[progressIndex];
+
+			// Only allow updating completed tasks
+			if (oldProgress.status !== 'complete') {
+				return false;
+			}
+
+			// Calculate lag difference: (newActual - oldActual)
+			const lagDiff = updates.actualDurationSec - oldProgress.actualDurationSec;
+
+			// Update progress record
+			const newProgress = [...session.taskProgress];
+			newProgress[progressIndex] = {
+				...oldProgress,
+				actualDurationSec: updates.actualDurationSec
+			};
+
+			// Adjust total lag
+			session = {
+				...session,
+				totalLagSec: session.totalLagSec + lagDiff,
+				taskProgress: newProgress,
+				lastPersistedAt: Date.now()
+			};
+
+			// Persist changes
+			storage.saveSession(session);
+
+			return true;
+		},
+
+		/**
+		 * Jump to a specific task, completing the current task.
+		 *
+		 * Feature: Task Correction
+		 *
+		 * Allows starting any pending task immediately:
+		 * - Completes the current task with the given elapsed time
+		 * - Sets the target task as the new current task
+		 * - Intermediate tasks remain as 'pending' (can be done later)
+		 *
+		 * @param taskId - ID of task to jump to
+		 * @param currentElapsedSec - Elapsed time on current task in seconds
+		 * @returns true if jump succeeded, false if task not found or already complete
+		 */
+		jumpToTask(taskId: string, currentElapsedSec: number): boolean {
+			if (!session || session.status !== 'running') {
+				return false;
+			}
+
+			// Find the target task
+			const targetIndex = tasks.findIndex((t) => t.taskId === taskId);
+			if (targetIndex === -1) {
+				return false;
+			}
+
+			const targetProgress = session.taskProgress[targetIndex];
+			const currentIndex = session.currentTaskIndex;
+
+			// Cannot jump to completed/missed tasks
+			if (targetProgress.status === 'complete' || targetProgress.status === 'missed') {
+				return false;
+			}
+
+			// If already on this task, nothing to do
+			if (targetIndex === currentIndex) {
+				return true;
+			}
+
+			// Note: We allow jumping to ANY pending task, including those with lower indices.
+			// This supports the use case where a user skipped a task and wants to return to it later.
+
+			// Complete the current task
+			const newProgress = [...session.taskProgress];
+			const currentProgress = newProgress[currentIndex];
+			const plannedDuration = currentProgress.plannedDurationSec;
+			const lag = currentElapsedSec - plannedDuration;
+
+			newProgress[currentIndex] = {
+				...currentProgress,
+				actualDurationSec: currentElapsedSec,
+				completedAt: new Date().toISOString(),
+				status: 'complete' as ProgressStatus
+			};
+
+			// Set target task as active
+			newProgress[targetIndex] = {
+				...newProgress[targetIndex],
+				status: 'active' as ProgressStatus
+			};
+
+			// Calculate new total lag
+			const newLag = session.totalLagSec + lag;
+
+			// Update session
+			session = {
+				...session,
+				currentTaskIndex: targetIndex,
+				currentTaskElapsedMs: 0,
+				totalLagSec: newLag,
+				taskProgress: newProgress,
+				lastPersistedAt: Date.now()
+			};
+
+			// Persist to storage
+			storage.saveSession(session);
+
+			return true;
+		},
+
+		/**
+		 * Mark a completed task as incomplete.
+		 *
+		 * Feature: Task Correction
+		 *
+		 * Resets a completed task back to pending/active state.
+		 * - Clears actualDurationSec and completedAt
+		 * - Recalculates totalLagSec
+		 * - Adjusts currentTaskIndex if needed
+		 * - If session was complete, sets back to running
+		 *
+		 * @param taskId - ID of task to uncomplete
+		 * @returns true if uncomplete succeeded, false if task not found or not complete
+		 */
+		uncompleteTask(taskId: string): boolean {
+			if (!session) {
+				return false;
+			}
+
+			const progressIndex = session.taskProgress.findIndex((p) => p.taskId === taskId);
+			if (progressIndex === -1) {
+				return false;
+			}
+
+			const oldProgress = session.taskProgress[progressIndex];
+
+			// Only allow uncompleting completed tasks
+			if (oldProgress.status !== 'complete') {
+				return false;
+			}
+
+			// Calculate old lag contribution: (actualDuration - plannedDuration)
+			const oldLagContribution = oldProgress.actualDurationSec - oldProgress.plannedDurationSec;
+
+			// Build new progress array
+			const newProgress = [...session.taskProgress];
+
+			// If the uncompleted task is at or before current index,
+			// we need to make it the current task
+			let newCurrentIndex = session.currentTaskIndex;
+			if (progressIndex <= session.currentTaskIndex) {
+				// Mark any currently active task as pending
+				for (let i = 0; i < newProgress.length; i++) {
+					if (newProgress[i].status === 'active') {
+						newProgress[i] = {
+							...newProgress[i],
+							status: 'pending' as ProgressStatus
+						};
+					}
+				}
+				// Set the uncompleted task as active, PRESERVING actualDurationSec
+				// so the timer can continue from where it left off
+				newProgress[progressIndex] = {
+					...oldProgress,
+					// Keep actualDurationSec so timer continues from previous elapsed time
+					completedAt: null,
+					status: 'active' as ProgressStatus
+				};
+				newCurrentIndex = progressIndex;
+			} else {
+				// Task is after current, just set to pending
+				// Preserve actualDurationSec in case they want to continue later
+				newProgress[progressIndex] = {
+					...oldProgress,
+					completedAt: null,
+					status: 'pending' as ProgressStatus
+				};
+			}
+
+			// Update session
+			session = {
+				...session,
+				status: 'running', // In case session was complete
+				endedAt: null, // Clear end time
+				currentTaskIndex: newCurrentIndex,
+				totalLagSec: session.totalLagSec - oldLagContribution,
+				taskProgress: newProgress,
+				lastPersistedAt: Date.now()
+			};
+
+			// Persist changes
+			storage.saveSession(session);
 
 			return true;
 		}

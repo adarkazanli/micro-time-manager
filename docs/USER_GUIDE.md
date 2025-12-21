@@ -98,6 +98,16 @@ The main screen shows:
 | Warning | Yellow numbers | Less than 5 minutes left |
 | Overdrawn | Red negative numbers | You've exceeded the allocated time |
 
+### Timer Persistence
+
+The timer automatically saves your progress every 10 seconds and whenever you switch tabs or minimize the browser. This means:
+
+- **Browser closure**: If you accidentally close the browser or it crashes, your timer will resume from where it left off when you reopen the app.
+- **Computer sleep**: If your computer goes to sleep or you close your laptop, the timer will "catch up" when you return, adding the time you were away.
+- **Interruptions**: Active interruptions are also preserved—if you're in the middle of tracking an interruption and the browser closes, it will continue from the correct elapsed time.
+
+**Note**: Timer recovery is capped at 24 hours. If more than 24 hours have passed, the timer will show as having elapsed 24 hours.
+
 ### Completing a Task
 
 When you finish a task:
@@ -144,7 +154,7 @@ Fixed tasks show colored dots indicating schedule risk:
 
 You can drag flexible tasks to resolve schedule conflicts:
 
-1. Look for the drag handle (⋮⋮) on flexible pending tasks
+1. Look for the drag handle (⋮⋮) on flexible tasks
 2. Drag a task to a new position
 3. Watch risk indicators update in real-time
 4. Your new order is automatically saved
@@ -152,7 +162,43 @@ You can drag flexible tasks to resolve schedule conflicts:
 **Note:** You cannot reorder:
 - Fixed tasks (they have set times)
 - Completed tasks
-- The current task you're working on
+
+**Tip:** You CAN move the current task if it's flexible—useful when you realize the task you're working on should come later.
+
+#### Starting Any Task
+
+Need to work on a different task than what's scheduled? You can start any pending task immediately:
+
+1. Hover over any pending task in the Impact Panel
+2. Click the **"Start"** button that appears
+3. Your current task is completed with its elapsed time
+4. The selected task becomes your new current task
+
+This is useful when:
+- A meeting gets moved up
+- You need to handle something urgent
+- Your planned order no longer makes sense
+
+**Note:** Skipped tasks remain as "pending"—you can come back to them later or reorder them.
+
+#### Correcting Mistakes
+
+Made an error? The Impact Panel lets you fix common mistakes:
+
+**Editing Elapsed Time:**
+1. Double-click any completed or current task
+2. Edit the "Elapsed Time" field
+3. Click **Save Changes**
+
+**Marking a Task as Incomplete:**
+
+If you accidentally completed a task:
+1. Double-click the completed task
+2. Click **"Mark as Incomplete"**
+3. Confirm the action
+4. The task becomes current again with its elapsed time preserved
+
+Your timer will continue from where it left off—no time is lost!
 
 ---
 
@@ -496,5 +542,5 @@ For detailed user stories, see the [User Stories Document](../time-micromanager-
 
 ---
 
-**Document Version:** 1.1
+**Document Version:** 1.2
 **Last Updated:** 2025-12-20
