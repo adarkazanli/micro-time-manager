@@ -34,7 +34,7 @@
 </div>
 
 <style>
-	@import "tailwindcss";
+	@reference "tailwindcss";
 
 	.interruption-timer {
 		@apply flex flex-col items-center gap-1 px-4 py-3 rounded-lg;

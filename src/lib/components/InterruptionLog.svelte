@@ -94,7 +94,7 @@
 </div>
 
 <style>
-	@import "tailwindcss";
+	@reference "tailwindcss";
 
 	.interruption-log {
 		@apply bg-white rounded-lg border border-gray-200 shadow-sm;

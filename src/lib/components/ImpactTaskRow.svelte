@@ -145,7 +145,7 @@
 </div>
 
 <style>
-	@import "tailwindcss";
+	@reference "tailwindcss";
 
 	.impact-task-row {
 		@apply flex items-center gap-3 px-3 py-2 rounded-lg;

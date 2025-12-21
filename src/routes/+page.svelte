@@ -865,7 +865,7 @@
 />
 
 <style>
-	@import "tailwindcss";
+	@reference "tailwindcss";
 
 	.app-container {
 		@apply max-w-5xl mx-auto p-6;

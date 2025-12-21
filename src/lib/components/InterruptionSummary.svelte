@@ -53,7 +53,7 @@
 </div>
 
 <style>
-	@import "tailwindcss";
+	@reference "tailwindcss";
 
 	.interruption-summary {
 		@apply flex items-center gap-3 text-sm;

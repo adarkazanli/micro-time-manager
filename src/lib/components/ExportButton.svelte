@@ -165,7 +165,7 @@
 </div>
 
 <style>
-	@import "tailwindcss";
+	@reference "tailwindcss";
 
 	.export-container {
 		@apply relative;

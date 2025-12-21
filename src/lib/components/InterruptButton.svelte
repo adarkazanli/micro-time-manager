@@ -44,7 +44,7 @@
 </button>
 
 <style>
-	@import "tailwindcss";
+	@reference "tailwindcss";
 
 	.interrupt-btn {
 		@apply flex items-center gap-2 px-4 py-2 rounded-lg font-medium;
