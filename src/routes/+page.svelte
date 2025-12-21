@@ -56,6 +56,9 @@
 	// Add task dialog state (T034 - 009-ad-hoc-tasks)
 	let showAddTaskDialog = $state(false);
 
+	// Flag to track when initialization is complete (for notes persistence)
+	let isInitialized = $state(false);
+
 	/**
 	 * Persist current session state to localStorage
 	 * T052/T053: Visibility change and periodic persistence
@@ -135,6 +138,9 @@
 
 		// Release leadership when browser tab is closed (beforeunload doesn't trigger onDestroy)
 		window.addEventListener('beforeunload', handleBeforeUnload);
+
+		// Mark initialization complete - enables reactive notes persistence
+		isInitialized = true;
 	});
 
 	function handleBeforeUnload() {
@@ -167,6 +173,17 @@
 		if (tabSync) {
 			tabSync.releaseLeadership();
 			tabSync.destroy();
+		}
+	});
+
+	// T051 (005-note-capture): Reactively persist notes whenever they change
+	// This ensures notes are saved even if manual save calls are missed
+	$effect(() => {
+		// Access noteStore.notes to create a dependency
+		const currentNotes = noteStore.notes;
+		// Only save after initialization is complete to avoid overwriting on mount
+		if (isInitialized) {
+			storage.saveNotes(currentNotes);
 		}
 	});
 
