@@ -11,17 +11,29 @@
 	 * - Type (fixed/flexible)
 	 */
 
-	import type { ConfirmedTask, TaskType } from '$lib/types';
+	import type { ConfirmedTask, TaskType, TaskProgress } from '$lib/types';
 	import { formatDuration, parseDuration } from '$lib/utils/duration';
 
 	interface Props {
 		task: ConfirmedTask;
+		/** Task progress data (for completed task correction) */
+		progress?: TaskProgress;
+		/** Current elapsed time in ms (for current task) */
+		currentElapsedMs?: number;
+		/** Whether this is the current active task */
+		isCurrentTask?: boolean;
 		open: boolean;
 		onSave: (updates: Partial<Pick<ConfirmedTask, 'name' | 'plannedStart' | 'plannedDurationSec' | 'type'>>) => void;
+		/** Callback to save progress updates (actual duration) */
+		onSaveProgress?: (updates: { actualDurationSec: number }) => void;
+		/** Callback to update timer elapsed time (for current task) */
+		onUpdateElapsed?: (elapsedMs: number) => void;
+		/** Callback to mark task as incomplete */
+		onUncomplete?: () => void;
 		onClose: () => void;
 	}
 
-	let { task, open, onSave, onClose }: Props = $props();
+	let { task, progress, currentElapsedMs, isCurrentTask, open, onSave, onSaveProgress, onUpdateElapsed, onUncomplete, onClose }: Props = $props();
 
 	// Form state
 	let name = $state('');
@@ -30,6 +42,17 @@
 	let type = $state<TaskType>('flexible');
 	let durationError = $state('');
 	let nameError = $state('');
+
+	// Correction state (for completed/current tasks)
+	let actualDuration = $state('');
+	let actualDurationError = $state('');
+	let showUncompleteConfirm = $state(false);
+
+	// Derived: is this task completed?
+	const isCompleted = $derived(progress?.status === 'complete');
+
+	// Derived: should we show elapsed time editing? (completed OR current task)
+	const showElapsedTime = $derived(isCompleted || isCurrentTask);
 
 	// Reference to name input for auto-focus
 	let nameInputRef = $state<HTMLInputElement | null>(null);
@@ -46,6 +69,18 @@
 			type = task.type;
 			durationError = '';
 			nameError = '';
+
+			// Initialize elapsed time for completed or current tasks
+			if (progress?.status === 'complete') {
+				actualDuration = formatDuration(progress.actualDurationSec);
+			} else if (isCurrentTask && currentElapsedMs !== undefined) {
+				actualDuration = formatDuration(Math.floor(currentElapsedMs / 1000));
+			} else {
+				actualDuration = '';
+			}
+			actualDurationError = '';
+			showUncompleteConfirm = false;
+
 			// Auto-focus the name input after a tick to ensure DOM is ready
 			setTimeout(() => {
 				nameInputRef?.focus();
@@ -90,6 +125,48 @@
 		onClose();
 	}
 
+	function handleSaveProgress() {
+		// Validate name
+		const trimmedName = name.trim();
+		if (!trimmedName) {
+			nameError = 'Task name is required';
+			return;
+		}
+		nameError = '';
+
+		// Validate actual duration
+		const parsedActualDuration = parseDuration(actualDuration);
+		if (parsedActualDuration === null || parsedActualDuration <= 0) {
+			actualDurationError = 'Invalid duration format (e.g., "30m", "1h 30m", "45:00")';
+			return;
+		}
+		actualDurationError = '';
+
+		// Save name changes if any
+		if (trimmedName !== task.name) {
+			onSave({ name: trimmedName });
+		}
+
+		// Save elapsed time based on task status
+		if (isCompleted) {
+			// For completed tasks, update the progress record
+			onSaveProgress?.({ actualDurationSec: parsedActualDuration });
+		} else if (isCurrentTask) {
+			// For current task, update the timer
+			onUpdateElapsed?.(parsedActualDuration * 1000);
+		}
+		onClose();
+	}
+
+	function handleUncomplete() {
+		if (!showUncompleteConfirm) {
+			showUncompleteConfirm = true;
+			return;
+		}
+		onUncomplete?.();
+		onClose();
+	}
+
 	function handleKeydown(e: KeyboardEvent) {
 		if (e.key === 'Escape') {
 			onClose();
@@ -118,7 +195,7 @@
 			<h2 id="dialog-title" class="dialog-title">Edit Task</h2>
 
 			<form onsubmit={(e) => { e.preventDefault(); handleSave(); }}>
-				<!-- Task Name -->
+				<!-- Task Name (always shown) -->
 				<div class="form-group">
 					<label for="task-name" class="form-label">Task Name</label>
 					<input
@@ -136,67 +213,114 @@
 					{/if}
 				</div>
 
-				<!-- Start Time -->
-				<div class="form-group">
-					<label for="start-time" class="form-label">Start Time</label>
-					<input
-						id="start-time"
-						type="time"
-						class="form-input"
-						bind:value={startTime}
-						required
-					/>
-				</div>
+				{#if showElapsedTime}
+					<!-- Completed/Current Task: Show elapsed time editing -->
+					<div class="form-group">
+						<label for="actual-duration" class="form-label">Elapsed Time</label>
+						<input
+							id="actual-duration"
+							type="text"
+							class="form-input"
+							class:error={actualDurationError}
+							bind:value={actualDuration}
+							placeholder="e.g., 30m, 1h 30m, 45:00"
+						/>
+						{#if actualDurationError}
+							<span class="error-message">{actualDurationError}</span>
+						{/if}
+						<p class="field-hint">Originally planned: {duration}</p>
+					</div>
 
-				<!-- Duration -->
-				<div class="form-group">
-					<label for="duration" class="form-label">Duration</label>
-					<input
-						id="duration"
-						type="text"
-						class="form-input"
-						class:error={durationError}
-						bind:value={duration}
-						placeholder="e.g., 30m, 1h 30m, 45:00"
-						required
-					/>
-					{#if durationError}
-						<span class="error-message">{durationError}</span>
+					{#if isCompleted}
+						<!-- Mark as Incomplete (only for completed tasks) -->
+						<div class="form-group">
+							<label class="form-label">Status</label>
+							{#if showUncompleteConfirm}
+								<p class="confirm-message">Are you sure? This will reset the task timer.</p>
+							{/if}
+							<button
+								type="button"
+								class="btn btn-warning"
+								onclick={handleUncomplete}
+							>
+								{showUncompleteConfirm ? 'Confirm: Mark as Incomplete' : 'Mark as Incomplete'}
+							</button>
+						</div>
 					{/if}
-				</div>
 
-				<!-- Type -->
-				<div class="form-group">
-					<label class="form-label">Type</label>
-					<div class="type-buttons">
-						<button
-							type="button"
-							class="type-button"
-							class:selected={type === 'flexible'}
-							onclick={() => type = 'flexible'}
-						>
-							Flexible
+					<!-- Actions for completed/current tasks -->
+					<div class="dialog-actions">
+						<button type="button" class="btn btn-secondary" onclick={onClose}>
+							Cancel
 						</button>
-						<button
-							type="button"
-							class="type-button"
-							class:selected={type === 'fixed'}
-							onclick={() => type = 'fixed'}
-						>
-							Fixed
+						<button type="button" class="btn btn-primary" onclick={handleSaveProgress}>
+							Save Changes
 						</button>
 					</div>
-				</div>
+				{:else}
+					<!-- Non-completed Task: Show planning fields -->
+					<!-- Start Time -->
+					<div class="form-group">
+						<label for="start-time" class="form-label">Start Time</label>
+						<input
+							id="start-time"
+							type="time"
+							class="form-input"
+							bind:value={startTime}
+							required
+						/>
+					</div>
 
-				<!-- Actions -->
-				<div class="dialog-actions">
-					<button type="button" class="btn btn-secondary" onclick={onClose}>
-						Cancel
-					</button>
-					<button type="submit" class="btn btn-primary">
-						Save
-					</button>
-				</div>
+					<!-- Duration -->
+					<div class="form-group">
+						<label for="duration" class="form-label">Duration</label>
+						<input
+							id="duration"
+							type="text"
+							class="form-input"
+							class:error={durationError}
+							bind:value={duration}
+							placeholder="e.g., 30m, 1h 30m, 45:00"
+							required
+						/>
+						{#if durationError}
+							<span class="error-message">{durationError}</span>
+						{/if}
+					</div>
+
+					<!-- Type -->
+					<div class="form-group">
+						<label class="form-label">Type</label>
+						<div class="type-buttons">
+							<button
+								type="button"
+								class="type-button"
+								class:selected={type === 'flexible'}
+								onclick={() => type = 'flexible'}
+							>
+								Flexible
+							</button>
+							<button
+								type="button"
+								class="type-button"
+								class:selected={type === 'fixed'}
+								onclick={() => type = 'fixed'}
+							>
+								Fixed
+							</button>
+						</div>
+					</div>
+
+					<!-- Actions for non-completed tasks -->
+					<div class="dialog-actions">
+						<button type="button" class="btn btn-secondary" onclick={onClose}>
+							Cancel
+						</button>
+						<button type="submit" class="btn btn-primary">
+							Save
+						</button>
+					</div>
+				{/if}
 			</form>
 		</div>
 	</div>
@@ -271,5 +395,19 @@
 	.btn-primary {
 		@apply bg-blue-600 text-white;
 		@apply hover:bg-blue-700;
+	}
+
+	/* Field hint for showing planned duration */
+	.field-hint {
+		@apply text-sm text-gray-500 mt-1;
+	}
+
+	.btn-warning {
+		@apply w-full bg-amber-100 text-amber-800 border border-amber-300;
+		@apply hover:bg-amber-200;
+	}
+
+	.confirm-message {
+		@apply text-sm text-amber-700 mb-2;
 	}
 </style>

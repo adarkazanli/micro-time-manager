@@ -234,9 +234,12 @@ export function createProjectedTasks(
 			riskLevel = calculateRiskLevel(new Date(rawArrivalMs), task.plannedStart);
 		}
 
-		// Determine if draggable (flexible + pending + after current)
+		// Determine if draggable (flexible + not completed + after or at current)
+		// Current task can be moved if it's flexible
 		const isDraggable =
-			task.type === 'flexible' && displayStatus === 'pending' && index > currentIndex;
+			task.type === 'flexible' &&
+			displayStatus !== 'completed' &&
+			index >= currentIndex;
 
 		results.push({
 			task,

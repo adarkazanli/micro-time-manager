@@ -28,16 +28,33 @@
 		onUpdateTask?: (taskId: string, updates: Partial<Pick<ConfirmedTask, 'name' | 'plannedStart' | 'plannedDurationSec' | 'type'>>) => void;
 		/** Callback when Add Task button is clicked (dialog managed by parent) */
 		onAddTask?: () => void;
+		/** Callback to update task progress (actual duration) */
+		onUpdateProgress?: (taskId: string, updates: { actualDurationSec: number }) => void;
+		/** Callback to mark task as incomplete */
+		onUncompleteTask?: (taskId: string) => void;
+		/** Callback to update timer elapsed time (for current task) */
+		onUpdateElapsed?: (elapsedMs: number) => void;
+		/** Callback to start a specific task (jump to it) */
+		onStartTask?: (taskId: string) => void;
 	}
 
-	let { tasks, progress, currentIndex, elapsedMs, sessionActive, onReorder, onUpdateTask, onAddTask }: Props = $props();
+	let { tasks, progress, currentIndex, elapsedMs, sessionActive, onReorder, onUpdateTask, onAddTask, onUpdateProgress, onUncompleteTask, onUpdateElapsed, onStartTask }: Props = $props();
 
 	// Edit dialog state
 	let editingTask = $state<ConfirmedTask | null>(null);
+	let editingProgress = $state<TaskProgress | null>(null);
 	let isEditDialogOpen = $state(false);
+
+	// Track if editing task is the current task
+	let editingTaskIsCurrentTask = $state(false);
 
 	function handleEditTask(task: ConfirmedTask) {
 		editingTask = task;
+		// Find corresponding progress record
+		editingProgress = progress.find(p => p.taskId === task.taskId) ?? null;
+		// Check if this is the current task
+		const taskIndex = tasks.findIndex(t => t.taskId === task.taskId);
+		editingTaskIsCurrentTask = taskIndex === currentIndex;
 		isEditDialogOpen = true;
 	}
 
@@ -47,9 +64,31 @@
 		}
 	}
 
+	function handleSaveProgress(updates: { actualDurationSec: number }) {
+		if (editingTask && onUpdateProgress) {
+			onUpdateProgress(editingTask.taskId, updates);
+		}
+	}
+
+	function handleUncomplete() {
+		if (editingTask && onUncompleteTask) {
+			onUncompleteTask(editingTask.taskId);
+		}
+	}
+
+	function handleUpdateElapsed(elapsedMs: number) {
+		onUpdateElapsed?.(elapsedMs);
+	}
+
+	function handleStartTask(task: ConfirmedTask) {
+		onStartTask?.(task.taskId);
+	}
+
 	function handleCloseDialog() {
 		isEditDialogOpen = false;
 		editingTask = null;
+		editingProgress = null;
+		editingTaskIsCurrentTask = false;
 	}
 
 	// Drag state
@@ -201,6 +240,7 @@
 					onDragStart={handleDragStart}
 					onDragEnd={handleDragEnd}
 					onEdit={handleEditTask}
+					onStartTask={onStartTask ? handleStartTask : undefined}
 				/>
 			</div>
 		{/each}
@@ -238,8 +278,14 @@
 {#if editingTask}
 	<EditTaskDialog
 		task={editingTask}
+		progress={editingProgress ?? undefined}
+		currentElapsedMs={editingTaskIsCurrentTask ? elapsedMs : undefined}
+		isCurrentTask={editingTaskIsCurrentTask}
 		open={isEditDialogOpen}
 		onSave={handleSaveTask}
+		onSaveProgress={handleSaveProgress}
+		onUpdateElapsed={handleUpdateElapsed}
+		onUncomplete={handleUncomplete}
 		onClose={handleCloseDialog}
 	/>
 {/if}

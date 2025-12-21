@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Task Correction Features**:
+  - Edit elapsed time for completed tasks (correct mistakes after completion)
+  - Edit elapsed time for current task (adjust timer mid-task)
+  - Mark completed task as incomplete (preserves elapsed time, timer continues)
+  - "Start Now" button to jump to any pending task immediately
+  - Current task can now be reordered (if flexible)
 - **004-interruption-tracking**: Interruption tracking for logging task pauses
   - Interrupt/Resume button with keyboard shortcuts (I/R)
   - Interruption timer showing elapsed pause time

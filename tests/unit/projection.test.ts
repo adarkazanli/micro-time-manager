@@ -135,15 +135,15 @@ describe('createProjectedTasks', () => {
 		expect(result[2].displayStatus).toBe('pending');
 	});
 
-	it('sets isDraggable correctly for flexible pending tasks', () => {
+	it('sets isDraggable correctly for flexible tasks', () => {
 		const tasks = createMockTasks(3);
-		tasks[2].type = 'flexible'; // Make last task flexible
+		// All tasks are flexible by default from createMockTasks
 		const progress = createMockProgress(tasks, 1);
 		const result = createProjectedTasks(tasks, progress, 1, 0);
 
-		expect(result[0].isDraggable).toBe(false); // Completed
-		expect(result[1].isDraggable).toBe(false); // Current
-		expect(result[2].isDraggable).toBe(true); // Pending + flexible
+		expect(result[0].isDraggable).toBe(false); // Completed - cannot be moved
+		expect(result[1].isDraggable).toBe(true); // Current + flexible - can be moved
+		expect(result[2].isDraggable).toBe(true); // Pending + flexible - can be moved
 	});
 
 	it('sets isDraggable false for fixed pending tasks', () => {

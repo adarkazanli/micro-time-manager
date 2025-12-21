@@ -21,10 +21,14 @@
 		onDragStart?: (e: DragEvent, index: number) => void;
 		onDragEnd?: (e: DragEvent) => void;
 		onEdit?: (task: ProjectedTask['task']) => void;
+		onStartTask?: (task: ProjectedTask['task']) => void;
 		index: number;
 	}
 
-	let { projectedTask, onDragStart, onDragEnd, onEdit, index }: Props = $props();
+	let { projectedTask, onDragStart, onDragEnd, onEdit, onStartTask, index }: Props = $props();
+
+	// Can start this task if it's pending (not completed, not current)
+	const canStart = $derived(projectedTask.displayStatus === 'pending');
 
 	// Derived display values
 	const scheduledTime = $derived(formatTime(projectedTask.task.plannedStart, '12h'));
@@ -69,6 +73,11 @@
 
 	function handleDoubleClick() {
 		onEdit?.(projectedTask.task);
+	}
+
+	function handleStartClick(e: MouseEvent) {
+		e.stopPropagation(); // Prevent triggering row click/drag
+		onStartTask?.(projectedTask.task);
 	}
 </script>
 
@@ -142,6 +151,19 @@
 			{projectedTask.task.type}
 		</span>
 	</div>
+
+	<!-- Start button for pending tasks -->
+	{#if canStart && onStartTask}
+		<button
+			type="button"
+			class="start-btn"
+			onclick={handleStartClick}
+			data-testid="start-task-btn"
+			title="Start this task now"
+		>
+			Start
+		</button>
+	{/if}
 </div>
 
 <style>
@@ -277,5 +299,23 @@
 
 	.impact-task-row.completed .type-badge {
 		@apply opacity-50;
+	}
+
+	/* Start button - shows on hover */
+	.start-btn {
+		@apply px-2 py-1 text-xs font-medium rounded;
+		@apply bg-green-100 text-green-700;
+		@apply hover:bg-green-200;
+		@apply opacity-0 transition-opacity duration-150;
+		@apply flex-shrink-0;
+	}
+
+	.impact-task-row:hover .start-btn {
+		@apply opacity-100;
+	}
+
+	/* Always show on touch devices / when focused */
+	.start-btn:focus {
+		@apply opacity-100 ring-2 ring-green-500;
 	}
 </style>

@@ -234,6 +234,7 @@
 		aria-modal="true"
 		aria-labelledby="add-task-title"
 		onclick={handleBackdropClick}
+		data-testid="add-task-dialog"
 	>
 		<div class="dialog-content" onkeydown={handleKeydown}>
 			<h2 id="add-task-title" class="dialog-title">Add Task</h2>
@@ -252,6 +253,7 @@
 						placeholder="Enter task name"
 						required
 						maxlength="200"
+						data-testid="new-task-name"
 					/>
 					{#if nameError}
 						<span class="error-message">{nameError}</span>
@@ -269,6 +271,7 @@
 						bind:value={duration}
 						placeholder="e.g., 30m, 1h 30m"
 						required
+						data-testid="new-task-duration"
 					/>
 					{#if durationError}
 						<span class="error-message">{durationError}</span>
@@ -330,7 +333,7 @@
 					<button type="button" class="btn btn-secondary" onclick={onClose}>
 						Cancel
 					</button>
-					<button type="submit" class="btn btn-primary">
+					<button type="submit" class="btn btn-primary" data-testid="add-task-submit">
 						Add Task
 					</button>
 				</div>

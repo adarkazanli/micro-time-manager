@@ -81,6 +81,44 @@ As a user who has reordered my schedule, I want my changes to persist so that th
 
 ---
 
+### User Story 5 - Task Correction (Priority: P2)
+
+As a user who made a mistake (accidentally completed a task or logged the wrong time), I want to be able to correct task elapsed times and mark tasks as incomplete so I can maintain accurate records without restarting my day.
+
+**Why this priority**: Error correction is essential for data accuracy but requires the core tracking functionality to be in place first.
+
+**Independent Test**: Can be tested by completing a task, double-clicking to edit, changing the elapsed time, and verifying the change persists. Also test marking a task as incomplete and verifying the timer continues from the preserved elapsed time.
+
+**Acceptance Scenarios**:
+
+1. **Given** a task has been completed, **When** the user double-clicks the task in the impact panel, **Then** a dialog appears showing the elapsed time field which can be edited.
+
+2. **Given** a user is editing a completed task's elapsed time, **When** they save the change, **Then** the new elapsed time is persisted and lag calculations are updated.
+
+3. **Given** a user is editing the current task, **When** they modify the elapsed time and save, **Then** the timer updates to reflect the new elapsed time.
+
+4. **Given** a task has been completed, **When** the user clicks "Mark as Incomplete" and confirms, **Then** the task becomes the current task and the timer continues from the preserved elapsed time.
+
+---
+
+### User Story 6 - Jump to Any Task (Priority: P2)
+
+As a user whose schedule has changed (meeting moved up, urgent task appeared), I want to start any pending task immediately so I can adapt to changing circumstances without losing tracking data.
+
+**Why this priority**: Schedule flexibility is critical for real-world use but depends on core task tracking being complete.
+
+**Independent Test**: Can be tested by hovering over a pending task, clicking "Start", and verifying the current task is completed and the new task becomes current with a fresh timer.
+
+**Acceptance Scenarios**:
+
+1. **Given** a user hovers over a pending task in the impact panel, **When** viewing the task row, **Then** a "Start" button appears.
+
+2. **Given** a user clicks "Start" on a pending task, **When** the action completes, **Then** the current task is marked complete with its elapsed time and the selected task becomes current.
+
+3. **Given** a user jumps to a task that is not the next sequential task, **When** the jump completes, **Then** intermediate tasks remain as "pending" and can be worked on later or reordered.
+
+---
+
 ### Edge Cases
 
 - What happens when all remaining flexible tasks are moved and the fixed task is still red? The user should see a clear indication that no further schedule adjustments can help.
@@ -104,10 +142,16 @@ As a user who has reordered my schedule, I want my changes to persist so that th
 - **FR-009**: System MUST allow users to drag and drop flexible tasks to reorder them within the impact panel.
 - **FR-010**: System MUST prevent reordering of fixed tasks (they maintain their scheduled position).
 - **FR-011**: System MUST prevent reordering of completed tasks.
-- **FR-012**: System MUST prevent moving the currently active task.
+- **FR-012**: System MUST allow reordering of the current task if it is flexible (updating currentTaskIndex accordingly).
 - **FR-013**: System MUST recalculate all projected times and indicators immediately when tasks are reordered.
 - **FR-014**: System MUST persist task reordering to maintain changes across page reloads.
 - **FR-015**: System MUST show scheduled start times for all tasks in the panel.
+- **FR-016**: System MUST allow users to edit elapsed time for completed tasks via the edit dialog.
+- **FR-017**: System MUST allow users to edit elapsed time for the current task via the edit dialog.
+- **FR-018**: System MUST allow users to mark a completed task as incomplete, preserving its elapsed time.
+- **FR-019**: System MUST display a "Start" button on pending tasks (visible on hover) to allow jumping to any task.
+- **FR-020**: System MUST complete the current task when user jumps to another task, recording elapsed time.
+- **FR-021**: System MUST preserve intermediate tasks as "pending" when user jumps ahead in the schedule.
 
 ### Key Entities
 
@@ -132,7 +176,8 @@ As a user who has reordered my schedule, I want my changes to persist so that th
 - Fixed tasks represent appointments that have an external dependency (meetings, calls) and cannot be rescheduled within the app.
 - The impact panel uses a side-by-side layout: timer/current task on left, impact panel on right, allowing users to see both focus and schedule impact without scrolling.
 - Users understand the color convention: green = safe, yellow = caution, red = danger.
-- Only flexible tasks after the current task can be reordered; the schedule before and including the current task is locked.
+- Flexible tasks (including the current task) can be reordered; only completed tasks and fixed tasks are locked.
+- When marking a task as incomplete, the elapsed time is preserved so users don't lose their progress.
 
 ## Clarifications
 
