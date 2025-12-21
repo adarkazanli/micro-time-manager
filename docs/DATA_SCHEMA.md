@@ -33,6 +33,7 @@ interface DaySession {
   currentTaskIndex: number;    // 0-based index of current task
   currentTaskElapsedMs: number; // Milliseconds spent on current task
   lastPersistedAt: number;     // Epoch ms, for recovery
+  timerStartedAtMs: number;    // Epoch ms when current task timer started (v6+)
   totalLagSec: number;         // Cumulative lag (negative = ahead)
   taskProgress: TaskProgress[]; // Progress records for all tasks
 }
@@ -57,6 +58,7 @@ interface TaskProgress {
   "currentTaskIndex": 1,
   "currentTaskElapsedMs": 450000,
   "lastPersistedAt": 1702810000000,
+  "timerStartedAtMs": 1702809600000,
   "totalLagSec": 120,
   "taskProgress": [
     {
@@ -270,7 +272,7 @@ interface SchemaVersion {
 }
 ```
 
-**Current Version:** `5`
+**Current Version:** `6`
 
 ### Version History
 
@@ -281,6 +283,7 @@ interface SchemaVersion {
 | 3 | Added interruption tracking (`tm_interruptions` storage key) |
 | 4 | Added note capture (`tm_notes` storage key) |
 | 5 | Added settings persistence (`tm_settings` storage key) |
+| 6 | Added `timerStartedAtMs` to DaySession for timer persistence across browser closure/sleep (Feature 010) |
 
 ### Migration Strategy
 

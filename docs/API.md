@@ -49,6 +49,9 @@ interface TimerStore {
   /** Formatted display time (e.g., "12:34" or "-2:15") */
   readonly displayTime: string;
 
+  /** Current timer state snapshot */
+  readonly state: TimerState;
+
   /**
    * Start the timer
    * @param plannedDurationSec - Task duration in seconds
@@ -59,8 +62,28 @@ interface TimerStore {
   /** Stop the timer and return elapsed milliseconds */
   stop(): number;
 
+  /**
+   * Set elapsed time for running timer (for corrections)
+   * @param elapsedMs - New elapsed time in milliseconds
+   */
+  setElapsed(elapsedMs: number): void;
+
   /** Reset timer state */
   reset(): void;
+
+  /**
+   * Force an immediate state snapshot for persistence.
+   * @returns Current timer state
+   */
+  snapshot(): TimerState;
+
+  /**
+   * Recover timer state on app load using wall-clock calculation.
+   * Calculates elapsed time from persisted timestamps to account
+   * for time spent while browser was closed or computer was asleep.
+   * @returns TimerRecoveryResult with success status and recovered elapsed
+   */
+  recover(): TimerRecoveryResult;
 }
 ```
 
@@ -74,6 +97,47 @@ interface TimerStore {
 <div class="timer" class:overtime={timerStore.remainingMs < 0}>
   <span style="color: {timerStore.color}">{timerStore.displayTime}</span>
 </div>
+```
+
+**Timer Persistence (Feature 010):**
+
+The timer automatically persists state to localStorage every 10 seconds and on visibility change events. When the app restarts after browser closure or computer sleep, use `timerStore.recover()` to calculate the correct elapsed time:
+
+```typescript
+// On app mount, after restoring session
+const recovery = timerStore.recover();
+if (recovery.success) {
+  // Start timer from recovered elapsed position
+  timerStore.start(taskDurationSec, recovery.recoveredElapsedMs);
+}
+```
+
+**Types:**
+
+```typescript
+interface TimerState {
+  elapsedMs: number;
+  remainingMs: number;
+  color: TimerColor;
+  isRunning: boolean;
+  displayTime: string;
+}
+
+interface TimerRecoveryResult {
+  success: boolean;           // Whether recovery found valid data
+  recoveredElapsedMs: number; // Total elapsed including away time
+  awayTimeMs: number;         // Time spent away (browser closed, sleep)
+  isValid: boolean;           // Whether timestamps were valid
+  error?: string;             // Error message if invalid
+}
+
+type TimerColor = 'green' | 'yellow' | 'red';
+
+/** Sync interval for periodic persistence */
+const TIMER_SYNC_INTERVAL_MS = 10000; // 10 seconds
+
+/** Maximum recoverable elapsed time (24 hours) */
+const MAX_RECOVERY_ELAPSED_MS = 24 * 60 * 60 * 1000;
 ```
 
 ---
@@ -130,6 +194,31 @@ interface SessionStore {
 
   /** Update a task's properties */
   updateTask(taskId: string, updates: Partial<ConfirmedTask>): boolean;
+
+  /**
+   * Update task progress (for correcting completed task elapsed time)
+   * @param taskId - ID of the completed task
+   * @param updates - Object containing actualDurationSec
+   * @returns true if update succeeded
+   */
+  updateTaskProgress(taskId: string, updates: { actualDurationSec: number }): boolean;
+
+  /**
+   * Mark a completed task as incomplete
+   * Preserves elapsed time so timer can continue from where it left off.
+   * @param taskId - ID of the completed task
+   * @returns true if uncomplete succeeded
+   */
+  uncompleteTask(taskId: string): boolean;
+
+  /**
+   * Jump to a specific task, completing the current task
+   * Allows starting any pending task immediately.
+   * @param taskId - ID of the task to start
+   * @param currentElapsedSec - Elapsed seconds on current task
+   * @returns true if jump succeeded
+   */
+  jumpToTask(taskId: string, currentElapsedSec: number): boolean;
 
   /** Reset to initial state */
   reset(): void;
@@ -209,10 +298,21 @@ interface InterruptionStore {
   autoEndInterruption(): Interruption | null;
 
   /**
-   * Restore interruption state from localStorage
+   * Restore interruption state from localStorage.
+   * If an active interruption exists (endedAt === null), it will:
+   * - Calculate elapsed time using wall-clock (startedAt to now)
+   * - Set isInterrupted to true
+   * - Restart the interruption timer from the calculated position
    * @param saved - Previously saved interruptions
+   * @returns true if an active interruption was restored
    */
-  restore(saved: Interruption[]): void;
+  restore(saved: Interruption[]): boolean;
+
+  /**
+   * Get all interruptions for persistence (includes active if any)
+   * Used for periodic sync during active interruption.
+   */
+  readonly allInterruptionsForPersistence: Interruption[];
 
   /** Reset to initial state */
   reset(): void;
@@ -1164,7 +1264,7 @@ Custom events dispatched by components.
 
 ---
 
-**Document Version:** 1.3
+**Document Version:** 1.4
 **Last Updated:** 2025-12-20
 
 See also:

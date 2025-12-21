@@ -1009,6 +1009,158 @@ describe('sessionStore', () => {
 	});
 
 	// ==========================================================================
+	// 010-timer-persistence: T026-T028 - Unit tests for session recovery
+	// ==========================================================================
+
+	describe('Session recovery with timer persistence (010-timer-persistence)', () => {
+		it('T026: Session recovery restores currentTaskIndex', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(3);
+
+			const savedSession = {
+				sessionId: 'recovery-test',
+				startedAt: new Date().toISOString(),
+				endedAt: null,
+				status: 'running' as const,
+				currentTaskIndex: 2, // On third task
+				currentTaskElapsedMs: 60000,
+				totalLagSec: 0,
+				lastPersistedAt: Date.now(),
+				timerStartedAtMs: Date.now() - 60000,
+				taskProgress: tasks.map((t, i) => ({
+					taskId: t.taskId,
+					plannedDurationSec: t.plannedDurationSec,
+					actualDurationSec: i < 2 ? 1800 : 0,
+					completedAt: i < 2 ? new Date().toISOString() : null,
+					status: i < 2 ? ('complete' as const) : i === 2 ? ('active' as const) : ('pending' as const)
+				}))
+			};
+
+			sessionStore.restore(savedSession, tasks);
+
+			expect(sessionStore.currentTaskIndex).toBe(2);
+			expect(sessionStore.currentTask?.taskId).toBe('task-3');
+		});
+
+		it('T027: Session recovery restores taskProgress', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(3);
+
+			const savedSession = {
+				sessionId: 'recovery-test',
+				startedAt: new Date().toISOString(),
+				endedAt: null,
+				status: 'running' as const,
+				currentTaskIndex: 1,
+				currentTaskElapsedMs: 30000,
+				totalLagSec: 300,
+				lastPersistedAt: Date.now(),
+				timerStartedAtMs: Date.now() - 30000,
+				taskProgress: [
+					{
+						taskId: 'task-1',
+						plannedDurationSec: 1800,
+						actualDurationSec: 2100,
+						completedAt: new Date().toISOString(),
+						status: 'complete' as const
+					},
+					{
+						taskId: 'task-2',
+						plannedDurationSec: 1800,
+						actualDurationSec: 0,
+						completedAt: null,
+						status: 'active' as const
+					},
+					{
+						taskId: 'task-3',
+						plannedDurationSec: 1800,
+						actualDurationSec: 0,
+						completedAt: null,
+						status: 'pending' as const
+					}
+				]
+			};
+
+			sessionStore.restore(savedSession, tasks);
+
+			expect(sessionStore.taskProgress).toHaveLength(3);
+			expect(sessionStore.taskProgress[0].status).toBe('complete');
+			expect(sessionStore.taskProgress[0].actualDurationSec).toBe(2100);
+			expect(sessionStore.taskProgress[1].status).toBe('active');
+			expect(sessionStore.taskProgress[2].status).toBe('pending');
+		});
+
+		it('T028: Session recovery restores totalLagSec', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(2);
+
+			const savedSession = {
+				sessionId: 'recovery-test',
+				startedAt: new Date().toISOString(),
+				endedAt: null,
+				status: 'running' as const,
+				currentTaskIndex: 1,
+				currentTaskElapsedMs: 0,
+				totalLagSec: -300, // 5 minutes ahead
+				lastPersistedAt: Date.now(),
+				timerStartedAtMs: Date.now(),
+				taskProgress: [
+					{
+						taskId: 'task-1',
+						plannedDurationSec: 1800,
+						actualDurationSec: 1500,
+						completedAt: new Date().toISOString(),
+						status: 'complete' as const
+					},
+					{
+						taskId: 'task-2',
+						plannedDurationSec: 1800,
+						actualDurationSec: 0,
+						completedAt: null,
+						status: 'active' as const
+					}
+				]
+			};
+
+			sessionStore.restore(savedSession, tasks);
+
+			expect(sessionStore.lagSec).toBe(-300);
+			expect(sessionStore.lagDisplay).toBe('5 min ahead');
+		});
+
+		it('Session recovery preserves timerStartedAtMs', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(1);
+			const timerStartedAt = Date.now() - 120000; // 2 minutes ago
+
+			const savedSession = {
+				sessionId: 'recovery-test',
+				startedAt: new Date().toISOString(),
+				endedAt: null,
+				status: 'running' as const,
+				currentTaskIndex: 0,
+				currentTaskElapsedMs: 120000,
+				totalLagSec: 0,
+				lastPersistedAt: Date.now() - 10000,
+				timerStartedAtMs: timerStartedAt,
+				taskProgress: [
+					{
+						taskId: 'task-1',
+						plannedDurationSec: 1800,
+						actualDurationSec: 0,
+						completedAt: null,
+						status: 'active' as const
+					}
+				]
+			};
+
+			sessionStore.restore(savedSession, tasks);
+
+			expect(sessionStore.session?.timerStartedAtMs).toBe(timerStartedAt);
+		});
+	});
+
+	// ==========================================================================
 	// T046: Unit tests for restore() - page refresh recovery
 	// ==========================================================================
 
@@ -1660,17 +1812,21 @@ describe('sessionStore', () => {
 			expect(result).toBe(false);
 		});
 
-		it('should prevent moving current task (T042)', async () => {
+		it('should allow moving current task and update currentTaskIndex', async () => {
 			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
 			const tasks = createMockTasks(3);
 			tasks.forEach((t) => (t.type = 'flexible'));
 
 			sessionStore.startDay(tasks);
+			const currentTaskId = tasks[0].taskId;
 
-			// Current task is at index 0, try to move it
+			// Current task is at index 0, move it to position 2
 			const result = sessionStore.reorderTasks(0, 2);
 
-			expect(result).toBe(false);
+			expect(result).toBe(true);
+			// The current task should now be at index 1 (moved from 0 to position 2, adjusted to 1)
+			expect(sessionStore.currentTaskIndex).toBe(1);
+			expect(sessionStore.tasks[1].taskId).toBe(currentTaskId);
 		});
 
 		it('should prevent moving to position before current task', async () => {

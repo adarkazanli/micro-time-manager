@@ -123,6 +123,32 @@ function migrateV4toV5(): void {
 }
 
 /**
+ * Add timerStartedAtMs field to existing sessions when migrating schema v5 to v6.
+ * Uses lastPersistedAt as fallback for existing sessions.
+ *
+ * @remarks
+ * Errors encountered during migration are ignored.
+ *
+ * @new 010-timer-persistence
+ */
+function migrateV5toV6(): void {
+	try {
+		const session = localStorage.getItem(STORAGE_KEY_SESSION);
+		if (session) {
+			const parsed = JSON.parse(session) as DaySession;
+			// Add timerStartedAtMs if missing (use lastPersistedAt as fallback)
+			if ((parsed as Record<string, unknown>).timerStartedAtMs === undefined) {
+				(parsed as Record<string, unknown>).timerStartedAtMs =
+					parsed.lastPersistedAt || Date.now();
+				localStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify(parsed));
+			}
+		}
+	} catch {
+		// Ignore errors during migration
+	}
+}
+
+/**
  * Ensure stored data matches the current schema by running any needed migrations.
  *
  * If localStorage is unavailable this function exits without action. It reads the stored schema
@@ -150,6 +176,9 @@ function migrateIfNeeded(): void {
 		}
 		if (version < 5) {
 			migrateV4toV5();
+		}
+		if (version < 6) {
+			migrateV5toV6();
 		}
 
 		// Update schema version

@@ -157,6 +157,36 @@ export interface DaySession {
 	totalLagSec: number;
 	/** Progress records for all tasks */
 	taskProgress: TaskProgress[];
+	/**
+	 * Wall-clock timestamp (epoch ms) when the current task timer was started.
+	 * Used for recovery calculation: elapsed = (now - timerStartedAtMs) + elapsedOffset
+	 *
+	 * @new 010-timer-persistence
+	 */
+	timerStartedAtMs: number;
+}
+
+// =============================================================================
+// Timer Persistence Types (010-timer-persistence)
+// =============================================================================
+
+/**
+ * Timer recovery state calculated on app mount.
+ * Not persisted - computed from DaySession fields.
+ *
+ * @new 010-timer-persistence
+ */
+export interface TimerRecoveryResult {
+	/** Whether recovery was successful */
+	success: boolean;
+	/** Calculated elapsed time in milliseconds */
+	recoveredElapsedMs: number;
+	/** Time spent away from app (for logging/debugging) */
+	awayTimeMs: number;
+	/** Whether timestamp validation passed */
+	isValid: boolean;
+	/** Error message if recovery failed */
+	error?: string;
 }
 
 /**
@@ -316,7 +346,7 @@ export const STORAGE_KEY_SESSION = 'tm_session';
 export const STORAGE_KEY_TAB = 'tm_active_tab';
 
 /** Current schema version */
-export const CURRENT_SCHEMA_VERSION = 5;
+export const CURRENT_SCHEMA_VERSION = 6;
 
 /** localStorage key for settings */
 export const STORAGE_KEY_SETTINGS = 'tm_settings';
@@ -336,6 +366,26 @@ export const TAB_HEARTBEAT_INTERVAL_MS = 2000;
 
 /** How often to persist timer state to localStorage (ms) */
 export const PERSIST_INTERVAL_MS = 5000;
+
+// =============================================================================
+// Timer Persistence Constants (010-timer-persistence)
+// =============================================================================
+
+/**
+ * How often to sync timer state to localStorage (ms)
+ * Per clarification: Every 10 seconds
+ *
+ * @new 010-timer-persistence
+ */
+export const TIMER_SYNC_INTERVAL_MS = 10000;
+
+/**
+ * Maximum reasonable elapsed time for recovery (24 hours in ms)
+ * Used for validation bounds checking
+ *
+ * @new 010-timer-persistence
+ */
+export const MAX_RECOVERY_ELAPSED_MS = 24 * 60 * 60 * 1000;
 
 // =============================================================================
 // Interruption Tracking Types (004-interruption-tracking)
