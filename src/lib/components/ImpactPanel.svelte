@@ -16,7 +16,6 @@
 	import { createProjectedTasks } from '$lib/services/projection';
 	import ImpactTaskRow from './ImpactTaskRow.svelte';
 	import EditTaskDialog from './EditTaskDialog.svelte';
-	import AddTaskDialog from './AddTaskDialog.svelte';
 
 	interface Props {
 		tasks: ConfirmedTask[];
@@ -27,17 +26,15 @@
 		sessionActive?: boolean;
 		onReorder?: (fromIndex: number, toIndex: number) => void;
 		onUpdateTask?: (taskId: string, updates: Partial<Pick<ConfirmedTask, 'name' | 'plannedStart' | 'plannedDurationSec' | 'type'>>) => void;
-		onTaskAdded?: (task: ConfirmedTask) => void;
+		/** Callback when Add Task button is clicked (dialog managed by parent) */
+		onAddTask?: () => void;
 	}
 
-	let { tasks, progress, currentIndex, elapsedMs, sessionActive, onReorder, onUpdateTask, onTaskAdded }: Props = $props();
+	let { tasks, progress, currentIndex, elapsedMs, sessionActive, onReorder, onUpdateTask, onAddTask }: Props = $props();
 
 	// Edit dialog state
 	let editingTask = $state<ConfirmedTask | null>(null);
 	let isEditDialogOpen = $state(false);
-
-	// Add task dialog state (T024)
-	let showAddTaskDialog = $state(false);
 
 	function handleEditTask(task: ConfirmedTask) {
 		editingTask = task;
@@ -139,10 +136,10 @@
 		<h3 class="panel-title">Schedule Impact</h3>
 		<div class="header-right">
 			<!-- T023, T025: Add Task button (only during active session) -->
-			{#if sessionActive}
+			{#if sessionActive && onAddTask}
 				<button
 					class="add-task-btn"
-					onclick={() => showAddTaskDialog = true}
+					onclick={onAddTask}
 					data-testid="add-task-button"
 				>
 					+ Add Task
@@ -246,16 +243,6 @@
 		onClose={handleCloseDialog}
 	/>
 {/if}
-
-<!-- Add Task Dialog (T024) -->
-<AddTaskDialog
-	open={showAddTaskDialog}
-	onClose={() => showAddTaskDialog = false}
-	onTaskCreated={(task) => {
-		onTaskAdded?.(task);
-		showAddTaskDialog = false;
-	}}
-/>
 
 <style>
 	@reference "tailwindcss";

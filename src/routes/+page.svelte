@@ -716,7 +716,7 @@
 									sessionActive={sessionStore.status === 'running'}
 									onReorder={handleImpactReorder}
 									onUpdateTask={handleImpactUpdateTask}
-									onTaskAdded={() => { confirmedTasks = sessionStore.tasks; }}
+									onAddTask={() => { showAddTaskDialog = true; }}
 								/>
 							</div>
 						</div>
