@@ -184,11 +184,22 @@
 		return createProjectedTasks(tasks, progress, currentIndex, elapsedMs);
 	});
 
-	// Sort projected tasks chronologically by projected start time for display
-	// This ensures the impact panel shows tasks in the order they'll actually occur
+	// Sort projected tasks chronologically by DISPLAYED time for display
+	// This ensures the impact panel shows tasks in the order matching their displayed times
 	const sortedProjectedTasks = $derived.by(() => {
+		// Helper to get the displayed time (same logic as ImpactTaskRow)
+		const getDisplayTime = (pt: typeof projectedTasks[0]) => {
+			const isFixed = pt.task.type === 'fixed';
+			const isBehindSchedule = pt.displayStatus === 'pending' &&
+				!isFixed &&
+				pt.projectedStart.getTime() > pt.task.plannedStart.getTime();
+
+			// Behind schedule shows projected time, otherwise scheduled time
+			return isBehindSchedule ? pt.projectedStart : pt.task.plannedStart;
+		};
+
 		return [...projectedTasks].sort((a, b) =>
-			a.projectedStart.getTime() - b.projectedStart.getTime()
+			getDisplayTime(a).getTime() - getDisplayTime(b).getTime()
 		);
 	});
 
