@@ -17,7 +17,7 @@ const TIME_12H_PATTERN = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i;
 /**
  * Parse time string to Date for today
  *
- * @param input - Time string in 24-hour or 12-hour format
+ * @param input - Time string in 24-hour, 12-hour, or Excel serial format
  * @returns Date object for today at specified time, or null if invalid
  */
 export function parseTime(input: string): Date | null {
@@ -34,6 +34,19 @@ export function parseTime(input: string): Date | null {
 	let hours: number;
 	let minutes: number;
 	let seconds = 0;
+
+	// Check for Excel serial time format (decimal between 0 and 1)
+	// Excel stores times as fractions of a day: 0.5 = 12:00, 0.75 = 18:00
+	const numericValue = parseFloat(normalized);
+	if (!isNaN(numericValue) && numericValue >= 0 && numericValue < 1) {
+		const totalMinutes = Math.round(numericValue * 24 * 60);
+		hours = Math.floor(totalMinutes / 60);
+		minutes = totalMinutes % 60;
+
+		const today = new Date();
+		today.setHours(hours, minutes, 0, 0);
+		return today;
+	}
 
 	// Try 12-hour format first (has AM/PM which is distinctive)
 	const match12h = normalized.match(TIME_12H_PATTERN);
