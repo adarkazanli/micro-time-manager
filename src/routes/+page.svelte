@@ -235,6 +235,10 @@
 		importStore.recalculateStartTimes();
 	}
 
+	function handleTaskDelete(id: string) {
+		importStore.deleteTask(id);
+	}
+
 	function handleRetry() {
 		importStore.reset();
 	}
@@ -888,6 +892,7 @@
 				tasks={$importStore.tasks}
 				readonly={false}
 				onTaskUpdate={handleTaskUpdate}
+				onTaskDelete={handleTaskDelete}
 				onReorder={handleReorder}
 				onConfirm={handleConfirm}
 				onCancel={handleCancel}

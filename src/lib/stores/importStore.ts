@@ -149,6 +149,22 @@ function createImportStore() {
 		},
 
 		/**
+		 * Delete a task by ID
+		 */
+		deleteTask(id: string): void {
+			update((state) => {
+				const tasks = state.tasks.filter((task) => task.id !== id);
+
+				// Update sort order after deletion
+				tasks.forEach((task, index) => {
+					task.sortOrder = index;
+				});
+
+				return { ...state, tasks: updateTaskWarnings(tasks) };
+			});
+		},
+
+		/**
 		 * Recalculate start times based on order and durations
 		 * (Called after reordering flexible tasks)
 		 */

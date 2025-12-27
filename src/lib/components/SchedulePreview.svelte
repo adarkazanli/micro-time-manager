@@ -10,6 +10,7 @@
 		tasks: DraftTask[];
 		readonly?: boolean;
 		onTaskUpdate?: (id: string, changes: Partial<DraftTask>) => void;
+		onTaskDelete?: (id: string) => void;
 		onReorder?: (fromIndex: number, toIndex: number) => void;
 		onConfirm?: () => void;
 		onCancel?: () => void;
@@ -19,6 +20,7 @@
 		tasks,
 		readonly = true,
 		onTaskUpdate,
+		onTaskDelete,
 		onReorder,
 		onConfirm,
 		onCancel
@@ -130,10 +132,13 @@
 	let draggedIndex = $state<number | null>(null);
 	let dropTargetIndex = $state<number | null>(null);
 
-	// Sort tasks by calculated start time for display (T040)
+	// Sort tasks by sortOrder for display and drag-drop (T040)
+	// sortOrder represents the user's intended schedule sequence
 	const sortedTasks = $derived.by(() => {
-		// Apply calculated start times if available
-		const tasksWithCalculatedTimes = tasks.map((task) => {
+		// Sort by sortOrder first to maintain drag-drop order
+		const sorted = [...tasks].sort((a, b) => a.sortOrder - b.sortOrder);
+		// Apply calculated start times for display
+		return sorted.map((task) => {
 			const calculatedTime = calculatedStartTimes.get(task.id);
 			if (calculatedTime) {
 				// Override startTime with calculated time for display
@@ -141,10 +146,6 @@
 			}
 			return task;
 		});
-		// Sort by calculated start time (chronological order)
-		return tasksWithCalculatedTimes.sort(
-			(a, b) => a.startTime.getTime() - b.startTime.getTime()
-		);
 	});
 
 	function handleDragStart(index: number) {
@@ -256,6 +257,7 @@
 					draggable={!readonly}
 					interruption={interruptionInfoMap.get(task.id)}
 					onUpdate={onTaskUpdate}
+					onDelete={onTaskDelete}
 					onDragStart={() => handleDragStart(index)}
 					onDragEnd={handleDragEnd}
 				/>
