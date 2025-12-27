@@ -643,6 +643,60 @@ export function exportToTemplate(
 }
 
 /**
+ * Preview task structure for export (from schedule preview before confirmation)
+ */
+interface PreviewTask {
+	name: string;
+	startTime: Date;
+	durationSeconds: number;
+	type: 'fixed' | 'flexible';
+}
+
+/**
+ * Export preview schedule to a re-importable CSV template format.
+ * Used to save the schedule before confirming/starting the day.
+ *
+ * @param tasks - Array of preview tasks with calculated start times
+ * @returns ExportResult indicating success or failure with error message
+ */
+export function exportPreviewToTemplate(tasks: PreviewTask[]): ExportResult {
+	try {
+		if (tasks.length === 0) {
+			return { success: false, error: 'No tasks to export' };
+		}
+
+		// Prepare template data - sort by start time first
+		const sortedTasks = [...tasks].sort(
+			(a, b) => a.startTime.getTime() - b.startTime.getTime()
+		);
+
+		const data = sortedTasks.map((task) => [
+			task.name,
+			task.type === 'fixed' ? formatTimeForTemplate(task.startTime) : '',
+			formatDurationForTemplate(task.durationSeconds),
+			task.type
+		]);
+
+		// Generate CSV
+		const csv = generateCSV(TEMPLATE_HEADERS, data);
+		const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+
+		// Generate filename using today's date
+		const today = new Date();
+		const date = formatDateYYYYMMDD(today);
+		const filename = `${date}_schedule_template.csv`;
+
+		downloadBlob(blob, filename);
+
+		return { success: true, filesDownloaded: 1 };
+	} catch (err) {
+		const message = err instanceof Error ? err.message : 'Unknown error occurred';
+		console.error('Preview template export failed:', err);
+		return { success: false, error: `Preview template export failed: ${message}` };
+	}
+}
+
+/**
  * Export session data to CSV files and trigger downloads.
  * Downloads four separate CSV files: tasks, interruptions, notes, summary.
  *
