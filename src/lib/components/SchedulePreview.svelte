@@ -132,20 +132,19 @@
 	let draggedIndex = $state<number | null>(null);
 	let dropTargetIndex = $state<number | null>(null);
 
-	// Sort tasks by sortOrder for display and drag-drop (T040)
-	// sortOrder represents the user's intended schedule sequence
+	// Sort tasks chronologically by calculated start time for display
+	// This ensures the schedule preview shows tasks in the order they'll actually occur
 	const sortedTasks = $derived.by(() => {
-		// Sort by sortOrder first to maintain drag-drop order
-		const sorted = [...tasks].sort((a, b) => a.sortOrder - b.sortOrder);
-		// Apply calculated start times for display
-		return sorted.map((task) => {
+		// Apply calculated start times
+		const withCalculatedTimes = tasks.map((task) => {
 			const calculatedTime = calculatedStartTimes.get(task.id);
 			if (calculatedTime) {
-				// Override startTime with calculated time for display
 				return { ...task, startTime: calculatedTime };
 			}
 			return task;
 		});
+		// Sort chronologically by start time for display
+		return withCalculatedTimes.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
 	});
 
 	function handleDragStart(index: number) {
@@ -186,9 +185,13 @@
 			return;
 		}
 
-		// If dropping at end of list, allow it
+		const draggedTask = sortedTasks[draggedIndex];
+
+		// If dropping at end of list, move to last sortOrder position
 		if (targetIndex === sortedTasks.length) {
-			onReorder?.(draggedIndex, targetIndex);
+			// Find the highest sortOrder and place after it
+			const maxSortOrder = Math.max(...tasks.map((t) => t.sortOrder));
+			onReorder?.(draggedTask.sortOrder, maxSortOrder + 1);
 			handleDragEnd();
 			return;
 		}
@@ -200,7 +203,8 @@
 			return;
 		}
 
-		onReorder?.(draggedIndex, targetIndex);
+		// Pass sortOrder values to reorder (these match the store's task array indices)
+		onReorder?.(draggedTask.sortOrder, targetTask.sortOrder);
 		handleDragEnd();
 	}
 </script>
