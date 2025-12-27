@@ -568,6 +568,80 @@ export function prepareCSVExportData(
 	};
 }
 
+// =============================================================================
+// Template Export (Re-importable format)
+// =============================================================================
+
+/**
+ * Column headers for template CSV (matches import format)
+ */
+const TEMPLATE_HEADERS = ['Task Name', 'Start Time', 'Duration', 'Type'];
+
+/**
+ * Format duration in seconds to human-readable format (e.g., "30m", "1h 30m")
+ */
+function formatDurationForTemplate(seconds: number): string {
+	const hours = Math.floor(seconds / 3600);
+	const minutes = Math.floor((seconds % 3600) / 60);
+
+	if (hours > 0 && minutes > 0) {
+		return `${hours}h ${minutes}m`;
+	} else if (hours > 0) {
+		return `${hours}h`;
+	} else {
+		return `${minutes}m`;
+	}
+}
+
+/**
+ * Format time for template export (HH:MM format)
+ */
+function formatTimeForTemplate(date: Date | string): string {
+	const d = typeof date === 'string' ? new Date(date) : date;
+	const hours = d.getHours().toString().padStart(2, '0');
+	const minutes = d.getMinutes().toString().padStart(2, '0');
+	return `${hours}:${minutes}`;
+}
+
+/**
+ * Export tasks to a re-importable CSV template format.
+ * This can be used as input for another day's schedule.
+ *
+ * @param tasks - Array of confirmed tasks
+ * @param sessionStart - ISO string of session start time (for filename)
+ * @returns ExportResult indicating success or failure with error message
+ */
+export function exportToTemplate(
+	tasks: ConfirmedTask[],
+	sessionStart: string
+): ExportResult {
+	try {
+		// Prepare template data
+		const data = tasks.map((task) => [
+			task.name,
+			task.type === 'fixed' ? formatTimeForTemplate(task.plannedStart) : '',
+			formatDurationForTemplate(task.plannedDurationSec),
+			task.type
+		]);
+
+		// Generate CSV
+		const csv = generateCSV(TEMPLATE_HEADERS, data);
+		const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+
+		// Generate filename
+		const date = getSessionDate(sessionStart);
+		const filename = `${date}_schedule_template.csv`;
+
+		downloadBlob(blob, filename);
+
+		return { success: true, filesDownloaded: 1 };
+	} catch (err) {
+		const message = err instanceof Error ? err.message : 'Unknown error occurred';
+		console.error('Template export failed:', err);
+		return { success: false, error: `Template export failed: ${message}` };
+	}
+}
+
 /**
  * Export session data to CSV files and trigger downloads.
  * Downloads four separate CSV files: tasks, interruptions, notes, summary.

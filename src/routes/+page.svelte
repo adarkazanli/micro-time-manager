@@ -30,7 +30,7 @@
 	import NotesView from '$lib/components/NotesView.svelte';
 	import AnalyticsDashboard from '$lib/components/AnalyticsDashboard.svelte';
 	import SettingsPanel from '$lib/components/SettingsPanel.svelte';
-	import { exportToExcel, exportToCSV } from '$lib/services/export';
+	import { exportToExcel, exportToCSV, exportToTemplate } from '$lib/services/export';
 	import { calculateAnalyticsSummary } from '$lib/services/analytics';
 	import type { DaySummary as DaySummaryType } from '$lib/types';
 
@@ -555,6 +555,16 @@
 		);
 	}
 
+	// Handle template export (re-importable CSV format)
+	function handleExportTemplate(): ExportResult {
+		if (!sessionStore.session) {
+			return { success: false, error: 'No active session to export' };
+		}
+
+		const sessionStart = sessionStore.session.startedAt;
+		return exportToTemplate(confirmedTasks, sessionStart);
+	}
+
 	// T049 (005-note-capture): Handle editing a note
 	function handleNoteEdit(noteId: string) {
 		// For now, we'll use a simple prompt - this will be replaced with a proper dialog in Phase 7
@@ -948,6 +958,7 @@
 	onAnalytics={toggleAnalytics}
 	onExportExcel={handleExportExcel}
 	onExportCSV={handleExportCSV}
+	onExportTemplate={handleExportTemplate}
 	onStartNewDay={handleStartNewDay}
 	hasSession={sessionStore.session !== null}
 />

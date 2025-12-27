@@ -18,11 +18,12 @@
 		onAnalytics?: () => void;
 		onExportExcel?: () => ExportResult;
 		onExportCSV?: () => ExportResult;
+		onExportTemplate?: () => ExportResult;
 		onStartNewDay?: () => void;
 		hasSession?: boolean;
 	}
 
-	let { open, onClose, onAnalytics, onExportExcel, onExportCSV, onStartNewDay, hasSession = false }: Props = $props();
+	let { open, onClose, onAnalytics, onExportExcel, onExportCSV, onExportTemplate, onStartNewDay, hasSession = false }: Props = $props();
 
 	// New day confirmation state
 	let showNewDayConfirm = $state(false);
@@ -43,6 +44,16 @@
 	function handleExportCSV() {
 		if (!onExportCSV) return;
 		const result = onExportCSV();
+		if (!result.success) {
+			exportError = result.error || 'Export failed';
+		} else {
+			exportError = null;
+		}
+	}
+
+	function handleExportTemplate() {
+		if (!onExportTemplate) return;
+		const result = onExportTemplate();
 		if (!result.success) {
 			exportError = result.error || 'Export failed';
 		} else {
@@ -393,6 +404,20 @@
 								</svg>
 								CSV
 							</button>
+							<button
+								type="button"
+								class="action-btn action-btn-template"
+								onclick={handleExportTemplate}
+								disabled={!hasSession}
+								data-testid="settings-export-template-btn"
+								title="Export as re-importable template"
+							>
+								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="action-icon">
+									<path d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z" />
+									<path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" />
+								</svg>
+								Template
+							</button>
 						</div>
 					</div>
 
@@ -723,12 +748,21 @@
 		@apply bg-green-900/40 text-green-300 hover:bg-green-900/60;
 	}
 
+	.action-btn-template {
+		@apply bg-purple-100 text-purple-700 hover:bg-purple-200;
+		@apply focus:ring-purple-500;
+	}
+
+	:global(.dark) .action-btn-template {
+		@apply bg-purple-900/40 text-purple-300 hover:bg-purple-900/60;
+	}
+
 	.action-icon {
 		@apply w-4 h-4;
 	}
 
 	.export-buttons {
-		@apply flex gap-2;
+		@apply flex flex-wrap gap-2;
 	}
 
 	.export-error {
