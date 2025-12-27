@@ -2,6 +2,8 @@
 	import type { DraftTask, ConfirmedTask, ScheduleConfig, ScheduleResult } from '$lib/types';
 	import { calculateSchedule } from '$lib/services/scheduleCalculator';
 	import { exportPreviewToTemplate } from '$lib/services/export';
+	import { reorderTaskChronologically } from '$lib/utils/taskOrder';
+	import { scrollToTaskAndHighlight } from '$lib/utils/scroll';
 	import TaskRow from './TaskRow.svelte';
 	import ScheduleStartPicker from './ScheduleStartPicker.svelte';
 	import ConflictWarning from './ConflictWarning.svelte';
@@ -13,6 +15,8 @@
 		onTaskUpdate?: (id: string, changes: Partial<DraftTask>) => void;
 		onTaskDelete?: (id: string) => void;
 		onReorder?: (fromIndex: number, toIndex: number) => void;
+		/** Callback to replace the entire tasks array (used for chronological reordering) */
+		onTasksReorder?: (tasks: DraftTask[]) => void;
 		onConfirm?: () => void;
 		onCancel?: () => void;
 	}
@@ -23,9 +27,13 @@
 		onTaskUpdate,
 		onTaskDelete,
 		onReorder,
+		onTasksReorder,
 		onConfirm,
 		onCancel
 	}: Props = $props();
+
+	// Highlighted task ID for visual feedback after reorder (012-fixed-task-reorder)
+	let highlightedTaskId = $state<string | null>(null);
 
 	// Schedule configuration state (T038)
 	let scheduleConfig = $state<ScheduleConfig>({ mode: 'now', customStartTime: null });
@@ -234,6 +242,53 @@
 			console.error('Export failed:', result.error);
 		}
 	}
+
+	/**
+	 * Handle task update with auto-reorder when type changes to fixed (012-fixed-task-reorder)
+	 *
+	 * When a task becomes fixed (flexible → fixed), it is automatically reordered
+	 * to its chronological position based on start time, then scrolled to and highlighted.
+	 *
+	 * IMPORTANT: When changing from flexible to fixed without an explicit start time,
+	 * we use the calculated/displayed start time (not the original import time).
+	 * This ensures the task is fixed at the time the user sees on screen.
+	 */
+	function handleTaskUpdate(id: string, changes: Partial<DraftTask>) {
+		const task = tasks.find(t => t.id === id);
+		if (!task) return;
+
+		const wasFixed = task.type === 'fixed';
+		const isNowFixed = changes.type === 'fixed';
+
+		// When becoming fixed without explicit start time, use the calculated (displayed) start time
+		// This ensures the task is fixed at the time shown on screen, not the original import time
+		if (!wasFixed && isNowFixed && changes.startTime === undefined) {
+			const calculatedTime = calculatedStartTimes.get(id);
+			if (calculatedTime) {
+				changes = { ...changes, startTime: calculatedTime };
+			}
+		}
+
+		const hasNewStartTime = changes.startTime !== undefined;
+
+		// First apply the update through the parent callback
+		onTaskUpdate?.(id, changes);
+
+		// Reorder only when becoming fixed (not when staying fixed or becoming flexible)
+		if (!wasFixed && isNowFixed && hasNewStartTime && onTasksReorder) {
+			// Apply the changes to the task for reordering calculation
+			const updatedTasks = tasks.map(t =>
+				t.id === id ? { ...t, ...changes } : t
+			);
+			const reorderedTasks = reorderTaskChronologically(updatedTasks, id, changes.startTime!);
+			onTasksReorder(reorderedTasks);
+
+			// Trigger scroll and highlight after DOM updates
+			setTimeout(() => {
+				scrollToTaskAndHighlight(id, (newId) => highlightedTaskId = newId);
+			}, 50);
+		}
+	}
 </script>
 
 <div class="schedule-preview" data-testid="schedule-preview">
@@ -287,7 +342,8 @@
 					{readonly}
 					draggable={!readonly}
 					interruption={interruptionInfoMap.get(task.id)}
-					onUpdate={onTaskUpdate}
+					highlighted={highlightedTaskId === task.id}
+					onUpdate={handleTaskUpdate}
 					onDelete={onTaskDelete}
 					onDragStart={() => handleDragStart(index)}
 					onDragEnd={handleDragEnd}

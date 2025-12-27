@@ -16,6 +16,8 @@
 	import type { ConfirmedTask, TaskProgress } from '$lib/types';
 	import { createProjectedTasks } from '$lib/services/projection';
 	import { calculateSchedule } from '$lib/services/scheduleCalculator';
+	import { findChronologicalPosition } from '$lib/utils/taskOrder';
+	import { scrollToTaskAndHighlight } from '$lib/utils/scroll';
 	import ImpactTaskRow from './ImpactTaskRow.svelte';
 	import EditTaskDialog from './EditTaskDialog.svelte';
 	import ConflictWarning from './ConflictWarning.svelte';
@@ -52,19 +54,56 @@
 	// Track if editing task is the current task
 	let editingTaskIsCurrentTask = $state(false);
 
+	// Highlighted task ID for visual feedback after reorder (012-fixed-task-reorder)
+	let highlightedTaskId = $state<string | null>(null);
+
 	function handleEditTask(task: ConfirmedTask) {
-		editingTask = task;
 		// Find corresponding progress record
 		editingProgress = progress.find(p => p.taskId === task.taskId) ?? null;
 		// Check if this is the current task
 		const taskIndex = tasks.findIndex(t => t.taskId === task.taskId);
 		editingTaskIsCurrentTask = taskIndex === currentIndex;
+
+		// For flexible pending tasks, use the projected start time instead of planned start
+		// This ensures the dialog shows the actual displayed time, not the original import time
+		const projectedTask = projectedTasks.find(pt => pt.task.taskId === task.taskId);
+		if (projectedTask && task.type === 'flexible' && projectedTask.displayStatus === 'pending') {
+			editingTask = {
+				...task,
+				plannedStart: projectedTask.projectedStart
+			};
+		} else {
+			editingTask = task;
+		}
+
 		isEditDialogOpen = true;
 	}
 
 	function handleSaveTask(updates: Partial<Pick<ConfirmedTask, 'name' | 'plannedStart' | 'plannedDurationSec' | 'type'>>) {
-		if (editingTask && onUpdateTask) {
-			onUpdateTask(editingTask.taskId, updates);
+		if (!editingTask) return;
+
+		const wasFixed = editingTask.type === 'fixed';
+		const isNowFixed = updates.type === 'fixed';
+		const hasNewStartTime = updates.plannedStart !== undefined;
+
+		// Apply the update through the parent callback
+		onUpdateTask?.(editingTask.taskId, updates);
+
+		// Reorder only when becoming fixed (flexible → fixed) - 012-fixed-task-reorder
+		if (!wasFixed && isNowFixed && hasNewStartTime && onReorder) {
+			const taskId = editingTask.taskId;
+			const taskIndex = tasks.findIndex(t => t.taskId === taskId);
+			const newPosition = findChronologicalPosition(tasks, taskId, updates.plannedStart!);
+
+			// Only reorder if position actually changes
+			if (taskIndex !== -1 && taskIndex !== newPosition) {
+				onReorder(taskIndex, newPosition);
+
+				// Trigger scroll and highlight after DOM updates
+				setTimeout(() => {
+					scrollToTaskAndHighlight(taskId, (id) => highlightedTaskId = id);
+				}, 50);
+			}
 		}
 	}
 
@@ -88,6 +127,47 @@
 		onStartTask?.(task.taskId);
 	}
 
+	/**
+	 * Handle type toggle from badge click (012-fixed-task-reorder)
+	 *
+	 * When toggling flexible → fixed, use the projected start time (displayed time)
+	 * instead of the original planned start time.
+	 */
+	function handleToggleType(task: ConfirmedTask) {
+		if (!onUpdateTask) return;
+
+		const wasFixed = task.type === 'fixed';
+		const newType = wasFixed ? 'flexible' : 'fixed';
+
+		// When becoming fixed, use the projected (displayed) start time
+		if (!wasFixed) {
+			const projectedTask = projectedTasks.find(pt => pt.task.taskId === task.taskId);
+			const projectedStart = projectedTask?.projectedStart ?? task.plannedStart;
+
+			onUpdateTask(task.taskId, {
+				type: newType,
+				plannedStart: projectedStart
+			});
+
+			// Reorder if needed
+			if (onReorder) {
+				const taskIndex = tasks.findIndex(t => t.taskId === task.taskId);
+				const newPosition = findChronologicalPosition(tasks, task.taskId, projectedStart);
+
+				if (taskIndex !== -1 && taskIndex !== newPosition) {
+					onReorder(taskIndex, newPosition);
+
+					setTimeout(() => {
+						scrollToTaskAndHighlight(task.taskId, (id) => highlightedTaskId = id);
+					}, 50);
+				}
+			}
+		} else {
+			// Fixed → Flexible: just change type, keep position
+			onUpdateTask(task.taskId, { type: newType });
+		}
+	}
+
 	function handleCloseDialog() {
 		isEditDialogOpen = false;
 		editingTask = null;
@@ -102,6 +182,14 @@
 	// Derived state for projected tasks (T022: using $derived.by)
 	const projectedTasks = $derived.by(() => {
 		return createProjectedTasks(tasks, progress, currentIndex, elapsedMs);
+	});
+
+	// Sort projected tasks chronologically by projected start time for display
+	// This ensures the impact panel shows tasks in the order they'll actually occur
+	const sortedProjectedTasks = $derived.by(() => {
+		return [...projectedTasks].sort((a, b) =>
+			a.projectedStart.getTime() - b.projectedStart.getTime()
+		);
 	});
 
 	// Schedule calculation for conflict and overflow detection (T071-T072)
@@ -270,7 +358,7 @@
 
 	<!-- Task list (T023: render list of ImpactTaskRow) -->
 	<div class="task-list" role="list" data-testid="task-list">
-		{#each projectedTasks as projectedTask, index (projectedTask.task.taskId)}
+		{#each sortedProjectedTasks as projectedTask, index (projectedTask.task.taskId)}
 			<div
 				class="task-item"
 				role="listitem"
@@ -283,22 +371,24 @@
 				<ImpactTaskRow
 					{projectedTask}
 					{index}
+					highlighted={highlightedTaskId === projectedTask.task.taskId}
 					onDragStart={handleDragStart}
 					onDragEnd={handleDragEnd}
 					onEdit={handleEditTask}
+					onToggleType={handleToggleType}
 					onStartTask={onStartTask ? handleStartTask : undefined}
 				/>
 			</div>
 		{/each}
 		<!-- Drop zone for moving tasks to end of list -->
-		{#if draggedIndex !== null && draggedIndex < projectedTasks.length - 1}
+		{#if draggedIndex !== null && draggedIndex < sortedProjectedTasks.length - 1}
 			<div
 				class="end-drop-zone"
 				role="listitem"
-				class:drop-target={dropTargetIndex === projectedTasks.length}
-				ondragover={(e) => handleDragOver(e, projectedTasks.length)}
+				class:drop-target={dropTargetIndex === sortedProjectedTasks.length}
+				ondragover={(e) => handleDragOver(e, sortedProjectedTasks.length)}
 				ondragleave={handleDragLeave}
-				ondrop={(e) => handleDrop(e, projectedTasks.length)}
+				ondrop={(e) => handleDrop(e, sortedProjectedTasks.length)}
 			>
 				<span class="drop-hint">Drop here to move to end</span>
 			</div>
