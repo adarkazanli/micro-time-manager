@@ -57,9 +57,16 @@
 	// Reference to name input for auto-focus
 	let nameInputRef = $state<HTMLInputElement | null>(null);
 
-	// Initialize form when task changes
+	// Track the previous open state to detect when dialog just opened
+	let wasOpen = $state(false);
+
+	// Initialize form only when dialog OPENS (not on every prop change)
+	// This prevents the timer's currentElapsedMs updates from resetting the form
 	$effect(() => {
-		if (task && open) {
+		const justOpened = open && !wasOpen;
+		wasOpen = open;
+
+		if (task && justOpened) {
 			name = task.name;
 			// Format time as HH:MM for input
 			const hours = task.plannedStart.getHours().toString().padStart(2, '0');
@@ -71,6 +78,7 @@
 			nameError = '';
 
 			// Initialize elapsed time for completed or current tasks
+			// Capture currentElapsedMs at dialog open time (don't track updates)
 			if (progress?.status === 'complete') {
 				actualDuration = formatDuration(progress.actualDurationSec);
 			} else if (isCurrentTask && currentElapsedMs !== undefined) {
