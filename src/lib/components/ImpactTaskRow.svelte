@@ -56,12 +56,23 @@
 		projectedTask.projectedStart.getTime() > projectedTask.task.plannedStart.getTime()
 	);
 
-	// Display time: fixed tasks always show scheduled; flexible tasks show projected if behind
-	const displayTime = $derived(
-		projectedTask.displayStatus === 'pending' && isBehindSchedule
-			? projectedTime
-			: scheduledTime
-	);
+	// Display time logic:
+	// - COMPLETED tasks: show actual start time (projectedStart now contains actual start)
+	// - CURRENT tasks: show actual start time (projectedStart now contains actual start)
+	// - PENDING fixed tasks: always show scheduled time
+	// - PENDING flexible tasks: show projected if behind schedule, otherwise scheduled
+	const displayTime = $derived.by(() => {
+		// Completed and current tasks always show their actual start time
+		if (projectedTask.displayStatus === 'completed' || projectedTask.displayStatus === 'current') {
+			return projectedTime;
+		}
+		// Pending flexible tasks behind schedule show projected time
+		if (isBehindSchedule) {
+			return projectedTime;
+		}
+		// Everything else shows scheduled time
+		return scheduledTime;
+	});
 
 	// Buffer display for tooltip
 	const bufferDisplay = $derived(() => {
