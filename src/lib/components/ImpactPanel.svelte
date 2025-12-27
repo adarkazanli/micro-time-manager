@@ -313,6 +313,11 @@
 			? getOriginalIndex(index)
 			: tasks.length; // Dropping at end
 
+		// Skip if we couldn't find the original index
+		if (originalDropIndex === -1) {
+			return;
+		}
+
 		// Only allow dropping on valid targets (after current task in ORIGINAL order)
 		if (originalDropIndex <= currentIndex) {
 			return;
