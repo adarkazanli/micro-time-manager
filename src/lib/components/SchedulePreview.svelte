@@ -130,11 +130,10 @@
 	let draggedIndex = $state<number | null>(null);
 	let dropTargetIndex = $state<number | null>(null);
 
-	// Sort tasks by sortOrder for display, with calculated start times (T040)
+	// Sort tasks by calculated start time for display (T040)
 	const sortedTasks = $derived.by(() => {
-		const sorted = [...tasks].sort((a, b) => a.sortOrder - b.sortOrder);
 		// Apply calculated start times if available
-		return sorted.map((task) => {
+		const tasksWithCalculatedTimes = tasks.map((task) => {
 			const calculatedTime = calculatedStartTimes.get(task.id);
 			if (calculatedTime) {
 				// Override startTime with calculated time for display
@@ -142,6 +141,10 @@
 			}
 			return task;
 		});
+		// Sort by calculated start time (chronological order)
+		return tasksWithCalculatedTimes.sort(
+			(a, b) => a.startTime.getTime() - b.startTime.getTime()
+		);
 	});
 
 	function handleDragStart(index: number) {
