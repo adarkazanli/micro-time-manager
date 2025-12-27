@@ -101,46 +101,68 @@ function calculateFixedTaskWarning(elapsedMs: number): FixedTaskWarning | null {
 	if (!session || session.status !== 'running') return null;
 
 	const currentIndex = session.currentTaskIndex;
+	const currentTask = tasks[currentIndex];
+	const now = Date.now();
 
-	// Look for upcoming fixed tasks (after current task)
-	for (let i = currentIndex + 1; i < tasks.length; i++) {
-		const task = tasks[i];
-		if (task.type === 'fixed') {
-			// Calculate projected start using projection service
-			const now = Date.now();
-			const projectedStart = calculateProjectedStart(tasks, currentIndex, elapsedMs, i, now);
-			const scheduledStart = task.plannedStart;
+	// Get all pending tasks sorted chronologically
+	const pendingTasks = tasks
+		.map((task, idx) => ({ task, idx }))
+		.filter(({ idx }) => {
+			const progress = session!.taskProgress[idx];
+			return progress.status === 'pending' && idx !== currentIndex;
+		})
+		.sort((a, b) => a.task.plannedStart.getTime() - b.task.plannedStart.getTime());
 
-			// Calculate how late we'll be (negative = early)
-			const bufferMs = scheduledStart.getTime() - projectedStart.getTime();
-			const minutesLate = Math.ceil(-bufferMs / 60000); // Convert to minutes, negative buffer = late
+	// Find the first fixed task in chronological order
+	const nextFixedTask = pendingTasks.find(({ task }) => task.type === 'fixed');
+	if (!nextFixedTask) return null;
 
-			// Debug logging for fixed task warning calculation
-			console.group('⏰ Fixed Task Warning Debug');
-			console.log('Next fixed task:', task.name);
-			console.log('Current time:', new Date(now).toLocaleTimeString());
-			console.log('Current task index:', currentIndex);
-			console.log('Elapsed on current task:', Math.floor(elapsedMs / 1000), 'sec');
-			console.log('Current task remaining:', Math.floor((tasks[currentIndex].plannedDurationSec * 1000 - elapsedMs) / 1000), 'sec');
-			console.log('Scheduled start:', scheduledStart.toLocaleTimeString());
-			console.log('Projected arrival:', projectedStart.toLocaleTimeString());
-			console.log('Buffer:', Math.floor(bufferMs / 1000), 'sec', `(${Math.floor(bufferMs / 60000)} min)`);
-			console.log('Minutes late:', minutesLate, minutesLate > 0 ? '⚠️ WILL BE LATE' : '✅ On time');
-			console.groupEnd();
+	const fixedTask = nextFixedTask.task;
+	const scheduledStart = fixedTask.plannedStart;
 
-			// Only warn if we'll actually be late
-			if (minutesLate <= 0) return null;
+	// Calculate projected arrival at the fixed task:
+	// Start with current time + remaining time on current task
+	const currentRemainingMs = Math.max(0, currentTask.plannedDurationSec * 1000 - elapsedMs);
+	let projectedArrivalMs = now + currentRemainingMs;
 
-			return {
-				taskId: task.taskId,
-				taskName: task.name,
-				minutesLate,
-				plannedStart: task.plannedStart.toISOString()
-			};
-		}
+	// Add durations of tasks that come BEFORE the fixed task (chronologically)
+	const tasksBefore = pendingTasks.filter(
+		({ task }) => task.plannedStart.getTime() < scheduledStart.getTime() && task.taskId !== fixedTask.taskId
+	);
+
+	// Debug: log tasks being summed
+	console.group('⏰ Fixed Task Warning Debug');
+	console.log('Next fixed task:', fixedTask.name, '@', scheduledStart.toLocaleTimeString());
+	console.log('Current time:', new Date(now).toLocaleTimeString());
+	console.log('Current task:', currentTask.name);
+	console.log('Current task remaining:', Math.floor(currentRemainingMs / 1000), 'sec', `(${Math.floor(currentRemainingMs / 60000)} min)`);
+	console.log('Tasks before fixed task (chronologically):');
+
+	for (const { task } of tasksBefore) {
+		console.log(`  + ${task.name}: ${task.plannedDurationSec} sec (${Math.floor(task.plannedDurationSec / 60)} min)`);
+		projectedArrivalMs += task.plannedDurationSec * 1000;
 	}
 
-	return null;
+	const projectedArrival = new Date(projectedArrivalMs);
+
+	// Calculate how late we'll be (negative = early)
+	const bufferMs = scheduledStart.getTime() - projectedArrivalMs;
+	const minutesLate = Math.ceil(-bufferMs / 60000); // Convert to minutes, negative buffer = late
+
+	console.log('Projected arrival:', projectedArrival.toLocaleTimeString());
+	console.log('Buffer:', Math.floor(bufferMs / 1000), 'sec', `(${Math.floor(bufferMs / 60000)} min)`);
+	console.log('Minutes late:', minutesLate, minutesLate > 0 ? '⚠️ WILL BE LATE' : '✅ On time');
+	console.groupEnd();
+
+	// Only warn if we'll actually be late
+	if (minutesLate <= 0) return null;
+
+	return {
+		taskId: fixedTask.taskId,
+		taskName: fixedTask.name,
+		minutesLate,
+		plannedStart: fixedTask.plannedStart.toISOString()
+	};
 }
 
 // =============================================================================

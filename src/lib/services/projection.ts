@@ -159,9 +159,15 @@ export function createProjectedTasks(
 		return [];
 	}
 
-	const results: ProjectedTask[] = [];
 	const now = new Date();
-	let nextAvailableTime = now; // When the next task can start
+	const nowMs = now.getTime();
+
+	// Calculate remaining time on current task
+	let currentRemainingMs = 0;
+	if (currentIndex >= 0 && currentIndex < tasks.length) {
+		const currentTask = tasks[currentIndex];
+		currentRemainingMs = Math.max(0, currentTask.plannedDurationSec * 1000 - currentElapsedMs);
+	}
 
 	// Debug logging for timing verification
 	console.group('🕐 Projection Timing Debug');
@@ -178,94 +184,107 @@ export function createProjectedTasks(
 	}
 	console.groupEnd();
 
-	// Calculate remaining time on current task (hoisted for use in loop)
-	let currentRemainingMs = 0;
-	if (currentIndex >= 0 && currentIndex < tasks.length) {
-		const currentTask = tasks[currentIndex];
-		currentRemainingMs = Math.max(0, currentTask.plannedDurationSec * 1000 - currentElapsedMs);
-		nextAvailableTime = new Date(Date.now() + currentRemainingMs);
+	// Create task info with original indices and sort chronologically for processing
+	const taskInfos = tasks.map((task, idx) => ({
+		task,
+		originalIndex: idx,
+		progress: progress[idx]
+	}));
+
+	// Separate completed, current, and pending tasks
+	const completedTasks = taskInfos.filter(
+		({ progress: p, originalIndex }) =>
+			(p?.status === 'complete' || p?.status === 'missed') && originalIndex !== currentIndex
+	);
+	const currentTaskInfo = currentIndex >= 0 && currentIndex < tasks.length
+		? taskInfos[currentIndex]
+		: null;
+	const pendingTasks = taskInfos
+		.filter(({ progress: p, originalIndex }) =>
+			p?.status !== 'complete' && p?.status !== 'missed' && originalIndex !== currentIndex
+		)
+		.sort((a, b) => a.task.plannedStart.getTime() - b.task.plannedStart.getTime());
+
+	// Build results map (keyed by original index)
+	const resultsMap = new Map<number, ProjectedTask>();
+
+	// Process completed tasks - use their planned start
+	for (const { task, originalIndex } of completedTasks) {
+		resultsMap.set(originalIndex, {
+			task,
+			projectedStart: task.plannedStart,
+			projectedEnd: new Date(task.plannedStart.getTime() + task.plannedDurationSec * 1000),
+			riskLevel: null,
+			bufferSec: 0,
+			displayStatus: 'completed',
+			isDraggable: false
+		});
 	}
 
-	for (let index = 0; index < tasks.length; index++) {
-		const task = tasks[index];
-		const taskProgress = progress[index];
+	// Process current task
+	if (currentTaskInfo) {
+		const { task, originalIndex } = currentTaskInfo;
+		const projectedStart = now;
+		const projectedEnd = new Date(nowMs + currentRemainingMs);
+		resultsMap.set(originalIndex, {
+			task,
+			projectedStart,
+			projectedEnd,
+			riskLevel: null,
+			bufferSec: 0,
+			displayStatus: 'current',
+			isDraggable: task.type === 'flexible'
+		});
+	}
 
-		// Determine display status
-		let displayStatus: DisplayStatus;
-		if (taskProgress?.status === 'complete' || taskProgress?.status === 'missed') {
-			displayStatus = 'completed';
-		} else if (index === currentIndex) {
-			displayStatus = 'current';
-		} else {
-			displayStatus = 'pending';
-		}
+	// Process pending tasks in CHRONOLOGICAL order
+	let nextAvailableTime = nowMs + currentRemainingMs;
 
-		// Calculate projected start
+	for (const { task, originalIndex } of pendingTasks) {
 		let projectedStart: Date;
 
-		if (index < currentIndex) {
-			// Completed tasks: use their planned start
-			projectedStart = task.plannedStart;
-		} else if (index === currentIndex) {
-			// Current task: started now (or when it actually started)
-			projectedStart = new Date();
+		if (task.type === 'fixed') {
+			// Fixed tasks start at the later of: next available time OR scheduled time
+			projectedStart = new Date(Math.max(nextAvailableTime, task.plannedStart.getTime()));
 		} else {
-			// Future tasks: use next available time, but fixed tasks wait for scheduled time
-			if (task.type === 'fixed') {
-				// Fixed tasks start at the later of: next available time OR scheduled time
-				projectedStart = new Date(Math.max(nextAvailableTime.getTime(), task.plannedStart.getTime()));
-			} else {
-				// Flexible tasks start as soon as available
-				projectedStart = nextAvailableTime;
-			}
+			// Flexible tasks start as soon as available
+			projectedStart = new Date(nextAvailableTime);
 		}
 
-		// Calculate projected end
-		// For current task, use remaining time; for others, use full planned duration
-		const durationMs = index === currentIndex
-			? currentRemainingMs
-			: task.plannedDurationSec * 1000;
+		const durationMs = task.plannedDurationSec * 1000;
 		const projectedEnd = new Date(projectedStart.getTime() + durationMs);
-
-		// Update next available time for subsequent tasks (only for current and future tasks)
-		if (index >= currentIndex) {
-			nextAvailableTime = projectedEnd;
-		}
 
 		// Calculate buffer and risk level for fixed tasks
 		let riskLevel: RiskLevel | null = null;
 		let bufferSec = 0;
 
-		if (task.type === 'fixed' && displayStatus === 'pending') {
-			// Calculate "raw" arrival time (when we'd arrive ignoring the fixed task constraint)
-			// This tells us how much buffer/slack we actually have
-			const rawArrivalMs = index > currentIndex && results[index - 1]
-				? results[index - 1].projectedEnd.getTime()
-				: projectedStart.getTime();
-
-			// Buffer is positive if we'd arrive early (have slack time), negative if we'd be late
-			bufferSec = Math.round((task.plannedStart.getTime() - rawArrivalMs) / 1000);
-
-			// Risk level is based on raw arrival time vs scheduled time
-			riskLevel = calculateRiskLevel(new Date(rawArrivalMs), task.plannedStart);
+		if (task.type === 'fixed') {
+			// Buffer is based on when we'd arrive (nextAvailableTime) vs scheduled time
+			bufferSec = Math.round((task.plannedStart.getTime() - nextAvailableTime) / 1000);
+			riskLevel = calculateRiskLevel(new Date(nextAvailableTime), task.plannedStart);
 		}
 
-		// Determine if draggable (flexible + not completed + after or at current)
-		// Current task can be moved if it's flexible
-		const isDraggable =
-			task.type === 'flexible' &&
-			displayStatus !== 'completed' &&
-			index >= currentIndex;
+		// Update next available time
+		nextAvailableTime = projectedEnd.getTime();
 
-		results.push({
+		resultsMap.set(originalIndex, {
 			task,
 			projectedStart,
 			projectedEnd,
 			riskLevel,
 			bufferSec,
-			displayStatus,
-			isDraggable
+			displayStatus: 'pending',
+			isDraggable: task.type === 'flexible'
 		});
+	}
+
+	// Return results in original array order
+	const results: ProjectedTask[] = [];
+	for (let i = 0; i < tasks.length; i++) {
+		const result = resultsMap.get(i);
+		if (result) {
+			results.push(result);
+		}
 	}
 
 	return results;
