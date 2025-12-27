@@ -5,7 +5,9 @@
  * - Seconds: "30s" → 30
  * - Minutes: "30m" → 1800
  * - Hours: "2h" → 7200
- * - Combined: "1h 30m" → 5400
+ * - Combined h+m: "1h 30m" → 5400
+ * - Combined m+s: "8m 58s" → 538
+ * - Combined h+m+s: "1h 30m 45s" → 5445
  * - MM:SS: "30:00" → 1800
  * - HH:MM:SS: "01:30:00" → 5400
  */
@@ -20,7 +22,13 @@ const MINUTES_PATTERN = /^(\d+)m$/i;
 const HOURS_PATTERN = /^(\d+)h$/i;
 
 // Pattern for combined hours and minutes: "1h 30m" or "1h30m"
-const COMBINED_PATTERN = /^(\d+)h\s*(\d+)m$/i;
+const COMBINED_HM_PATTERN = /^(\d+)h\s*(\d+)m$/i;
+
+// Pattern for combined minutes and seconds: "8m 58s" or "8m58s"
+const COMBINED_MS_PATTERN = /^(\d+)m\s*(\d+)s$/i;
+
+// Pattern for combined hours, minutes, seconds: "1h 30m 45s"
+const COMBINED_HMS_PATTERN = /^(\d+)h\s*(\d+)m\s*(\d+)s$/i;
 
 // Pattern for MM:SS format: "30:00"
 const MMSS_PATTERN = /^(\d{1,2}):(\d{2})$/;
@@ -67,12 +75,29 @@ export function parseDuration(input: string): number | null {
 		return parseInt(match[1], 10) * 3600;
 	}
 
-	// Combined: "1h 30m" or "1h30m"
-	match = normalized.match(COMBINED_PATTERN);
+	// Combined hours, minutes, seconds: "1h 30m 45s"
+	match = normalized.match(COMBINED_HMS_PATTERN);
+	if (match) {
+		const hours = parseInt(match[1], 10);
+		const minutes = parseInt(match[2], 10);
+		const seconds = parseInt(match[3], 10);
+		return hours * 3600 + minutes * 60 + seconds;
+	}
+
+	// Combined hours and minutes: "1h 30m" or "1h30m"
+	match = normalized.match(COMBINED_HM_PATTERN);
 	if (match) {
 		const hours = parseInt(match[1], 10);
 		const minutes = parseInt(match[2], 10);
 		return hours * 3600 + minutes * 60;
+	}
+
+	// Combined minutes and seconds: "8m 58s" or "8m58s"
+	match = normalized.match(COMBINED_MS_PATTERN);
+	if (match) {
+		const minutes = parseInt(match[1], 10);
+		const seconds = parseInt(match[2], 10);
+		return minutes * 60 + seconds;
 	}
 
 	// HH:MM:SS: "01:30:00" (check before MM:SS to avoid false matches)
