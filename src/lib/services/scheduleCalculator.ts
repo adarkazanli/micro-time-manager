@@ -229,7 +229,9 @@ export function calculateSchedule(
 	}
 
 	const scheduleStartTime = getScheduleStartTime(config);
-	const sortedTasks = [...tasks].sort((a, b) => a.sortOrder - b.sortOrder);
+	// Sort tasks chronologically by plannedStart, not by sortOrder
+	// This ensures correct cursor positioning regardless of array order
+	const sortedTasks = [...tasks].sort((a, b) => a.plannedStart.getTime() - b.plannedStart.getTime());
 	const scheduledTasks: ScheduledTask[] = [];
 
 	// Extract fixed tasks sorted by their planned start time for interruption detection
