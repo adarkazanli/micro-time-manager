@@ -18,10 +18,14 @@
 		onAnalytics?: () => void;
 		onExportExcel?: () => ExportResult;
 		onExportCSV?: () => ExportResult;
+		onStartNewDay?: () => void;
 		hasSession?: boolean;
 	}
 
-	let { open, onClose, onAnalytics, onExportExcel, onExportCSV, hasSession = false }: Props = $props();
+	let { open, onClose, onAnalytics, onExportExcel, onExportCSV, onStartNewDay, hasSession = false }: Props = $props();
+
+	// New day confirmation state
+	let showNewDayConfirm = $state(false);
 
 	// Export state
 	let exportError = $state<string | null>(null);
@@ -51,6 +55,41 @@
 			onAnalytics();
 			onClose();
 		}
+	}
+
+	// New day handlers
+	function handleStartNewDayClick() {
+		showNewDayConfirm = true;
+	}
+
+	function handleExportAndStartNew() {
+		// Export to Excel first
+		if (onExportExcel) {
+			const result = onExportExcel();
+			if (!result.success) {
+				exportError = result.error || 'Export failed';
+				showNewDayConfirm = false;
+				return;
+			}
+		}
+		// Then start new day
+		showNewDayConfirm = false;
+		if (onStartNewDay) {
+			onStartNewDay();
+			onClose();
+		}
+	}
+
+	function handleStartNewWithoutExport() {
+		showNewDayConfirm = false;
+		if (onStartNewDay) {
+			onStartNewDay();
+			onClose();
+		}
+	}
+
+	function handleCancelNewDay() {
+		showNewDayConfirm = false;
 	}
 
 	// Local refs
@@ -363,8 +402,63 @@
 							{exportError}
 						</div>
 					{/if}
+
+					<!-- Start New Day row -->
+					<div class="setting-row">
+						<div class="setting-label">
+							Start New Day
+							<span class="setting-hint">Clear current session and start fresh</span>
+						</div>
+						<button
+							type="button"
+							class="action-btn action-btn-newday"
+							onclick={handleStartNewDayClick}
+							disabled={!hasSession}
+							data-testid="settings-newday-btn"
+						>
+							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="action-icon">
+								<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-11.25a.75.75 0 00-1.5 0v2.5h-2.5a.75.75 0 000 1.5h2.5v2.5a.75.75 0 001.5 0v-2.5h2.5a.75.75 0 000-1.5h-2.5v-2.5z" clip-rule="evenodd" />
+							</svg>
+							New Day
+						</button>
+					</div>
 				</section>
 			</div>
+
+			<!-- New Day Confirmation Dialog -->
+			{#if showNewDayConfirm}
+				<div class="confirm-overlay" data-testid="newday-confirm">
+					<div class="confirm-dialog">
+						<h3 class="confirm-title">Start New Day?</h3>
+						<p class="confirm-message">
+							Would you like to download your current session data before starting fresh?
+						</p>
+						<div class="confirm-actions">
+							<button
+								type="button"
+								class="confirm-btn confirm-btn-secondary"
+								onclick={handleCancelNewDay}
+							>
+								Cancel
+							</button>
+							<button
+								type="button"
+								class="confirm-btn confirm-btn-warning"
+								onclick={handleStartNewWithoutExport}
+							>
+								Skip Export
+							</button>
+							<button
+								type="button"
+								class="confirm-btn confirm-btn-primary"
+								onclick={handleExportAndStartNew}
+							>
+								Export & Start
+							</button>
+						</div>
+					</div>
+				</div>
+			{/if}
 		</div>
 	</div>
 {/if}
@@ -643,6 +737,83 @@
 
 	:global(.dark) .export-error {
 		@apply text-red-300 bg-red-900/30;
+	}
+
+	/* New Day button */
+	.action-btn-newday {
+		@apply bg-orange-100 text-orange-700 hover:bg-orange-200;
+		@apply focus:ring-orange-500;
+	}
+
+	:global(.dark) .action-btn-newday {
+		@apply bg-orange-900/40 text-orange-300 hover:bg-orange-900/60;
+	}
+
+	/* Confirmation dialog overlay */
+	.confirm-overlay {
+		@apply absolute inset-0 bg-black/50 z-10;
+		@apply flex items-center justify-center p-4;
+	}
+
+	.confirm-dialog {
+		@apply bg-white rounded-lg shadow-xl p-5 max-w-sm w-full;
+	}
+
+	:global(.dark) .confirm-dialog {
+		@apply bg-gray-800;
+	}
+
+	.confirm-title {
+		@apply text-lg font-semibold text-gray-900 mb-2;
+	}
+
+	:global(.dark) .confirm-title {
+		@apply text-white;
+	}
+
+	.confirm-message {
+		@apply text-sm text-gray-600 mb-4;
+	}
+
+	:global(.dark) .confirm-message {
+		@apply text-gray-300;
+	}
+
+	.confirm-actions {
+		@apply flex flex-col sm:flex-row gap-2;
+	}
+
+	.confirm-btn {
+		@apply flex-1 px-4 py-2 rounded-md text-sm font-medium;
+		@apply transition-colors duration-150;
+		@apply focus:outline-none focus:ring-2 focus:ring-offset-2;
+	}
+
+	.confirm-btn-secondary {
+		@apply bg-gray-100 text-gray-700 hover:bg-gray-200;
+		@apply focus:ring-gray-500;
+	}
+
+	:global(.dark) .confirm-btn-secondary {
+		@apply bg-gray-700 text-gray-300 hover:bg-gray-600;
+	}
+
+	.confirm-btn-warning {
+		@apply bg-orange-100 text-orange-700 hover:bg-orange-200;
+		@apply focus:ring-orange-500;
+	}
+
+	:global(.dark) .confirm-btn-warning {
+		@apply bg-orange-900/40 text-orange-300 hover:bg-orange-900/60;
+	}
+
+	.confirm-btn-primary {
+		@apply bg-blue-600 text-white hover:bg-blue-700;
+		@apply focus:ring-blue-500;
+	}
+
+	:global(.dark) .confirm-btn-primary {
+		@apply bg-blue-500 hover:bg-blue-600;
 	}
 
 	/* Mobile responsive */

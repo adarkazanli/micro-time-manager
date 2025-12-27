@@ -304,6 +304,23 @@
 		lastInterruptionId = null;
 	}
 
+	/**
+	 * Handle "Start New Day" from settings panel.
+	 * Resets all session data and returns to the import screen.
+	 */
+	function handleStartNewDay() {
+		daySummary = null;
+		sessionStore.reset();
+		timerStore.reset();
+		interruptionStore.reset();
+		noteStore.reset();
+		importStore.reset();
+		storage.clearTasks();
+		confirmedTasks = [];
+		showTracking = false;
+		lastInterruptionId = null;
+	}
+
 	// Impact panel reorder handler (T051)
 	function handleImpactReorder(fromIndex: number, toIndex: number) {
 		const success = sessionStore.reorderTasks(fromIndex, toIndex);
@@ -926,6 +943,7 @@
 	onAnalytics={toggleAnalytics}
 	onExportExcel={handleExportExcel}
 	onExportCSV={handleExportCSV}
+	onStartNewDay={handleStartNewDay}
 	hasSession={sessionStore.session !== null}
 />
 
