@@ -368,9 +368,31 @@ function createSessionStore() {
 			// Calculate new total lag
 			const newLag = session.totalLagSec + lag;
 
-			// Check if there are more tasks
-			const nextIndex = currentIndex + 1;
-			const isComplete = nextIndex >= tasks.length;
+			// Find the next task in CHRONOLOGICAL order (not array order)
+			// This ensures tasks are completed in the order they appear in the schedule
+			const currentTask = tasks[currentIndex];
+
+			// Find all pending tasks and sort by planned start time
+			const pendingTasksWithIndex = tasks
+				.map((task, idx) => ({ task, idx, progress: progress[idx] }))
+				.filter(({ progress: p }) => p.status === 'pending' || p.status === 'active')
+				.filter(({ idx }) => idx !== currentIndex) // Exclude current task
+				.sort((a, b) => a.task.plannedStart.getTime() - b.task.plannedStart.getTime());
+
+			// Debug logging for next task selection
+			console.group('🔄 Next Task Selection');
+			console.log('Current task ended:', currentTask.name);
+			console.log('Pending tasks (chronological):');
+			pendingTasksWithIndex.forEach(({ task, idx }) => {
+				console.log(`  - [${idx}] ${task.name} @ ${task.plannedStart.toLocaleTimeString()}`);
+			});
+
+			const nextTaskInfo = pendingTasksWithIndex[0];
+			const nextIndex = nextTaskInfo?.idx ?? -1;
+			const isComplete = nextIndex === -1;
+
+			console.log('Next task index:', nextIndex, nextTaskInfo ? `(${nextTaskInfo.task.name})` : '(none - session complete)');
+			console.groupEnd();
 
 			if (isComplete) {
 				// Session complete
