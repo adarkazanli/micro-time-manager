@@ -136,22 +136,15 @@ describe('sessionStore', () => {
 			expect(sessionStore.taskProgress).toHaveLength(3);
 		});
 
-		it('should initialize first task progress as "active"', async () => {
+		it('should initialize all tasks as "pending" (no auto-start)', async () => {
 			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
 			const tasks = createMockTasks(3);
 
 			sessionStore.startDay(tasks);
 
-			expect(sessionStore.taskProgress[0].status).toBe('active');
+			// All tasks start as 'pending' - user must click Start to begin working
+			expect(sessionStore.taskProgress[0].status).toBe('pending');
 			expect(sessionStore.taskProgress[0].taskId).toBe('task-1');
-		});
-
-		it('should initialize remaining tasks as "pending"', async () => {
-			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
-			const tasks = createMockTasks(3);
-
-			sessionStore.startDay(tasks);
-
 			expect(sessionStore.taskProgress[1].status).toBe('pending');
 			expect(sessionStore.taskProgress[2].status).toBe('pending');
 		});
@@ -418,14 +411,18 @@ describe('sessionStore', () => {
 			expect(sessionStore.currentTaskIndex).toBe(1);
 		});
 
-		it('should set next task as active', async () => {
+		it('should keep next task as pending (no auto-start)', async () => {
 			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
 			const tasks = createMockTasks(3);
 
 			sessionStore.startDay(tasks);
+			// First, start task 0 (makes it active)
+			sessionStore.jumpToTask('task-1', 0);
+			// Now complete it
 			sessionStore.completeTask(1800);
 
-			expect(sessionStore.taskProgress[1].status).toBe('active');
+			// Next task should stay 'pending' - user must click Start
+			expect(sessionStore.taskProgress[1].status).toBe('pending');
 		});
 
 		it('should update currentTask to next task', async () => {

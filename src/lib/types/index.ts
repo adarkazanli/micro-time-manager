@@ -293,6 +293,15 @@ export interface ProjectedTask {
 	displayStatus: DisplayStatus;
 	/** Whether this task can be dragged (flexible + not completed/current) */
 	isDraggable: boolean;
+	/** Accumulated elapsed time in seconds (from progress.actualDurationSec) */
+	elapsedSec: number;
+	/** Whether this task will be interrupted by a fixed task before completion */
+	willBeInterrupted: boolean;
+	/** Info about the interrupting fixed task (if willBeInterrupted is true) */
+	interruptingTask?: {
+		name: string;
+		startTime: Date;
+	};
 }
 
 /**

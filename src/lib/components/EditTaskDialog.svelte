@@ -215,6 +215,7 @@
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby="dialog-title"
+		data-testid="edit-task-dialog"
 		onclick={handleBackdropClick}
 	>
 		<div class="dialog-content" onkeydown={handleKeydown}>
@@ -278,7 +279,7 @@
 						<div class="form-group">
 							<label class="form-label">Status</label>
 							{#if showUncompleteConfirm}
-								<p class="confirm-message">Are you sure? This will reset the task timer.</p>
+								<p class="confirm-message">Are you sure? The timer will continue from where it left off.</p>
 							{/if}
 							<button
 								type="button"

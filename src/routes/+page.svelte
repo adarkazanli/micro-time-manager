@@ -252,9 +252,8 @@
 	// Day tracking handlers
 	function handleStartDay() {
 		sessionStore.startDay(confirmedTasks);
-		if (sessionStore.currentProgress) {
-			timerStore.start(sessionStore.currentProgress.plannedDurationSec);
-		}
+		// Do NOT auto-start the first task
+		// User must click "Start" on a task to begin working on it
 	}
 
 	function handleCompleteTask() {
@@ -267,10 +266,8 @@
 		const elapsedSec = Math.floor(elapsedMs / 1000);
 		sessionStore.completeTask(elapsedSec);
 
-		// Start next task timer if session is still running
-		if (sessionStore.status === 'running' && sessionStore.currentProgress) {
-			timerStore.start(sessionStore.currentProgress.plannedDurationSec);
-		}
+		// Do NOT auto-start the next task
+		// User must click "Start" on the next task to begin working on it
 	}
 
 	function handleEndDay() {
@@ -359,20 +356,16 @@
 	}
 
 	// Task correction: Uncomplete task handler
+	// Just marks task as incomplete - does NOT start the timer
+	// User must click "Start" separately to begin working on the task
 	function handleUncompleteTask(taskId: string) {
-		// Stop any running timer first (since we're switching tasks)
-		timerStore.stop();
-
 		const success = sessionStore.uncompleteTask(taskId);
 		if (success) {
 			// Update local reference
 			confirmedTasks = sessionStore.tasks;
-			// If this task becomes active, restart the timer from the preserved elapsed time
-			if (sessionStore.currentProgress && sessionStore.currentProgress.taskId === taskId) {
-				// Start timer from where it left off (actualDurationSec is preserved)
-				const previousElapsedMs = sessionStore.currentProgress.actualDurationSec * 1000;
-				timerStore.start(sessionStore.currentProgress.plannedDurationSec, previousElapsedMs);
-			}
+			console.log('📋 handleUncompleteTask: Task marked as incomplete');
+			console.log('  taskId:', taskId);
+			console.log('  Elapsed time preserved - will resume when Start is clicked');
 		}
 	}
 

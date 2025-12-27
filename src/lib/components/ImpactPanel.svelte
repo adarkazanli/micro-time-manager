@@ -186,22 +186,22 @@
 		return createProjectedTasks(tasks, progress, currentIndex, elapsedMs, timerStartedAtMs);
 	});
 
-	// Sort projected tasks chronologically by DISPLAYED time for display
-	// This ensures the impact panel shows tasks in the order matching their displayed times
+	// Sort projected tasks chronologically by PROJECTED time for display
+	// This ensures the impact panel shows tasks in execution order (respects manual reordering)
+	// Fixed tasks use plannedStart, flexible tasks use projectedStart
 	const sortedProjectedTasks = $derived.by(() => {
-		// Helper to get the displayed time (same logic as ImpactTaskRow)
-		const getDisplayTime = (pt: typeof projectedTasks[0]) => {
+		// Helper to get the sort time
+		// Fixed tasks: always use planned start (they have fixed times)
+		// Flexible tasks: use projected start (reflects execution order and manual reordering)
+		const getSortTime = (pt: typeof projectedTasks[0]) => {
 			const isFixed = pt.task.type === 'fixed';
-			const isBehindSchedule = pt.displayStatus === 'pending' &&
-				!isFixed &&
-				pt.projectedStart.getTime() > pt.task.plannedStart.getTime();
-
-			// Behind schedule shows projected time, otherwise scheduled time
-			return isBehindSchedule ? pt.projectedStart : pt.task.plannedStart;
+			// Fixed tasks sort by their scheduled time
+			// Flexible tasks sort by their projected start (which reflects task array order)
+			return isFixed ? pt.task.plannedStart : pt.projectedStart;
 		};
 
 		return [...projectedTasks].sort((a, b) =>
-			getDisplayTime(a).getTime() - getDisplayTime(b).getTime()
+			getSortTime(a).getTime() - getSortTime(b).getTime()
 		);
 	});
 
@@ -242,6 +242,8 @@
 	});
 
 	// Check if schedule extends past midnight (T072)
+	// Note: Date objects are created fresh in each derived invocation, not stored reactively
+	/* eslint-disable svelte/prefer-svelte-reactivity */
 	const hasOverflow = $derived.by((): boolean => {
 		if (!scheduleEndTime) return false;
 
@@ -252,6 +254,7 @@
 
 		return scheduleEndTime.getTime() >= nextMidnight.getTime();
 	});
+	/* eslint-enable svelte/prefer-svelte-reactivity */
 
 	// Summary counts
 	const completedCount = $derived(
@@ -278,6 +281,15 @@
 		projectedTasks.some((t) => t.isDraggable) && onReorder !== undefined
 	);
 
+	// Helper to convert sorted index to original task array index
+	function getOriginalIndex(sortedIndex: number): number {
+		if (sortedIndex < 0 || sortedIndex >= sortedProjectedTasks.length) {
+			return -1;
+		}
+		const taskId = sortedProjectedTasks[sortedIndex].task.taskId;
+		return tasks.findIndex((t) => t.taskId === taskId);
+	}
+
 	// Drag handlers
 	function handleDragStart(e: DragEvent, index: number) {
 		draggedIndex = index;
@@ -296,8 +308,15 @@
 		e.preventDefault();
 		if (draggedIndex === null || draggedIndex === index) return;
 
-		// Only allow dropping on valid targets (after current task)
-		if (index <= currentIndex) return;
+		// Convert sorted index to original index for validation
+		const originalDropIndex = index < sortedProjectedTasks.length
+			? getOriginalIndex(index)
+			: tasks.length; // Dropping at end
+
+		// Only allow dropping on valid targets (after current task in ORIGINAL order)
+		if (originalDropIndex <= currentIndex) {
+			return;
+		}
 
 		dropTargetIndex = index;
 		if (e.dataTransfer) {
@@ -309,15 +328,26 @@
 		dropTargetIndex = null;
 	}
 
-	function handleDrop(e: DragEvent, index: number) {
+	function handleDrop(e: DragEvent, sortedDropIndex: number) {
 		e.preventDefault();
-		if (draggedIndex === null || draggedIndex === index) {
+		if (draggedIndex === null || draggedIndex === sortedDropIndex) {
 			handleDragEnd();
 			return;
 		}
 
-		// Call reorder handler
-		onReorder?.(draggedIndex, index);
+		// Convert sorted indices to original task array indices
+		const originalFromIndex = getOriginalIndex(draggedIndex);
+		const originalToIndex = sortedDropIndex < sortedProjectedTasks.length
+			? getOriginalIndex(sortedDropIndex)
+			: tasks.length; // Dropping at end
+
+		if (originalFromIndex === -1 || originalToIndex === -1) {
+			handleDragEnd();
+			return;
+		}
+
+		// Call reorder handler with ORIGINAL indices
+		onReorder?.(originalFromIndex, originalToIndex);
 		handleDragEnd();
 	}
 </script>

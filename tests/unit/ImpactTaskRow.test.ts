@@ -25,6 +25,8 @@ function createMockProjectedTask(overrides: Partial<ProjectedTask> = {}): Projec
 		bufferSec: 0,
 		displayStatus: 'pending',
 		isDraggable: false,
+		elapsedSec: 0,
+		willBeInterrupted: false,
 		...overrides
 	};
 }

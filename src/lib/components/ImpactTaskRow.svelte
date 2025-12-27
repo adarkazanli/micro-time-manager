@@ -47,6 +47,21 @@
 	const isFixed = $derived(projectedTask.task.type === 'fixed');
 	const showRiskIndicator = $derived(isFixed && projectedTask.displayStatus === 'pending');
 
+	// Elapsed time display (for tasks that have been started before)
+	const elapsedDisplay = $derived(
+		projectedTask.elapsedSec > 0 ? formatDuration(projectedTask.elapsedSec) : null
+	);
+
+	// Interruption indicator for pending flexible tasks
+	const showInterruptionMarker = $derived(
+		projectedTask.displayStatus === 'pending' && projectedTask.willBeInterrupted
+	);
+	const interruptionTooltip = $derived(
+		projectedTask.interruptingTask
+			? `Will be interrupted by "${projectedTask.interruptingTask.name}" at ${formatTime(projectedTask.interruptingTask.startTime, '12h')}`
+			: ''
+	);
+
 	// For FLEXIBLE pending tasks only, show projected time if different from scheduled
 	// Fixed tasks ALWAYS show their scheduled time - the risk indicator shows if we'll be late
 	// Check if we're behind schedule (projected is later than scheduled)
@@ -124,106 +139,134 @@
 	ondblclick={handleDoubleClick}
 	role="listitem"
 >
-	<!-- Drag handle for draggable tasks -->
-	{#if projectedTask.isDraggable}
-		<div class="drag-handle" aria-label="Drag to reorder" data-testid="drag-handle">
-			<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
-				<path
-					fill-rule="evenodd"
-					d="M10 3a.75.75 0 01.55.24l3.25 3.5a.75.75 0 11-1.1 1.02L10 4.852 7.3 7.76a.75.75 0 01-1.1-1.02l3.25-3.5A.75.75 0 0110 3zm-3.76 9.2a.75.75 0 011.06.04l2.7 2.908 2.7-2.908a.75.75 0 111.1 1.02l-3.25 3.5a.75.75 0 01-1.1 0l-3.25-3.5a.75.75 0 01.04-1.06z"
-					clip-rule="evenodd"
-				/>
-			</svg>
-		</div>
-	{:else}
-		<div class="drag-handle-placeholder"></div>
-	{/if}
-
-	<!-- Risk indicator for fixed tasks -->
-	{#if showRiskIndicator && projectedTask.riskLevel}
-		<div
-			class="risk-indicator {projectedTask.riskLevel}"
-			data-testid="risk-indicator"
-			data-risk={projectedTask.riskLevel}
-			title={bufferDisplay()}
-		>
-			<span class="risk-dot"></span>
-		</div>
-	{:else}
-		<div class="risk-indicator-placeholder"></div>
-	{/if}
-
-	<!-- Time display (FR-015: show scheduled start times) -->
-	<div class="task-time" data-testid="task-time">
-		<span class="scheduled-time" class:delayed={isBehindSchedule}>{displayTime}</span>
-	</div>
-
-	<!-- Duration display -->
-	<div class="task-duration" data-testid="task-duration">
-		<span class="duration-value">{duration}</span>
-	</div>
-
-	<!-- Task name -->
-	<div class="task-name" data-testid="task-name">
-		{projectedTask.task.name}
-	</div>
-
-	<!-- Type badge with fixed indicator (T051) -->
-	<div class="task-type">
-		{#if isFixed}
-			<button
-				type="button"
-				class="type-badge-with-icon type-fixed"
-				data-testid="type-badge"
-				onclick={handleToggleType}
-				disabled={!canToggleType}
-				title={canToggleType ? 'Click to toggle type' : ''}
-			>
-				<FixedTaskIndicator size="sm" tooltip="Fixed time appointment" />
-				<span>fixed</span>
-			</button>
+	<!-- Row 1: Controls and metadata -->
+	<div class="row-top">
+		<!-- Drag handle for draggable tasks -->
+		{#if projectedTask.isDraggable}
+			<div class="drag-handle" aria-label="Drag to reorder" data-testid="drag-handle">
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+					<path
+						fill-rule="evenodd"
+						d="M10 3a.75.75 0 01.55.24l3.25 3.5a.75.75 0 11-1.1 1.02L10 4.852 7.3 7.76a.75.75 0 01-1.1-1.02l3.25-3.5A.75.75 0 0110 3zm-3.76 9.2a.75.75 0 011.06.04l2.7 2.908 2.7-2.908a.75.75 0 111.1 1.02l-3.25 3.5a.75.75 0 01-1.1 0l-3.25-3.5a.75.75 0 01.04-1.06z"
+						clip-rule="evenodd"
+					/>
+				</svg>
+			</div>
 		{:else}
+			<div class="drag-handle-placeholder"></div>
+		{/if}
+
+		<!-- Risk indicator for fixed tasks -->
+		{#if showRiskIndicator && projectedTask.riskLevel}
+			<div
+				class="risk-indicator {projectedTask.riskLevel}"
+				data-testid="risk-indicator"
+				data-risk={projectedTask.riskLevel}
+				title={bufferDisplay()}
+			>
+				<span class="risk-dot"></span>
+			</div>
+		{:else}
+			<div class="risk-indicator-placeholder"></div>
+		{/if}
+
+		<!-- Time display (FR-015: show scheduled start times) -->
+		<div class="task-time" data-testid="task-time">
+			<span class="scheduled-time" class:delayed={isBehindSchedule}>{displayTime}</span>
+		</div>
+
+		<!-- Duration display with elapsed time -->
+		<div class="task-duration" data-testid="task-duration">
+			<span class="duration-value">{duration}</span>
+			{#if elapsedDisplay}
+				<span class="elapsed-indicator" title="{elapsedDisplay} already completed">
+					({elapsedDisplay} done)
+				</span>
+			{/if}
+		</div>
+
+		<!-- Type badge with fixed indicator (T051) -->
+		<div class="task-type">
+			{#if isFixed}
+				<button
+					type="button"
+					class="type-badge-with-icon type-fixed"
+					data-testid="type-badge"
+					onclick={handleToggleType}
+					disabled={!canToggleType}
+					title={canToggleType ? 'Click to toggle type' : ''}
+				>
+					<FixedTaskIndicator size="sm" tooltip="Fixed time appointment" />
+					<span>fixed</span>
+				</button>
+			{:else}
+				<button
+					type="button"
+					class="type-badge {projectedTask.task.type}"
+					data-testid="type-badge"
+					onclick={handleToggleType}
+					disabled={!canToggleType}
+					title={canToggleType ? 'Click to toggle type' : ''}
+				>
+					{projectedTask.task.type}
+				</button>
+			{/if}
+		</div>
+
+		<!-- Start button for pending tasks -->
+		{#if canStart && onStartTask}
 			<button
 				type="button"
-				class="type-badge {projectedTask.task.type}"
-				data-testid="type-badge"
-				onclick={handleToggleType}
-				disabled={!canToggleType}
-				title={canToggleType ? 'Click to toggle type' : ''}
+				class="start-btn"
+				onclick={handleStartClick}
+				data-testid="start-task-btn"
+				title="Start this task now"
 			>
-				{projectedTask.task.type}
+				Start
 			</button>
 		{/if}
 	</div>
 
-	<!-- Start button for pending tasks -->
-	{#if canStart && onStartTask}
-		<button
-			type="button"
-			class="start-btn"
-			onclick={handleStartClick}
-			data-testid="start-task-btn"
-			title="Start this task now"
-		>
-			Start
-		</button>
-	{/if}
+	<!-- Row 2: Task name -->
+	<div class="row-bottom">
+		<div class="task-name" data-testid="task-name">
+			{projectedTask.task.name}
+			{#if showInterruptionMarker}
+				<span
+					class="interruption-marker"
+					title={interruptionTooltip}
+					data-testid="interruption-marker"
+				>
+					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+						<path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+					</svg>
+				</span>
+			{/if}
+		</div>
+	</div>
 </div>
 
 <style>
 	@reference "tailwindcss";
 
 	.impact-task-row {
-		@apply flex items-start gap-3 px-3 py-3 rounded-lg;
+		@apply flex flex-col gap-1 px-3 py-3 rounded-lg;
 		@apply transition-all duration-150;
 		@apply border border-transparent;
-		@apply flex-wrap;
 		@apply border-b border-gray-200;
+	}
+
+	.row-top {
+		@apply flex items-center gap-3;
+	}
+
+	.row-bottom {
+		@apply pl-8;
 	}
 
 	/* Status styling */
 	.impact-task-row.completed {
-		@apply bg-gray-100 text-gray-400;
+		@apply bg-gray-100 text-gray-400 text-sm;
 	}
 
 	.impact-task-row.completed .task-name {
@@ -240,7 +283,7 @@
 	}
 
 	.impact-task-row.pending {
-		@apply bg-white hover:bg-gray-50;
+		@apply bg-white hover:bg-gray-50 text-sm;
 	}
 
 	/* Draggable styling */
@@ -307,21 +350,39 @@
 	/* Duration display */
 	.task-duration {
 		@apply text-sm font-mono text-gray-500 min-w-[60px];
+		@apply flex flex-col gap-0.5;
 	}
 
 	.duration-value {
 		@apply text-gray-500;
 	}
 
+	.elapsed-indicator {
+		@apply text-xs text-green-600 font-medium;
+	}
+
 	.impact-task-row.completed .task-duration {
+		@apply text-gray-400;
+	}
+
+	.impact-task-row.completed .elapsed-indicator {
 		@apply text-gray-400;
 	}
 
 	/* Task name */
 	.task-name {
-		@apply flex-1 text-gray-900;
-		@apply break-words;
-		min-width: 150px;
+		@apply text-gray-900;
+		@apply flex items-center gap-2;
+	}
+
+	/* Interruption marker */
+	.interruption-marker {
+		@apply text-amber-500 cursor-help flex-shrink-0;
+		@apply inline-flex items-center;
+	}
+
+	.interruption-marker svg {
+		@apply w-4 h-4;
 	}
 
 	/* Type badge */

@@ -7,7 +7,7 @@
  * @module projection
  */
 
-import type { ConfirmedTask, TaskProgress, ProjectedTask, RiskLevel, DisplayStatus } from '$lib/types';
+import type { ConfirmedTask, TaskProgress, ProjectedTask, RiskLevel } from '$lib/types';
 import { settingsStore } from '$lib/stores/settingsStore.svelte';
 
 /**
@@ -164,27 +164,14 @@ export function createProjectedTasks(
 	const now = new Date();
 	const nowMs = now.getTime();
 
-	// Calculate remaining time on current task
+	// Calculate remaining time on current task (only if task is ACTIVE)
 	let currentRemainingMs = 0;
-	if (currentIndex >= 0 && currentIndex < tasks.length) {
+	const hasActiveTask = currentIndex >= 0 && currentIndex < tasks.length &&
+		progress[currentIndex]?.status === 'active';
+	if (hasActiveTask) {
 		const currentTask = tasks[currentIndex];
 		currentRemainingMs = Math.max(0, currentTask.plannedDurationSec * 1000 - currentElapsedMs);
 	}
-
-	// Debug logging for timing verification
-	console.group('🕐 Projection Timing Debug');
-	console.log('Current system time:', now.toLocaleTimeString());
-	console.log('Current task index:', currentIndex);
-	console.log('Elapsed on current task:', Math.floor(currentElapsedMs / 1000), 'sec', `(${Math.floor(currentElapsedMs / 60000)}:${String(Math.floor((currentElapsedMs % 60000) / 1000)).padStart(2, '0')})`);
-	if (currentIndex >= 0 && currentIndex < tasks.length) {
-		const ct = tasks[currentIndex];
-		console.log('Current task:', ct.name);
-		console.log('  Planned duration:', ct.plannedDurationSec, 'sec', `(${Math.floor(ct.plannedDurationSec / 60)} min)`);
-		console.log('  Planned start:', ct.plannedStart.toLocaleTimeString());
-		const remainingSec = Math.max(0, ct.plannedDurationSec - currentElapsedMs / 1000);
-		console.log('  Remaining:', Math.floor(remainingSec), 'sec', `(${Math.floor(remainingSec / 60)}:${String(Math.floor(remainingSec % 60)).padStart(2, '0')})`);
-	}
-	console.groupEnd();
 
 	// Create task info with original indices and sort chronologically for processing
 	const taskInfos = tasks.map((task, idx) => ({
@@ -194,18 +181,28 @@ export function createProjectedTasks(
 	}));
 
 	// Separate completed, current, and pending tasks
+	// A task is only "current" if it has status 'active' - not just by currentIndex
 	const completedTasks = taskInfos.filter(
-		({ progress: p, originalIndex }) =>
-			(p?.status === 'complete' || p?.status === 'missed') && originalIndex !== currentIndex
+		({ progress: p }) =>
+			(p?.status === 'complete' || p?.status === 'missed')
 	);
-	const currentTaskInfo = currentIndex >= 0 && currentIndex < tasks.length
+
+	// Only consider as current if the task at currentIndex is ACTIVE (not pending)
+	const currentTaskInfo = currentIndex >= 0 && currentIndex < tasks.length &&
+		progress[currentIndex]?.status === 'active'
 		? taskInfos[currentIndex]
 		: null;
+
+	// Pending tasks include those with status 'pending' (NOT 'active', 'complete', or 'missed')
+	// Also exclude the current task if it's active
+	// NOTE: We keep them in ARRAY ORDER (originalIndex) for flexible tasks,
+	// so that manual reordering is respected. Fixed tasks are processed
+	// at their scheduled times regardless of position.
 	const pendingTasks = taskInfos
 		.filter(({ progress: p, originalIndex }) =>
-			p?.status !== 'complete' && p?.status !== 'missed' && originalIndex !== currentIndex
+			p?.status === 'pending' && originalIndex !== (currentTaskInfo ? currentIndex : -1)
 		)
-		.sort((a, b) => a.task.plannedStart.getTime() - b.task.plannedStart.getTime());
+		.sort((a, b) => a.originalIndex - b.originalIndex);
 
 	// Build results map (keyed by original index)
 	const resultsMap = new Map<number, ProjectedTask>();
@@ -232,7 +229,9 @@ export function createProjectedTasks(
 			riskLevel: null,
 			bufferSec: 0,
 			displayStatus: 'completed',
-			isDraggable: false
+			isDraggable: false,
+			elapsedSec: p?.actualDurationSec ?? 0,
+			willBeInterrupted: false
 		});
 	}
 
@@ -245,6 +244,9 @@ export function createProjectedTasks(
 		const projectedStart = new Date(actualStartMs);
 		const projectedEnd = new Date(nowMs + currentRemainingMs);
 
+		// Elapsed time is from currentElapsedMs (live timer value)
+		const elapsedSec = Math.floor(currentElapsedMs / 1000);
+
 		resultsMap.set(originalIndex, {
 			task,
 			projectedStart,
@@ -252,23 +254,27 @@ export function createProjectedTasks(
 			riskLevel: null,
 			bufferSec: 0,
 			displayStatus: 'current',
-			isDraggable: task.type === 'flexible'
+			isDraggable: task.type === 'flexible',
+			elapsedSec,
+			willBeInterrupted: false // Current task is already running
 		});
 	}
 
-	// Build blocked periods from fixed pending tasks
+	// Build blocked periods from fixed pending tasks (with task info for interruption detection)
 	// This ensures flexible tasks don't start during a fixed task's time slot
 	const blockedPeriods = pendingTasks
 		.filter(({ task }) => task.type === 'fixed')
 		.map(({ task }) => ({
 			start: task.plannedStart.getTime(),
-			end: task.plannedStart.getTime() + task.plannedDurationSec * 1000
+			end: task.plannedStart.getTime() + task.plannedDurationSec * 1000,
+			taskName: task.name,
+			startTime: task.plannedStart
 		}));
 
 	// Process pending tasks in CHRONOLOGICAL order
 	let nextAvailableTime = nowMs + currentRemainingMs;
 
-	for (const { task, originalIndex } of pendingTasks) {
+	for (const { task, originalIndex, progress: p } of pendingTasks) {
 		let projectedStart: Date;
 
 		if (task.type === 'fixed') {
@@ -302,6 +308,32 @@ export function createProjectedTasks(
 			riskLevel = calculateRiskLevel(new Date(nextAvailableTime), task.plannedStart);
 		}
 
+		// Check if this flexible task will be interrupted by a fixed task
+		let willBeInterrupted = false;
+		let interruptingTask: { name: string; startTime: Date } | undefined;
+
+		if (task.type === 'flexible') {
+			// Check if the task's execution window overlaps with any fixed task
+			const taskStartMs = projectedStart.getTime();
+			const taskEndMs = projectedEnd.getTime();
+
+			for (const blocked of blockedPeriods) {
+				// The task will be interrupted if a fixed task starts during its execution
+				// (fixed task start is after this task starts AND before this task would end)
+				if (blocked.start > taskStartMs && blocked.start < taskEndMs) {
+					willBeInterrupted = true;
+					interruptingTask = {
+						name: blocked.taskName,
+						startTime: blocked.startTime
+					};
+					break; // Only report the first interruption
+				}
+			}
+		}
+
+		// Get elapsed time from progress (saved elapsed time for paused tasks)
+		const elapsedSec = p?.actualDurationSec ?? 0;
+
 		// Update next available time
 		nextAvailableTime = projectedEnd.getTime();
 
@@ -312,7 +344,10 @@ export function createProjectedTasks(
 			riskLevel,
 			bufferSec,
 			displayStatus: 'pending',
-			isDraggable: task.type === 'flexible'
+			isDraggable: task.type === 'flexible',
+			elapsedSec,
+			willBeInterrupted,
+			interruptingTask
 		});
 	}
 

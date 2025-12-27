@@ -201,12 +201,13 @@ function formatLag(lagSec: number): string {
  * Create initial task progress records
  */
 function createTaskProgress(confirmedTasks: ConfirmedTask[]): TaskProgress[] {
-	return confirmedTasks.map((task, index) => ({
+	// All tasks start as 'pending' - user must click Start to begin working on a task
+	return confirmedTasks.map((task) => ({
 		taskId: task.taskId,
 		plannedDurationSec: task.plannedDurationSec,
 		actualDurationSec: 0,
 		completedAt: null,
-		status: (index === 0 ? 'active' : 'pending') as ProgressStatus
+		status: 'pending' as ProgressStatus
 	}));
 }
 
@@ -430,22 +431,22 @@ function createSessionStore() {
 					timerStartedAtMs: 0 // T021: Clear timer start timestamp
 				};
 			} else {
-				// Advance to next task
-				progress[nextIndex] = {
-					...progress[nextIndex],
-					status: 'active' as ProgressStatus
-				};
+				// Update currentTaskIndex to point to the next task,
+				// but do NOT set it to 'active' - user must click Start
+				// The next task stays 'pending' until explicitly started
 
-				// T021: Reset timerStartedAtMs for new task
+				// T021: Clear timer state since no task is auto-started
 				session = {
 					...session,
-					currentTaskIndex: nextIndex,
-					currentTaskElapsedMs: 0,
+					currentTaskIndex: nextIndex, // Point to next task for UI
+					currentTaskElapsedMs: 0, // No elapsed time until user starts
 					lastPersistedAt: Date.now(),
 					totalLagSec: newLag,
 					taskProgress: progress,
-					timerStartedAtMs: Date.now()
+					timerStartedAtMs: 0 // Timer not running
 				};
+
+				console.log('🔄 Task completed. Next task:', nextIndex, '(pending - user must click Start)');
 			}
 
 			// Persist to storage
@@ -563,6 +564,11 @@ function createSessionStore() {
 		 * @param confirmedTasks - Confirmed tasks for reference
 		 */
 		restore(savedSession: DaySession, confirmedTasks: ConfirmedTask[]): void {
+			console.log('📋 sessionStore.restore: Restoring session');
+			console.log('  Task progress:');
+			savedSession.taskProgress.forEach((p, i) => {
+				console.log(`    [${i}] ${p.taskId}: ${p.status}`);
+			});
 			tasks = confirmedTasks;
 			session = savedSession;
 		},
@@ -912,18 +918,18 @@ function createSessionStore() {
 		},
 
 		/**
-		 * Jump to a specific task, PAUSING (not completing) the current task.
+		 * Jump to a specific task, PAUSING (not completing) any currently active task.
 		 *
 		 * Feature: Task Correction
 		 *
 		 * Allows starting any pending task immediately:
-		 * - PAUSES the current task (saves elapsed time but does NOT mark complete)
-		 * - Sets the target task as the new current task
+		 * - If there's an active task, PAUSES it (saves elapsed time, sets to pending)
+		 * - Sets the target task as the new current/active task
 		 * - Paused tasks can be resumed later with their saved elapsed time
 		 * - Task completion only happens via explicit "Complete Task" action
 		 *
-		 * @param taskId - ID of task to jump to
-		 * @param currentElapsedSec - Elapsed time on current task in seconds
+		 * @param taskId - ID of task to start/jump to
+		 * @param currentElapsedSec - Elapsed time on current task in seconds (0 if no active task)
 		 * @returns true if jump succeeded, false if task not found or already complete
 		 */
 		jumpToTask(taskId: string, currentElapsedSec: number): boolean {
@@ -939,34 +945,37 @@ function createSessionStore() {
 
 			const targetProgress = session.taskProgress[targetIndex];
 			const currentIndex = session.currentTaskIndex;
+			const currentProgress = session.taskProgress[currentIndex];
 
 			// Cannot jump to completed/missed tasks
 			if (targetProgress.status === 'complete' || targetProgress.status === 'missed') {
 				return false;
 			}
 
-			// If already on this task, nothing to do
-			if (targetIndex === currentIndex) {
+			// If target task is already active, nothing to do
+			if (targetProgress.status === 'active') {
 				return true;
 			}
 
 			// Note: We allow jumping to ANY pending task, including those with lower indices.
 			// This supports the use case where a user skipped a task and wants to return to it later.
 
-			// PAUSE the current task (save elapsed time but do NOT mark complete)
-			// Task completion only happens when user explicitly clicks "Complete Task"
 			const newProgress = [...session.taskProgress];
-			const currentProgress = newProgress[currentIndex];
 
-			newProgress[currentIndex] = {
-				...currentProgress,
-				actualDurationSec: currentElapsedSec, // Save elapsed time for resuming later
-				status: 'pending' as ProgressStatus   // Back to pending, not complete
-				// Note: completedAt is NOT set - task is not complete
-			};
+			// If there's currently an ACTIVE task, pause it first
+			// (save elapsed time but do NOT mark complete)
+			if (currentProgress.status === 'active') {
+				newProgress[currentIndex] = {
+					...currentProgress,
+					actualDurationSec: currentElapsedSec, // Save elapsed time for resuming later
+					status: 'pending' as ProgressStatus   // Back to pending, not complete
+					// Note: completedAt is NOT set - task is not complete
+				};
+			}
 
 			// Set target task as active, restore any previously saved elapsed time
 			const targetSavedElapsedMs = targetProgress.actualDurationSec * 1000;
+
 			newProgress[targetIndex] = {
 				...newProgress[targetIndex],
 				status: 'active' as ProgressStatus
@@ -1025,51 +1034,35 @@ function createSessionStore() {
 			// Build new progress array
 			const newProgress = [...session.taskProgress];
 
-			// If the uncompleted task is at or before current index,
-			// we need to make it the current task
-			let newCurrentIndex = session.currentTaskIndex;
-			if (progressIndex <= session.currentTaskIndex) {
-				// Mark any currently active task as pending
-				for (let i = 0; i < newProgress.length; i++) {
-					if (newProgress[i].status === 'active') {
-						newProgress[i] = {
-							...newProgress[i],
-							status: 'pending' as ProgressStatus
-						};
-					}
-				}
-				// Set the uncompleted task as active, PRESERVING actualDurationSec
-				// so the timer can continue from where it left off
-				newProgress[progressIndex] = {
-					...oldProgress,
-					// Keep actualDurationSec so timer continues from previous elapsed time
-					completedAt: null,
-					status: 'active' as ProgressStatus
-				};
-				newCurrentIndex = progressIndex;
-			} else {
-				// Task is after current, just set to pending
-				// Preserve actualDurationSec in case they want to continue later
-				newProgress[progressIndex] = {
-					...oldProgress,
-					completedAt: null,
-					status: 'pending' as ProgressStatus
-				};
-			}
+			// Mark the completed task as pending, preserving actualDurationSec
+			// Does NOT affect the currently running task - user must click Start separately
+			newProgress[progressIndex] = {
+				...oldProgress,
+				// Keep actualDurationSec so timer can resume from previous elapsed time
+				completedAt: null,
+				status: 'pending' as ProgressStatus
+			};
 
-			// Update session
+			// Update session - keep current task unchanged, just update progress and lag
 			session = {
 				...session,
 				status: 'running', // In case session was complete
 				endedAt: null, // Clear end time
-				currentTaskIndex: newCurrentIndex,
 				totalLagSec: session.totalLagSec - oldLagContribution,
 				taskProgress: newProgress,
 				lastPersistedAt: Date.now()
 			};
 
+			// Debug logging
+			console.log('📋 uncompleteTask: Task marked as pending');
+			console.log('  Task ID:', taskId);
+			console.log('  Preserved actualDurationSec:', newProgress[progressIndex].actualDurationSec);
+			console.log('  New status:', newProgress[progressIndex].status);
+			console.log('  Current task unchanged - user must click Start to work on this task');
+
 			// Persist changes
 			storage.saveSession(session);
+			console.log('📋 uncompleteTask: Session saved');
 
 			return true;
 		}

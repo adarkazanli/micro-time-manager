@@ -90,6 +90,24 @@ async function startDay(page: Page) {
 }
 
 /**
+ * Helper to start a day AND start the first task
+ * Use this when the test expects a current/running task
+ * @param taskName - Optional: name of task to start. If not provided, starts "Morning Email" (the first task in the schedule)
+ */
+async function startDayAndFirstTask(page: Page, taskName: string = 'Morning Email') {
+	await startDay(page);
+
+	// Find and start the specified task (display order may differ from import order)
+	const impactPanel = page.getByTestId('impact-panel');
+	const taskRow = impactPanel.getByTestId('impact-task-row').filter({ hasText: taskName });
+	await taskRow.hover();
+	await taskRow.getByTestId('start-task-btn').click();
+
+	// Wait for task to be marked as current
+	await expect(taskRow).toHaveAttribute('data-status', 'current');
+}
+
+/**
  * Helper to get the current task name from the current task display
  */
 async function _getCurrentTaskName(page: Page): Promise<string> {
@@ -117,9 +135,9 @@ test.describe('Comprehensive Workflow - Full Day Tracking', () => {
 		await uploadAndConfirmSchedule(page, path.join(fixturesDir, 'comprehensive-schedule.xlsx'));
 
 		// ============================================================
-		// STEP 2: Start Day
+		// STEP 2: Start Day and First Task
 		// ============================================================
-		await startDay(page);
+		await startDayAndFirstTask(page);
 
 		// Verify all tasks are in the impact panel (shown after starting day)
 		const impactPanel = page.getByTestId('impact-panel');
@@ -151,9 +169,12 @@ test.describe('Comprehensive Workflow - Full Day Tracking', () => {
 		// Verify "Project Work" is now the current task
 		await expect(page.getByTestId('current-task').getByTestId('task-name')).toContainText('Project Work');
 
-		// Morning Email should now be completed (grayed out)
+		// Morning Email should now be pending (paused, not completed) - can resume later
 		const morningEmailRow = page.getByTestId('task-list').locator('[data-testid="impact-task-row"]').filter({ hasText: 'Morning Email' });
-		await expect(morningEmailRow).toHaveAttribute('data-status', 'completed');
+		await expect(morningEmailRow).toHaveAttribute('data-status', 'pending');
+
+		// Morning Email should show preserved elapsed time
+		await expect(morningEmailRow.locator('[title*="already completed"]')).toBeVisible();
 
 		// Let timer run
 		await page.waitForTimeout(1500);
@@ -251,9 +272,12 @@ test.describe('Comprehensive Workflow - Full Day Tracking', () => {
 		// Verify "Code Review" is now current
 		await expect(page.getByTestId('current-task').getByTestId('task-name')).toContainText('Code Review');
 
-		// Project Work should now be completed
-		const projectWorkCompleted = page.getByTestId('task-list').locator('[data-testid="impact-task-row"]').filter({ hasText: 'Project Work' });
-		await expect(projectWorkCompleted).toHaveAttribute('data-status', 'completed');
+		// Project Work should now be pending (paused, not completed)
+		const projectWorkPaused = page.getByTestId('task-list').locator('[data-testid="impact-task-row"]').filter({ hasText: 'Project Work' });
+		await expect(projectWorkPaused).toHaveAttribute('data-status', 'pending');
+
+		// Project Work should show preserved elapsed time
+		await expect(projectWorkPaused.locator('[title*="already completed"]')).toBeVisible();
 
 		// Let timer run briefly
 		await page.waitForTimeout(1500);
@@ -312,7 +336,18 @@ test.describe('Comprehensive Workflow - Full Day Tracking', () => {
 		// Dialog should close
 		await expect(page.getByRole('dialog')).not.toBeVisible();
 
-		// Team Standup should now be current again
+		// Team Standup should now be pending (available to start again)
+		const uncompleteStandup = page.getByTestId('task-list').locator('[data-testid="impact-task-row"]').filter({ hasText: 'Team Standup' });
+		await expect(uncompleteStandup).toHaveAttribute('data-status', 'pending');
+
+		// Team Standup should show preserved elapsed time
+		await expect(uncompleteStandup.locator('[title*="already completed"]')).toBeVisible();
+
+		// Start Team Standup again to verify elapsed time is preserved
+		await uncompleteStandup.hover();
+		await uncompleteStandup.getByTestId('start-task-btn').click();
+
+		// Team Standup should now be current
 		await expect(page.getByTestId('current-task').getByTestId('task-name')).toContainText('Team Standup');
 
 		// Verify elapsed time is preserved (timer should not start from 0)
@@ -397,7 +432,7 @@ test.describe('Task Correction Features', () => {
 
 	test('can edit elapsed time for current task', async ({ page }) => {
 		await uploadAndConfirmSchedule(page, path.join(fixturesDir, 'comprehensive-schedule.xlsx'));
-		await startDay(page);
+		await startDayAndFirstTask(page);
 
 		// Let timer run
 		await page.waitForTimeout(2000);
@@ -462,7 +497,7 @@ test.describe('Task Correction Features', () => {
 
 	test('marking task incomplete preserves elapsed time', async ({ page }) => {
 		await uploadAndConfirmSchedule(page, path.join(fixturesDir, 'comprehensive-schedule.xlsx'));
-		await startDay(page);
+		await startDayAndFirstTask(page);
 
 		// Let timer run for a measurable amount
 		await page.waitForTimeout(3000);
@@ -490,7 +525,18 @@ test.describe('Task Correction Features', () => {
 		// Dialog should close
 		await expect(page.getByRole('dialog')).not.toBeVisible();
 
-		// Task should now be current
+		// Morning Email should now be pending (available to restart)
+		const morningEmailRow = page.getByTestId('task-list').locator('[data-testid="impact-task-row"]').filter({ hasText: 'Morning Email' });
+		await expect(morningEmailRow).toHaveAttribute('data-status', 'pending');
+
+		// Morning Email should show elapsed time preserved
+		await expect(morningEmailRow.locator('[title*="already completed"]')).toBeVisible();
+
+		// Start Morning Email again to verify elapsed time is preserved
+		await morningEmailRow.hover();
+		await morningEmailRow.getByTestId('start-task-btn').click();
+
+		// Now Morning Email should be current
 		await expect(page.getByTestId('current-task').getByTestId('task-name')).toContainText('Morning Email');
 
 		// Wait for timer to update with preserved elapsed time
@@ -539,9 +585,9 @@ test.describe('Jump to Task Feature', () => {
 		await expect(completedRow.getByTestId('start-task-btn')).not.toBeVisible();
 	});
 
-	test('jumping to task completes current task', async ({ page }) => {
+	test('jumping to task pauses current task (preserves elapsed time)', async ({ page }) => {
 		await uploadAndConfirmSchedule(page, path.join(fixturesDir, 'comprehensive-schedule.xlsx'));
-		await startDay(page);
+		await startDayAndFirstTask(page);
 
 		// Verify first task is current
 		await expect(page.getByTestId('current-task').getByTestId('task-name')).toContainText('Morning Email');
@@ -557,9 +603,12 @@ test.describe('Jump to Task Feature', () => {
 		// Current task should now be Code Review
 		await expect(page.getByTestId('current-task').getByTestId('task-name')).toContainText('Code Review');
 
-		// Morning Email should be completed
+		// Morning Email should be pending (paused, not completed) - allows resuming later
 		const morningEmailRow = page.getByTestId('task-list').locator('[data-testid="impact-task-row"]').filter({ hasText: 'Morning Email' });
-		await expect(morningEmailRow).toHaveAttribute('data-status', 'completed');
+		await expect(morningEmailRow).toHaveAttribute('data-status', 'pending');
+
+		// Morning Email should show elapsed time indicator (preserved from when it was running)
+		await expect(morningEmailRow.locator('[title*="already completed"]')).toBeVisible();
 	});
 
 	test('skipped tasks remain pending', async ({ page }) => {
@@ -609,7 +658,7 @@ test.describe('Schedule Reordering', () => {
 
 	test('current flexible task can be moved', async ({ page }) => {
 		await uploadAndConfirmSchedule(page, path.join(fixturesDir, 'comprehensive-schedule.xlsx'));
-		await startDay(page);
+		await startDayAndFirstTask(page);
 
 		// First task (Morning Email) is current and flexible
 		const currentRow = page.getByTestId('task-list').locator('[data-testid="impact-task-row"][data-status="current"]');
