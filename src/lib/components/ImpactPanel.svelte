@@ -16,6 +16,8 @@
 	import type { ConfirmedTask, TaskProgress } from '$lib/types';
 	import { createProjectedTasks } from '$lib/services/projection';
 	import { calculateSchedule } from '$lib/services/scheduleCalculator';
+	import { findChronologicalPosition } from '$lib/utils/taskOrder';
+	import { scrollToTaskAndHighlight } from '$lib/utils/scroll';
 	import ImpactTaskRow from './ImpactTaskRow.svelte';
 	import EditTaskDialog from './EditTaskDialog.svelte';
 	import ConflictWarning from './ConflictWarning.svelte';
@@ -52,19 +54,56 @@
 	// Track if editing task is the current task
 	let editingTaskIsCurrentTask = $state(false);
 
+	// Highlighted task ID for visual feedback after reorder (012-fixed-task-reorder)
+	let highlightedTaskId = $state<string | null>(null);
+
 	function handleEditTask(task: ConfirmedTask) {
-		editingTask = task;
 		// Find corresponding progress record
 		editingProgress = progress.find(p => p.taskId === task.taskId) ?? null;
 		// Check if this is the current task
 		const taskIndex = tasks.findIndex(t => t.taskId === task.taskId);
 		editingTaskIsCurrentTask = taskIndex === currentIndex;
+
+		// For flexible pending tasks, use the projected start time instead of planned start
+		// This ensures the dialog shows the actual displayed time, not the original import time
+		const projectedTask = projectedTasks.find(pt => pt.task.taskId === task.taskId);
+		if (projectedTask && task.type === 'flexible' && projectedTask.displayStatus === 'pending') {
+			editingTask = {
+				...task,
+				plannedStart: projectedTask.projectedStart
+			};
+		} else {
+			editingTask = task;
+		}
+
 		isEditDialogOpen = true;
 	}
 
 	function handleSaveTask(updates: Partial<Pick<ConfirmedTask, 'name' | 'plannedStart' | 'plannedDurationSec' | 'type'>>) {
-		if (editingTask && onUpdateTask) {
-			onUpdateTask(editingTask.taskId, updates);
+		if (!editingTask) return;
+
+		const wasFixed = editingTask.type === 'fixed';
+		const isNowFixed = updates.type === 'fixed';
+		const hasNewStartTime = updates.plannedStart !== undefined;
+
+		// Apply the update through the parent callback
+		onUpdateTask?.(editingTask.taskId, updates);
+
+		// Reorder only when becoming fixed (flexible → fixed) - 012-fixed-task-reorder
+		if (!wasFixed && isNowFixed && hasNewStartTime && onReorder) {
+			const taskId = editingTask.taskId;
+			const taskIndex = tasks.findIndex(t => t.taskId === taskId);
+			const newPosition = findChronologicalPosition(tasks, taskId, updates.plannedStart!);
+
+			// Only reorder if position actually changes
+			if (taskIndex !== -1 && taskIndex !== newPosition) {
+				onReorder(taskIndex, newPosition);
+
+				// Trigger scroll and highlight after DOM updates
+				setTimeout(() => {
+					scrollToTaskAndHighlight(taskId, (id) => highlightedTaskId = id);
+				}, 50);
+			}
 		}
 	}
 
@@ -283,6 +322,7 @@
 				<ImpactTaskRow
 					{projectedTask}
 					{index}
+					highlighted={highlightedTaskId === projectedTask.task.taskId}
 					onDragStart={handleDragStart}
 					onDragEnd={handleDragEnd}
 					onEdit={handleEditTask}

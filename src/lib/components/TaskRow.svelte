@@ -22,6 +22,8 @@
 		draggable?: boolean;
 		/** Optional interruption info from schedule calculator (US3) */
 		interruption?: InterruptionInfo;
+		/** Whether this task should be visually highlighted (012-fixed-task-reorder) */
+		highlighted?: boolean;
 		onUpdate?: (id: string, changes: Partial<DraftTask>) => void;
 		onDelete?: (id: string) => void;
 		onDragStart?: (e: DragEvent) => void;
@@ -33,6 +35,7 @@
 		readonly = true,
 		draggable = false,
 		interruption,
+		highlighted = false,
 		onUpdate,
 		onDelete,
 		onDragStart,
@@ -145,7 +148,9 @@
 	class:is-fixed={task.type === 'fixed'}
 	class:is-flexible={task.type === 'flexible'}
 	class:is-editing={editingField !== null}
+	class:highlighted={highlighted}
 	data-testid="task-row"
+	data-task-id={task.id}
 	draggable={draggable && task.type === 'flexible'}
 	ondragstart={handleDragStart}
 	ondragend={onDragEnd}
@@ -252,7 +257,7 @@
 		{#if task.type === 'fixed'}
 			<button
 				type="button"
-				class="type-badge-with-icon fixed"
+				class="type-badge-with-icon type-fixed"
 				data-testid="type-badge-{task.type}"
 				onclick={toggleType}
 				disabled={readonly}
@@ -403,7 +408,7 @@
 		@apply cursor-default;
 	}
 
-	.type-badge-with-icon.fixed {
+	.type-badge-with-icon.type-fixed {
 		@apply bg-blue-100 text-blue-800;
 	}
 
@@ -469,5 +474,33 @@
 
 	.delete-icon {
 		@apply w-4 h-4;
+	}
+
+	/* Highlight animation for repositioned tasks (012-fixed-task-reorder) */
+	.task-row.highlighted {
+		animation: highlight-pulse 1.5s ease-out;
+	}
+
+	@keyframes highlight-pulse {
+		0% {
+			background-color: rgb(253, 230, 138); /* amber-200 */
+		}
+		100% {
+			background-color: white;
+		}
+	}
+
+	/* Dark mode highlight */
+	:global(.dark) .task-row.highlighted {
+		animation: highlight-pulse-dark 1.5s ease-out;
+	}
+
+	@keyframes highlight-pulse-dark {
+		0% {
+			background-color: rgb(146, 64, 14); /* amber-800 */
+		}
+		100% {
+			background-color: rgb(31, 41, 55); /* gray-800 */
+		}
 	}
 </style>

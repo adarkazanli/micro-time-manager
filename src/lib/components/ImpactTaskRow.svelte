@@ -23,10 +23,12 @@
 		onDragEnd?: (e: DragEvent) => void;
 		onEdit?: (task: ProjectedTask['task']) => void;
 		onStartTask?: (task: ProjectedTask['task']) => void;
+		/** Whether this task should be visually highlighted (012-fixed-task-reorder) */
+		highlighted?: boolean;
 		index: number;
 	}
 
-	let { projectedTask, onDragStart, onDragEnd, onEdit, onStartTask, index }: Props = $props();
+	let { projectedTask, onDragStart, onDragEnd, onEdit, onStartTask, highlighted = false, index }: Props = $props();
 
 	// Can start this task if it's pending (not completed, not current)
 	const canStart = $derived(projectedTask.displayStatus === 'pending');
@@ -89,7 +91,9 @@
 	class:pending={projectedTask.displayStatus === 'pending'}
 	class:is-fixed={isFixed}
 	class:is-draggable={projectedTask.isDraggable}
+	class:highlighted={highlighted}
 	data-testid="impact-task-row"
+	data-task-id={projectedTask.task.taskId}
 	data-status={projectedTask.displayStatus}
 	draggable={projectedTask.isDraggable}
 	ondragstart={handleDragStart}
@@ -149,7 +153,7 @@
 	<!-- Type badge with fixed indicator (T051) -->
 	<div class="task-type">
 		{#if isFixed}
-			<span class="type-badge-with-icon fixed" data-testid="type-badge">
+			<span class="type-badge-with-icon type-fixed" data-testid="type-badge">
 				<FixedTaskIndicator size="sm" tooltip="Fixed time appointment" />
 				<span>fixed</span>
 			</span>
@@ -297,7 +301,7 @@
 		@apply inline-block px-2 py-0.5 text-xs font-medium rounded-full;
 	}
 
-	.type-badge.fixed {
+	.type-badge.type-fixed {
 		@apply bg-blue-100 text-blue-800;
 	}
 
@@ -310,7 +314,7 @@
 		@apply inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full;
 	}
 
-	.type-badge-with-icon.fixed {
+	.type-badge-with-icon.type-fixed {
 		@apply bg-blue-100 text-blue-800;
 	}
 
@@ -334,5 +338,33 @@
 	/* Always show on touch devices / when focused */
 	.start-btn:focus {
 		@apply opacity-100 ring-2 ring-green-500;
+	}
+
+	/* Highlight animation for repositioned tasks (012-fixed-task-reorder) */
+	.impact-task-row.highlighted {
+		animation: highlight-pulse 1.5s ease-out;
+	}
+
+	@keyframes highlight-pulse {
+		0% {
+			background-color: rgb(253, 230, 138); /* amber-200 */
+		}
+		100% {
+			background-color: white;
+		}
+	}
+
+	/* Dark mode highlight */
+	:global(.dark) .impact-task-row.highlighted {
+		animation: highlight-pulse-dark 1.5s ease-out;
+	}
+
+	@keyframes highlight-pulse-dark {
+		0% {
+			background-color: rgb(146, 64, 14); /* amber-800 */
+		}
+		100% {
+			background-color: rgb(31, 41, 55); /* gray-800 */
+		}
 	}
 </style>
