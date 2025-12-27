@@ -321,7 +321,7 @@
 
 	.task-row {
 		@apply flex items-center gap-4 p-3 bg-white border border-gray-200 rounded-lg;
-		@apply transition-all duration-150;
+		@apply transition-all duration-150 flex-nowrap;
 	}
 
 	.task-row:hover {
@@ -349,7 +349,7 @@
 	}
 
 	.task-time {
-		@apply flex items-center gap-1 text-sm text-gray-600 font-mono min-w-[140px];
+		@apply flex items-center gap-1 text-sm text-gray-600 font-mono min-w-[140px] flex-shrink-0;
 	}
 
 	.time-separator {
@@ -361,11 +361,11 @@
 	}
 
 	.task-duration {
-		@apply text-sm text-gray-600 min-w-[60px] text-right;
+		@apply text-sm text-gray-600 min-w-[60px] text-right flex-shrink-0;
 	}
 
 	.task-type {
-		@apply min-w-[80px];
+		@apply min-w-[80px] flex-shrink-0;
 	}
 
 	.type-badge {
