@@ -142,9 +142,27 @@
 		}
 		actualDurationError = '';
 
-		// Save name changes if any
+		// Validate planned duration
+		const parsedPlannedDuration = parseDuration(duration);
+		if (parsedPlannedDuration === null || parsedPlannedDuration <= 0) {
+			durationError = 'Invalid duration format (e.g., "30m", "1h 30m", "45:00")';
+			return;
+		}
+		durationError = '';
+
+		// Build updates object for task properties
+		const taskUpdates: Partial<Pick<ConfirmedTask, 'name' | 'plannedDurationSec'>> = {};
+
 		if (trimmedName !== task.name) {
-			onSave({ name: trimmedName });
+			taskUpdates.name = trimmedName;
+		}
+		if (parsedPlannedDuration !== task.plannedDurationSec) {
+			taskUpdates.plannedDurationSec = parsedPlannedDuration;
+		}
+
+		// Save task changes if any
+		if (Object.keys(taskUpdates).length > 0) {
+			onSave(taskUpdates);
 		}
 
 		// Save elapsed time based on task status
@@ -228,7 +246,23 @@
 						{#if actualDurationError}
 							<span class="error-message">{actualDurationError}</span>
 						{/if}
-						<p class="field-hint">Originally planned: {duration}</p>
+					</div>
+
+					<!-- Planned Duration (editable to simulate schedule impact) -->
+					<div class="form-group">
+						<label for="planned-duration" class="form-label">Planned Duration</label>
+						<input
+							id="planned-duration"
+							type="text"
+							class="form-input"
+							class:error={durationError}
+							bind:value={duration}
+							placeholder="e.g., 30m, 1h 30m, 45:00"
+						/>
+						{#if durationError}
+							<span class="error-message">{durationError}</span>
+						{/if}
+						<p class="field-hint">Adjust to see impact on rest of schedule</p>
 					</div>
 
 					{#if isCompleted}
