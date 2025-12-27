@@ -198,7 +198,8 @@ function createSettingsStore() {
 					warningThresholdSec: validateWarningThreshold(parsed.data?.warningThresholdSec ?? 300),
 					fixedTaskAlertMin: validateFixedTaskAlert(parsed.data?.fixedTaskAlertMin ?? 10),
 					soundEnabled: parsed.data?.soundEnabled ?? true,
-					vibrationEnabled: parsed.data?.vibrationEnabled ?? true
+					vibrationEnabled: parsed.data?.vibrationEnabled ?? true,
+					defaultScheduleStartTime: parsed.data?.defaultScheduleStartTime ?? ''
 				};
 
 				lastError = null;

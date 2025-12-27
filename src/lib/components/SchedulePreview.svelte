@@ -1,6 +1,10 @@
 <script lang="ts">
-	import type { DraftTask } from '$lib/types';
+	import type { DraftTask, ConfirmedTask, ScheduleConfig, ScheduleResult } from '$lib/types';
+	import { calculateSchedule } from '$lib/services/scheduleCalculator';
 	import TaskRow from './TaskRow.svelte';
+	import ScheduleStartPicker from './ScheduleStartPicker.svelte';
+	import ConflictWarning from './ConflictWarning.svelte';
+	import ScheduleOverflowWarning from './ScheduleOverflowWarning.svelte';
 
 	interface Props {
 		tasks: DraftTask[];
@@ -20,12 +24,125 @@
 		onCancel
 	}: Props = $props();
 
+	// Schedule configuration state (T038)
+	let scheduleConfig = $state<ScheduleConfig>({ mode: 'now', customStartTime: null });
+
+	/**
+	 * Handle schedule config changes from picker (T038)
+	 */
+	function handleScheduleConfigChange(config: ScheduleConfig) {
+		scheduleConfig = config;
+	}
+
+	/**
+	 * Convert DraftTask to ConfirmedTask for schedule calculation
+	 */
+	function toConfirmedTask(draft: DraftTask): ConfirmedTask {
+		return {
+			taskId: draft.id,
+			name: draft.name,
+			plannedStart: draft.startTime,
+			plannedDurationSec: draft.durationSeconds,
+			type: draft.type,
+			sortOrder: draft.sortOrder,
+			status: 'pending'
+		};
+	}
+
+	// Calculate schedule using $derived (T039)
+	const scheduleResult = $derived.by((): ScheduleResult | null => {
+		if (tasks.length === 0) return null;
+		const confirmedTasks = tasks.map(toConfirmedTask);
+		return calculateSchedule(confirmedTasks, scheduleConfig);
+	});
+
+	// Create a map of task ID to calculated start time for display (T040)
+	const calculatedStartTimes = $derived.by((): Map<string, Date> => {
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Map is recreated on each recalculation, not mutated
+		const map = new Map<string, Date>();
+		if (scheduleResult) {
+			for (const st of scheduleResult.scheduledTasks) {
+				map.set(st.task.taskId, st.calculatedStart);
+			}
+		}
+		return map;
+	});
+
+	/**
+	 * Interruption info for display (T059-T060)
+	 */
+	interface InterruptionInfo {
+		isInterrupted: boolean;
+		pauseTime: Date | null;
+		durationBeforePauseSec: number;
+		remainingDurationSec: number;
+		resumeTime?: Date;
+	}
+
+	// Create a map of task ID to interruption info for display (T059-T060)
+	const interruptionInfoMap = $derived.by((): Map<string, InterruptionInfo> => {
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Map is recreated on each recalculation, not mutated
+		const map = new Map<string, InterruptionInfo>();
+		if (scheduleResult) {
+			for (const st of scheduleResult.scheduledTasks) {
+				if (st.isInterrupted) {
+					// Resume time = end time - remaining duration (when the remaining work starts)
+					const resumeTime = new Date(
+						st.calculatedEnd.getTime() - st.remainingDurationSec * 1000
+					);
+					map.set(st.task.taskId, {
+						isInterrupted: st.isInterrupted,
+						pauseTime: st.pauseTime,
+						durationBeforePauseSec: st.durationBeforePauseSec,
+						remainingDurationSec: st.remainingDurationSec,
+						resumeTime
+					});
+				}
+			}
+		}
+		return map;
+	});
+
+	// Create a task names map for conflict warnings (T069)
+	const taskNamesMap = $derived.by((): Map<string, string> => {
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Map is recreated on each recalculation, not mutated
+		const map = new Map<string, string>();
+		for (const task of tasks) {
+			map.set(task.id, task.name);
+		}
+		return map;
+	});
+
+	// Get schedule end time for overflow warning (T070)
+	const scheduleEndTime = $derived.by((): Date | null => {
+		if (!scheduleResult || scheduleResult.scheduledTasks.length === 0) return null;
+		// Get the latest end time from all scheduled tasks
+		let latestEnd = scheduleResult.scheduledTasks[0].calculatedEnd;
+		for (const st of scheduleResult.scheduledTasks) {
+			if (st.calculatedEnd.getTime() > latestEnd.getTime()) {
+				latestEnd = st.calculatedEnd;
+			}
+		}
+		return latestEnd;
+	});
+
 	// Drag state
 	let draggedIndex = $state<number | null>(null);
 	let dropTargetIndex = $state<number | null>(null);
 
-	// Sort tasks by sortOrder for display
-	const sortedTasks = $derived([...tasks].sort((a, b) => a.sortOrder - b.sortOrder));
+	// Sort tasks by sortOrder for display, with calculated start times (T040)
+	const sortedTasks = $derived.by(() => {
+		const sorted = [...tasks].sort((a, b) => a.sortOrder - b.sortOrder);
+		// Apply calculated start times if available
+		return sorted.map((task) => {
+			const calculatedTime = calculatedStartTimes.get(task.id);
+			if (calculatedTime) {
+				// Override startTime with calculated time for display
+				return { ...task, startTime: calculatedTime };
+			}
+			return task;
+		});
+	});
 
 	function handleDragStart(index: number) {
 		draggedIndex = index;
@@ -95,6 +212,31 @@
 		</p>
 	</header>
 
+	<!-- Schedule Start Picker (T038) -->
+	{#if !readonly}
+		<div class="schedule-config-section">
+			<ScheduleStartPicker
+				mode={scheduleConfig.mode}
+				customTime={scheduleConfig.customStartTime}
+				disabled={false}
+				onChange={handleScheduleConfigChange}
+			/>
+		</div>
+	{/if}
+
+	<!-- Schedule warnings using dedicated components (T069-T070) -->
+	{#if scheduleResult?.hasOverflow && scheduleEndTime}
+		<ScheduleOverflowWarning scheduleEndTime={scheduleEndTime} />
+	{/if}
+
+	{#if scheduleResult?.conflicts && scheduleResult.conflicts.length > 0}
+		<div class="warnings-list">
+			{#each scheduleResult.conflicts as conflict (conflict.taskId1 + conflict.taskId2)}
+				<ConflictWarning {conflict} taskNames={taskNamesMap} />
+			{/each}
+		</div>
+	{/if}
+
 	<div class="task-list" data-testid="task-list">
 		{#each sortedTasks as task, index (task.id)}
 			<div
@@ -109,6 +251,7 @@
 					{task}
 					{readonly}
 					draggable={!readonly}
+					interruption={interruptionInfoMap.get(task.id)}
 					onUpdate={onTaskUpdate}
 					onDragStart={() => handleDragStart(index)}
 					onDragEnd={handleDragEnd}
@@ -155,6 +298,16 @@
 
 	.preview-header {
 		@apply mb-2;
+	}
+
+	/* Schedule config section (T038) */
+	.schedule-config-section {
+		@apply mb-4;
+	}
+
+	/* Schedule warnings container (T069-T070) */
+	.warnings-list {
+		@apply flex flex-col gap-2;
 	}
 
 	.preview-title {

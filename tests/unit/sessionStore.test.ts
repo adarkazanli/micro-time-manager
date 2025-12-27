@@ -1198,6 +1198,7 @@ describe('sessionStore', () => {
 				currentTaskElapsedMs: 60000, // 1 minute elapsed
 				totalLagSec: 300, // 5 min behind
 				lastPersistedAt: Date.now(),
+				timerStartedAtMs: Date.now(),
 				taskProgress: [
 					{
 						taskId: 'task-1',
@@ -1237,6 +1238,7 @@ describe('sessionStore', () => {
 				currentTaskElapsedMs: 0,
 				totalLagSec: 0,
 				lastPersistedAt: Date.now(),
+				timerStartedAtMs: Date.now(),
 				taskProgress: [
 					{
 						taskId: 'task-1',
@@ -1275,6 +1277,7 @@ describe('sessionStore', () => {
 				currentTaskElapsedMs: 120000, // 2 minutes elapsed
 				totalLagSec: 0,
 				lastPersistedAt: Date.now(),
+				timerStartedAtMs: Date.now(),
 				taskProgress: [
 					{
 						taskId: 'task-1',

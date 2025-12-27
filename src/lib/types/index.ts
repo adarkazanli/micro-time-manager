@@ -34,6 +34,15 @@ export type RiskLevel = 'green' | 'yellow' | 'red';
 /** Display status for task styling in impact panel */
 export type DisplayStatus = 'completed' | 'current' | 'pending';
 
+/**
+ * Mode for determining schedule start time.
+ * - 'now': Start immediately from current time
+ * - 'custom': Start at a user-specified time
+ *
+ * @new 011-auto-start-time
+ */
+export type ScheduleStartMode = 'now' | 'custom';
+
 // =============================================================================
 // Core Entities
 // =============================================================================
@@ -164,6 +173,14 @@ export interface DaySession {
 	 * @new 010-timer-persistence
 	 */
 	timerStartedAtMs: number;
+
+	/**
+	 * Schedule start configuration.
+	 * Controls when the first task begins.
+	 *
+	 * @new 011-auto-start-time
+	 */
+	scheduleConfig?: ScheduleConfig;
 }
 
 // =============================================================================
@@ -296,6 +313,93 @@ export interface ImpactPanelState {
 }
 
 // =============================================================================
+// Schedule Calculation Types (011-auto-start-time)
+// =============================================================================
+
+/**
+ * Configuration for schedule start time.
+ * Stored in the session to allow per-day customization.
+ *
+ * @new 011-auto-start-time
+ */
+export interface ScheduleConfig {
+	/** How the start time is determined */
+	mode: ScheduleStartMode;
+
+	/** Custom start time (required when mode is 'custom') */
+	customStartTime: Date | null;
+}
+
+/**
+ * A task with calculated scheduling information.
+ * Computed by the schedule calculator, not persisted.
+ *
+ * @new 011-auto-start-time
+ */
+export interface ScheduledTask {
+	/** Reference to the original confirmed task */
+	task: ConfirmedTask;
+
+	/** Calculated start time based on schedule */
+	calculatedStart: Date;
+
+	/** Calculated end time (calculatedStart + duration) */
+	calculatedEnd: Date;
+
+	/** Whether this task will be interrupted by a fixed task */
+	isInterrupted: boolean;
+
+	/** Time when task will be paused (if interrupted) */
+	pauseTime: Date | null;
+
+	/** Duration before interruption in seconds (if interrupted) */
+	durationBeforePauseSec: number;
+
+	/** Remaining duration after interruption in seconds (if interrupted) */
+	remainingDurationSec: number;
+}
+
+/**
+ * Result of calculating the full schedule.
+ * Returned by the schedule calculator service.
+ *
+ * @new 011-auto-start-time
+ */
+export interface ScheduleResult {
+	/** All tasks with calculated timings */
+	scheduledTasks: ScheduledTask[];
+
+	/** Whether schedule extends past midnight */
+	hasOverflow: boolean;
+
+	/** End time of the last task */
+	scheduleEndTime: Date;
+
+	/** Fixed task conflicts (overlapping fixed tasks) */
+	conflicts: FixedTaskConflict[];
+}
+
+/**
+ * Represents a conflict between two fixed tasks.
+ * Created when fixed task times overlap.
+ *
+ * @new 011-auto-start-time
+ */
+export interface FixedTaskConflict {
+	/** First task in conflict */
+	taskId1: string;
+
+	/** Second task in conflict */
+	taskId2: string;
+
+	/** Overlap duration in seconds */
+	overlapSec: number;
+
+	/** Human-readable conflict description */
+	message: string;
+}
+
+// =============================================================================
 // Parse Result Types
 // =============================================================================
 
@@ -346,7 +450,7 @@ export const STORAGE_KEY_SESSION = 'tm_session';
 export const STORAGE_KEY_TAB = 'tm_active_tab';
 
 /** Current schema version */
-export const CURRENT_SCHEMA_VERSION = 6;
+export const CURRENT_SCHEMA_VERSION = 7;
 
 /** localStorage key for settings */
 export const STORAGE_KEY_SETTINGS = 'tm_settings';
@@ -386,6 +490,24 @@ export const TIMER_SYNC_INTERVAL_MS = 10000;
  * @new 010-timer-persistence
  */
 export const MAX_RECOVERY_ELAPSED_MS = 24 * 60 * 60 * 1000;
+
+// =============================================================================
+// Schedule Calculation Constants (011-auto-start-time)
+// =============================================================================
+
+/**
+ * localStorage key for schedule config (within session)
+ *
+ * @new 011-auto-start-time
+ */
+export const STORAGE_KEY_SCHEDULE_CONFIG = 'tm_schedule_config';
+
+/**
+ * Midnight in milliseconds from start of day
+ *
+ * @new 011-auto-start-time
+ */
+export const MIDNIGHT_MS = 24 * 60 * 60 * 1000;
 
 // =============================================================================
 // Interruption Tracking Types (004-interruption-tracking)
@@ -703,6 +825,15 @@ export interface Settings {
 
 	/** Whether to vibrate on alerts (mobile only) */
 	vibrationEnabled: boolean;
+
+	/**
+	 * Default schedule start time (HH:MM format).
+	 * Used when creating a new schedule.
+	 * Empty string means "Start Now" is default.
+	 *
+	 * @new 011-auto-start-time
+	 */
+	defaultScheduleStartTime: string;
 }
 
 /**
@@ -730,5 +861,6 @@ export const DEFAULT_SETTINGS: Settings = {
 	warningThresholdSec: 300, // 5 minutes
 	fixedTaskAlertMin: 10, // 10 minutes
 	soundEnabled: true,
-	vibrationEnabled: true
+	vibrationEnabled: true,
+	defaultScheduleStartTime: '' // Empty = "Start Now" is default
 };

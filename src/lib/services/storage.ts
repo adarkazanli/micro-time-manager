@@ -135,12 +135,37 @@ function migrateV5toV6(): void {
 	try {
 		const session = localStorage.getItem(STORAGE_KEY_SESSION);
 		if (session) {
-			const parsed = JSON.parse(session) as DaySession;
+			const parsed = JSON.parse(session) as Record<string, unknown>;
 			// Add timerStartedAtMs if missing (use lastPersistedAt as fallback)
-			if ((parsed as Record<string, unknown>).timerStartedAtMs === undefined) {
-				(parsed as Record<string, unknown>).timerStartedAtMs =
-					parsed.lastPersistedAt || Date.now();
+			if (parsed.timerStartedAtMs === undefined) {
+				parsed.timerStartedAtMs =
+					(parsed.lastPersistedAt as number) || Date.now();
 				localStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify(parsed));
+			}
+		}
+	} catch {
+		// Ignore errors during migration
+	}
+}
+
+/**
+ * Add defaultScheduleStartTime field to existing settings when migrating schema v6 to v7.
+ * Defaults to empty string (meaning "Start Now" is default).
+ *
+ * @remarks
+ * Errors encountered during migration are ignored.
+ *
+ * @new 011-auto-start-time
+ */
+function migrateV6toV7(): void {
+	try {
+		const stored = localStorage.getItem(STORAGE_KEY_SETTINGS);
+		if (stored) {
+			const parsed = JSON.parse(stored) as { version: number; data: Record<string, unknown> };
+			// Add defaultScheduleStartTime if missing
+			if (parsed.data && parsed.data.defaultScheduleStartTime === undefined) {
+				parsed.data.defaultScheduleStartTime = '';
+				localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(parsed));
 			}
 		}
 	} catch {
@@ -179,6 +204,9 @@ function migrateIfNeeded(): void {
 		}
 		if (version < 6) {
 			migrateV5toV6();
+		}
+		if (version < 7) {
+			migrateV6toV7();
 		}
 
 		// Update schema version

@@ -51,9 +51,9 @@ npm test && npm run lint
 TypeScript 5.x (strict mode): Follow standard conventions
 
 ## Recent Changes
+- 011-auto-start-time: Added TypeScript 5.x (strict mode) + Svelte 5.x (runes syntax), SvelteKit, Tailwind CSS 4.x
 - 010-timer-persistence: Added TypeScript 5.x (strict mode) + Svelte 5.x (runes syntax) + SvelteKit 2.x, Tailwind CSS 4.x, existing stores (timerStore, sessionStore, interruptionStore)
 - 009-ad-hoc-tasks: Added TypeScript 5.x (strict mode) + Svelte 5.x (runes), SvelteKit 2.x, Tailwind CSS 4.x, Vite 7.x
-- 008-settings: Added TypeScript 5.x (strict mode) + Svelte 5.x, SvelteKit, Tailwind CSS 4.x
 
 
 <!-- MANUAL ADDITIONS START -->

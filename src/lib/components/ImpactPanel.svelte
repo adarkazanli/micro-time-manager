@@ -3,19 +3,23 @@
 	 * ImpactPanel Component
 	 *
 	 * Feature: 003-impact-panel
-	 * Tasks: T020-T026, T033-T034, T048-T052
+	 * Tasks: T020-T026, T033-T034, T048-T052, T071-T072 (conflict warnings)
 	 *
 	 * Displays the schedule impact panel showing all tasks with:
 	 * - Visual status indicators (completed/current/pending)
 	 * - Risk indicators for fixed tasks
 	 * - Real-time projection updates
 	 * - Drag-and-drop reordering support
+	 * - Conflict and overflow warnings (T071-T072)
 	 */
 
 	import type { ConfirmedTask, TaskProgress } from '$lib/types';
 	import { createProjectedTasks } from '$lib/services/projection';
+	import { calculateSchedule } from '$lib/services/scheduleCalculator';
 	import ImpactTaskRow from './ImpactTaskRow.svelte';
 	import EditTaskDialog from './EditTaskDialog.svelte';
+	import ConflictWarning from './ConflictWarning.svelte';
+	import ScheduleOverflowWarning from './ScheduleOverflowWarning.svelte';
 
 	interface Props {
 		tasks: ConfirmedTask[];
@@ -98,6 +102,35 @@
 	// Derived state for projected tasks (T022: using $derived.by)
 	const projectedTasks = $derived.by(() => {
 		return createProjectedTasks(tasks, progress, currentIndex, elapsedMs);
+	});
+
+	// Schedule calculation for conflict and overflow detection (T071-T072)
+	const scheduleResult = $derived.by(() => {
+		if (tasks.length === 0) return null;
+		// Use 'now' mode for runtime calculations
+		return calculateSchedule(tasks, { mode: 'now', customStartTime: null });
+	});
+
+	// Task names map for conflict warnings (T071)
+	const taskNamesMap = $derived.by((): Map<string, string> => {
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Map is recreated on each recalculation, not mutated
+		const map = new Map<string, string>();
+		for (const task of tasks) {
+			map.set(task.taskId, task.name);
+		}
+		return map;
+	});
+
+	// Get schedule end time for overflow warning (T072)
+	const scheduleEndTime = $derived.by((): Date | null => {
+		if (!scheduleResult || scheduleResult.scheduledTasks.length === 0) return null;
+		let latestEnd = scheduleResult.scheduledTasks[0].calculatedEnd;
+		for (const st of scheduleResult.scheduledTasks) {
+			if (st.calculatedEnd.getTime() > latestEnd.getTime()) {
+				latestEnd = st.calculatedEnd;
+			}
+		}
+		return latestEnd;
 	});
 
 	// Summary counts
@@ -219,6 +252,19 @@
 					{riskSummary.red}
 				</span>
 			{/if}
+		</div>
+	{/if}
+
+	<!-- Schedule warnings (T071-T072) -->
+	{#if scheduleResult?.hasOverflow && scheduleEndTime}
+		<ScheduleOverflowWarning {scheduleEndTime} />
+	{/if}
+
+	{#if scheduleResult?.conflicts && scheduleResult.conflicts.length > 0}
+		<div class="warnings-list">
+			{#each scheduleResult.conflicts as conflict (conflict.taskId1 + conflict.taskId2)}
+				<ConflictWarning {conflict} taskNames={taskNamesMap} />
+			{/each}
 		</div>
 	{/if}
 
@@ -372,6 +418,11 @@
 
 	.risk-count.red .risk-dot {
 		@apply bg-red-500;
+	}
+
+	/* Warnings list (T071-T072) */
+	.warnings-list {
+		@apply flex flex-col gap-2;
 	}
 
 	/* Task list */

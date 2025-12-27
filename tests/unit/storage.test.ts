@@ -223,12 +223,12 @@ describe('storage service', () => {
 
 			expect(localStorageMock.setItem).toHaveBeenCalledWith(
 				STORAGE_KEY_SCHEMA,
-				'6'
+				'7'
 			);
 		});
 
 		it('does not update schema when version matches', () => {
-			localStorageMock.setItem(STORAGE_KEY_SCHEMA, '6');
+			localStorageMock.setItem(STORAGE_KEY_SCHEMA, '7');
 			vi.clearAllMocks(); // Clear the manual setItem call
 
 			storage.init();
@@ -307,6 +307,7 @@ describe('storage service', () => {
 				currentTaskElapsedMs: 5000,
 				lastPersistedAt: Date.now(),
 				totalLagSec: 0,
+				timerStartedAtMs: Date.now(),
 				taskProgress: [
 					{
 						taskId: 'task-1',
@@ -455,8 +456,8 @@ describe('storage service', () => {
 			// Initialize storage (triggers migration)
 			storage.init();
 
-			// Schema version should be updated to 6
-			expect(storage.getSchemaVersion()).toBe(6);
+			// Schema version should be updated to 7
+			expect(storage.getSchemaVersion()).toBe(7);
 
 			// Tasks should still be accessible
 			const tasks = storage.loadTasks();
@@ -464,8 +465,8 @@ describe('storage service', () => {
 			expect(tasks[0].taskId).toBe('task-1');
 		});
 
-		it('does not run migration when already at v6', () => {
-			localStorageMock.setItem(STORAGE_KEY_SCHEMA, '6');
+		it('does not run migration when already at v7', () => {
+			localStorageMock.setItem(STORAGE_KEY_SCHEMA, '7');
 			vi.clearAllMocks();
 
 			storage.init();
@@ -501,6 +502,7 @@ describe('storage service', () => {
 				currentTaskElapsedMs: 45000,
 				lastPersistedAt: Date.now(),
 				totalLagSec: 120,
+				timerStartedAtMs: Date.now(),
 				taskProgress: [
 					{
 						taskId: 'task-1',

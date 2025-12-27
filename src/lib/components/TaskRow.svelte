@@ -2,11 +2,26 @@
 	import type { DraftTask, TaskType } from '$lib/types';
 	import { formatDuration, parseDuration } from '$lib/utils/duration';
 	import { formatTime, parseTime } from '$lib/utils/time';
+	import FixedTaskIndicator from './FixedTaskIndicator.svelte';
+	import InterruptionBadge from './InterruptionBadge.svelte';
+
+	/**
+	 * Interruption info for pre-session planning display (T059-T060)
+	 */
+	interface InterruptionInfo {
+		isInterrupted: boolean;
+		pauseTime: Date | null;
+		durationBeforePauseSec: number;
+		remainingDurationSec: number;
+		resumeTime?: Date;
+	}
 
 	interface Props {
 		task: DraftTask;
 		readonly?: boolean;
 		draggable?: boolean;
+		/** Optional interruption info from schedule calculator (US3) */
+		interruption?: InterruptionInfo;
 		onUpdate?: (id: string, changes: Partial<DraftTask>) => void;
 		onDragStart?: (e: DragEvent) => void;
 		onDragEnd?: (e: DragEvent) => void;
@@ -16,10 +31,14 @@
 		task,
 		readonly = true,
 		draggable = false,
+		interruption,
 		onUpdate,
 		onDragStart,
 		onDragEnd
 	}: Props = $props();
+
+	// Check if this task will be interrupted (US3)
+	const isInterrupted = $derived(interruption?.isInterrupted ?? false);
 
 	// Editing state
 	let editingField = $state<'name' | 'duration' | 'time' | null>(null);
@@ -210,17 +229,43 @@
 		{/if}
 	</div>
 
+	<!-- Interruption badge for tasks that will be paused (T059-T060) -->
+	{#if isInterrupted && interruption}
+		<div class="task-interruption" data-testid="task-interruption">
+			<InterruptionBadge
+				beforePauseSec={interruption.durationBeforePauseSec}
+				remainingSec={interruption.remainingDurationSec}
+				resumeTime={interruption.resumeTime}
+			/>
+		</div>
+	{/if}
+
+	<!-- Type badge with fixed indicator (T052) -->
 	<div class="task-type">
-		<button
-			type="button"
-			class="type-badge {task.type}"
-			data-testid="type-badge-{task.type}"
-			onclick={toggleType}
-			disabled={readonly}
-			title={readonly ? '' : 'Click to toggle type'}
-		>
-			{task.type}
-		</button>
+		{#if task.type === 'fixed'}
+			<button
+				type="button"
+				class="type-badge-with-icon fixed"
+				data-testid="type-badge-{task.type}"
+				onclick={toggleType}
+				disabled={readonly}
+				title={readonly ? '' : 'Click to toggle type'}
+			>
+				<FixedTaskIndicator size="sm" />
+				<span>fixed</span>
+			</button>
+		{:else}
+			<button
+				type="button"
+				class="type-badge {task.type}"
+				data-testid="type-badge-{task.type}"
+				onclick={toggleType}
+				disabled={readonly}
+				title={readonly ? '' : 'Click to toggle type'}
+			>
+				{task.type}
+			</button>
+		{/if}
 	</div>
 
 	{#if task.hasWarning}
@@ -314,6 +359,24 @@
 		@apply bg-green-100 text-green-800;
 	}
 
+	/* Fixed badge with icon (T052) */
+	.type-badge-with-icon {
+		@apply inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full cursor-pointer;
+		@apply transition-colors duration-150;
+	}
+
+	.type-badge-with-icon:not(:disabled):hover {
+		@apply opacity-80;
+	}
+
+	.type-badge-with-icon:disabled {
+		@apply cursor-default;
+	}
+
+	.type-badge-with-icon.fixed {
+		@apply bg-blue-100 text-blue-800;
+	}
+
 	.task-warning {
 		@apply flex-shrink-0;
 	}
@@ -351,5 +414,10 @@
 
 	.duration-input {
 		@apply w-16 text-right;
+	}
+
+	/* Interruption badge container (T059-T060) */
+	.task-interruption {
+		@apply flex-shrink-0;
 	}
 </style>

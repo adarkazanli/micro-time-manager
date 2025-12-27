@@ -16,7 +16,8 @@ import type {
 	FixedTaskWarning,
 	SessionStatus,
 	ProgressStatus,
-	TaskType
+	TaskType,
+	ScheduleConfig
 } from '$lib/types';
 import { storage } from '$lib/services/storage';
 import { calculateProjectedStart } from '$lib/services/projection';
@@ -231,6 +232,43 @@ function createSessionStore() {
 
 		get session(): DaySession | null {
 			return session;
+		},
+
+		/**
+		 * Get the current schedule configuration.
+		 *
+		 * Feature: 011-auto-start-time
+		 * Task: T031 - Add getScheduleConfig() method
+		 *
+		 * @returns The schedule config from the current session, or a default config if no session
+		 */
+		getScheduleConfig(): ScheduleConfig {
+			return session?.scheduleConfig ?? { mode: 'now', customStartTime: null };
+		},
+
+		/**
+		 * Set the schedule configuration.
+		 *
+		 * Feature: 011-auto-start-time
+		 * Task: T032 - Add setScheduleConfig() method
+		 *
+		 * Updates the scheduleConfig on the current session and persists it.
+		 * If no session exists, this is a no-op.
+		 *
+		 * @param config - The new schedule configuration
+		 */
+		setScheduleConfig(config: ScheduleConfig): void {
+			if (!session) {
+				return;
+			}
+
+			session = {
+				...session,
+				scheduleConfig: config,
+				lastPersistedAt: Date.now()
+			};
+
+			storage.saveSession(session);
 		},
 
 		// -------------------------------------------------------------------------

@@ -15,6 +15,7 @@
 	import type { ProjectedTask } from '$lib/types';
 	import { formatTime } from '$lib/utils/time';
 	import { formatDuration } from '$lib/utils/duration';
+	import FixedTaskIndicator from './FixedTaskIndicator.svelte';
 
 	interface Props {
 		projectedTask: ProjectedTask;
@@ -145,11 +146,18 @@
 		{projectedTask.task.name}
 	</div>
 
-	<!-- Type badge -->
+	<!-- Type badge with fixed indicator (T051) -->
 	<div class="task-type">
-		<span class="type-badge {projectedTask.task.type}" data-testid="type-badge">
-			{projectedTask.task.type}
-		</span>
+		{#if isFixed}
+			<span class="type-badge-with-icon fixed" data-testid="type-badge">
+				<FixedTaskIndicator size="sm" tooltip="Fixed time appointment" />
+				<span>fixed</span>
+			</span>
+		{:else}
+			<span class="type-badge {projectedTask.task.type}" data-testid="type-badge">
+				{projectedTask.task.type}
+			</span>
+		{/if}
 	</div>
 
 	<!-- Start button for pending tasks -->
@@ -295,6 +303,15 @@
 
 	.type-badge.flexible {
 		@apply bg-green-100 text-green-800;
+	}
+
+	/* Fixed badge with icon (T051) */
+	.type-badge-with-icon {
+		@apply inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full;
+	}
+
+	.type-badge-with-icon.fixed {
+		@apply bg-blue-100 text-blue-800;
 	}
 
 	.impact-task-row.completed .type-badge {
