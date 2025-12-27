@@ -107,12 +107,26 @@ function calculateFixedTaskWarning(elapsedMs: number): FixedTaskWarning | null {
 		const task = tasks[i];
 		if (task.type === 'fixed') {
 			// Calculate projected start using projection service
-			const projectedStart = calculateProjectedStart(tasks, currentIndex, elapsedMs, i, Date.now());
+			const now = Date.now();
+			const projectedStart = calculateProjectedStart(tasks, currentIndex, elapsedMs, i, now);
 			const scheduledStart = task.plannedStart;
 
 			// Calculate how late we'll be (negative = early)
 			const bufferMs = scheduledStart.getTime() - projectedStart.getTime();
 			const minutesLate = Math.ceil(-bufferMs / 60000); // Convert to minutes, negative buffer = late
+
+			// Debug logging for fixed task warning calculation
+			console.group('⏰ Fixed Task Warning Debug');
+			console.log('Next fixed task:', task.name);
+			console.log('Current time:', new Date(now).toLocaleTimeString());
+			console.log('Current task index:', currentIndex);
+			console.log('Elapsed on current task:', Math.floor(elapsedMs / 1000), 'sec');
+			console.log('Current task remaining:', Math.floor((tasks[currentIndex].plannedDurationSec * 1000 - elapsedMs) / 1000), 'sec');
+			console.log('Scheduled start:', scheduledStart.toLocaleTimeString());
+			console.log('Projected arrival:', projectedStart.toLocaleTimeString());
+			console.log('Buffer:', Math.floor(bufferMs / 1000), 'sec', `(${Math.floor(bufferMs / 60000)} min)`);
+			console.log('Minutes late:', minutesLate, minutesLate > 0 ? '⚠️ WILL BE LATE' : '✅ On time');
+			console.groupEnd();
 
 			// Only warn if we'll actually be late
 			if (minutesLate <= 0) return null;
@@ -333,6 +347,16 @@ function createSessionStore() {
 			const currentProgress = progress[currentIndex];
 			const plannedDuration = currentProgress.plannedDurationSec;
 			const lag = actualDurationSec - plannedDuration;
+
+			// Debug logging for lag calculation
+			console.group('📊 Task Completion - Lag Calculation');
+			console.log('Task:', tasks[currentIndex]?.name);
+			console.log('Planned duration:', plannedDuration, 'sec', `(${Math.floor(plannedDuration / 60)} min)`);
+			console.log('Actual duration:', actualDurationSec, 'sec', `(${Math.floor(actualDurationSec / 60)} min)`);
+			console.log('This task lag:', lag, 'sec', `(${Math.floor(lag / 60)} min)`, lag > 0 ? '⚠️ Over' : lag < 0 ? '✅ Under' : '✅ On time');
+			console.log('Previous total lag:', session.totalLagSec, 'sec');
+			console.log('New total lag:', session.totalLagSec + lag, 'sec');
+			console.groupEnd();
 
 			progress[currentIndex] = {
 				...currentProgress,

@@ -160,7 +160,23 @@ export function createProjectedTasks(
 	}
 
 	const results: ProjectedTask[] = [];
-	let nextAvailableTime = new Date(); // When the next task can start
+	const now = new Date();
+	let nextAvailableTime = now; // When the next task can start
+
+	// Debug logging for timing verification
+	console.group('🕐 Projection Timing Debug');
+	console.log('Current system time:', now.toLocaleTimeString());
+	console.log('Current task index:', currentIndex);
+	console.log('Elapsed on current task:', Math.floor(currentElapsedMs / 1000), 'sec', `(${Math.floor(currentElapsedMs / 60000)}:${String(Math.floor((currentElapsedMs % 60000) / 1000)).padStart(2, '0')})`);
+	if (currentIndex >= 0 && currentIndex < tasks.length) {
+		const ct = tasks[currentIndex];
+		console.log('Current task:', ct.name);
+		console.log('  Planned duration:', ct.plannedDurationSec, 'sec', `(${Math.floor(ct.plannedDurationSec / 60)} min)`);
+		console.log('  Planned start:', ct.plannedStart.toLocaleTimeString());
+		const remainingSec = Math.max(0, ct.plannedDurationSec - currentElapsedMs / 1000);
+		console.log('  Remaining:', Math.floor(remainingSec), 'sec', `(${Math.floor(remainingSec / 60)}:${String(Math.floor(remainingSec % 60)).padStart(2, '0')})`);
+	}
+	console.groupEnd();
 
 	// Calculate remaining time on current task (hoisted for use in loop)
 	let currentRemainingMs = 0;

@@ -26,22 +26,19 @@
 </script>
 
 <div class="fixed-task-warning" data-testid="fixed-task-warning" role="alert">
-	<div class="warning-icon">
-		<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-			<path
-				fill-rule="evenodd"
-				d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z"
-				clip-rule="evenodd"
-			/>
-		</svg>
+	<!-- Prominent "Save X min" badge -->
+	<div class="save-time-badge" data-testid="save-time-badge">
+		<span class="save-time-value">{warning.minutesLate}</span>
+		<span class="save-time-unit">min</span>
+		<span class="save-time-label">to save</span>
 	</div>
+
 	<div class="warning-content">
 		<p class="warning-message">
-			At current pace, you will be <strong>{warning.minutesLate} min late</strong> for
-			<strong>{warning.taskName}</strong>
+			<strong>Running late for {warning.taskName}</strong>
 		</p>
 		<p class="warning-detail">
-			Planned start: {typeof formattedTime === 'function' ? formattedTime() : formattedTime}
+			Appointment at {typeof formattedTime === 'function' ? formattedTime() : formattedTime} — finish current task {warning.minutesLate} min early to make it
 		</p>
 	</div>
 	{#if onDismiss}
@@ -59,16 +56,28 @@
 	@reference "tailwindcss";
 
 	.fixed-task-warning {
-		@apply flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg;
+		@apply flex items-center gap-4 p-4 bg-amber-50 border border-amber-300 rounded-lg;
+		@apply shadow-md;
+	}
+
+	/* Prominent "Save X min" badge */
+	.save-time-badge {
+		@apply flex flex-col items-center justify-center;
+		@apply bg-amber-500 text-white rounded-lg;
+		@apply px-3 py-2 min-w-[70px];
 		@apply shadow-sm;
 	}
 
-	.warning-icon {
-		@apply flex-shrink-0;
+	.save-time-value {
+		@apply text-2xl font-bold leading-none;
 	}
 
-	.warning-icon svg {
-		@apply w-6 h-6 text-amber-500;
+	.save-time-unit {
+		@apply text-xs font-medium opacity-90;
+	}
+
+	.save-time-label {
+		@apply text-[10px] uppercase tracking-wide opacity-75 mt-0.5;
 	}
 
 	.warning-content {
@@ -76,7 +85,7 @@
 	}
 
 	.warning-message {
-		@apply text-sm text-amber-800;
+		@apply text-sm text-amber-900;
 	}
 
 	.warning-message strong {
@@ -84,7 +93,7 @@
 	}
 
 	.warning-detail {
-		@apply text-xs text-amber-600 mt-1;
+		@apply text-xs text-amber-700 mt-1;
 	}
 
 	.dismiss-btn {
