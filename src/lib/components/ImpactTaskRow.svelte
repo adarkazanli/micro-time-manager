@@ -208,9 +208,10 @@
 	@reference "tailwindcss";
 
 	.impact-task-row {
-		@apply flex items-center gap-3 px-3 py-2 rounded-lg;
+		@apply flex items-start gap-3 px-3 py-2 rounded-lg;
 		@apply transition-all duration-150;
 		@apply border border-transparent;
+		@apply flex-wrap;
 	}
 
 	/* Status styling */
@@ -315,7 +316,9 @@
 
 	/* Task name */
 	.task-name {
-		@apply flex-1 truncate text-gray-900;
+		@apply flex-1 text-gray-900;
+		@apply break-words;
+		min-width: 150px;
 	}
 
 	/* Type badge */
