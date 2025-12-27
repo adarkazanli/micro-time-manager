@@ -28,6 +28,8 @@
 		progress: TaskProgress[];
 		currentIndex: number;
 		elapsedMs: number;
+		/** When the current task actually started (epoch ms) */
+		timerStartedAtMs?: number;
 		/** Whether the session is active (for showing Add Task button) */
 		sessionActive?: boolean;
 		onReorder?: (fromIndex: number, toIndex: number) => void;
@@ -44,7 +46,7 @@
 		onStartTask?: (taskId: string) => void;
 	}
 
-	let { tasks, progress, currentIndex, elapsedMs, sessionActive, onReorder, onUpdateTask, onAddTask, onUpdateProgress, onUncompleteTask, onUpdateElapsed, onStartTask }: Props = $props();
+	let { tasks, progress, currentIndex, elapsedMs, timerStartedAtMs, sessionActive, onReorder, onUpdateTask, onAddTask, onUpdateProgress, onUncompleteTask, onUpdateElapsed, onStartTask }: Props = $props();
 
 	// Edit dialog state
 	let editingTask = $state<ConfirmedTask | null>(null);
@@ -181,7 +183,7 @@
 
 	// Derived state for projected tasks (T022: using $derived.by)
 	const projectedTasks = $derived.by(() => {
-		return createProjectedTasks(tasks, progress, currentIndex, elapsedMs);
+		return createProjectedTasks(tasks, progress, currentIndex, elapsedMs, timerStartedAtMs);
 	});
 
 	// Sort projected tasks chronologically by DISPLAYED time for display

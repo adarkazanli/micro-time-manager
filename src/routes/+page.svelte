@@ -822,6 +822,7 @@
 									progress={sessionStore.session?.taskProgress ?? []}
 									currentIndex={sessionStore.currentTaskIndex}
 									elapsedMs={timerStore.elapsedMs}
+									timerStartedAtMs={sessionStore.session?.timerStartedAtMs}
 									sessionActive={sessionStore.status === 'running'}
 									onReorder={handleImpactReorder}
 									onUpdateTask={handleImpactUpdateTask}

@@ -141,11 +141,12 @@ export function calculateRiskLevel(projectedStart: Date, scheduledStart: Date): 
  * @param progress - Array of task progress records
  * @param currentIndex - Index of the currently active task
  * @param currentElapsedMs - Milliseconds elapsed on the current task
+ * @param currentTaskStartedAtMs - When the current task actually started (epoch ms), optional
  * @returns Array of ProjectedTask objects
  *
  * @example
  * ```ts
- * const projected = createProjectedTasks(tasks, progress, 1, 300000);
+ * const projected = createProjectedTasks(tasks, progress, 1, 300000, Date.now() - 300000);
  * // Returns tasks with projections based on 5min elapsed on task 1
  * ```
  */
@@ -153,7 +154,8 @@ export function createProjectedTasks(
 	tasks: ConfirmedTask[],
 	progress: TaskProgress[],
 	currentIndex: number,
-	currentElapsedMs: number
+	currentElapsedMs: number,
+	currentTaskStartedAtMs?: number
 ): ProjectedTask[] {
 	if (tasks.length === 0) {
 		return [];
@@ -208,12 +210,25 @@ export function createProjectedTasks(
 	// Build results map (keyed by original index)
 	const resultsMap = new Map<number, ProjectedTask>();
 
-	// Process completed tasks - use their planned start
-	for (const { task, originalIndex } of completedTasks) {
+	// Process completed tasks - use their ACTUAL start time (calculated from completedAt - actualDuration)
+	for (const { task, originalIndex, progress: p } of completedTasks) {
+		let actualStart: Date;
+
+		// Calculate actual start from completion time - actual duration
+		if (p?.completedAt && p?.actualDurationSec > 0) {
+			const completedAtMs = new Date(p.completedAt).getTime();
+			actualStart = new Date(completedAtMs - p.actualDurationSec * 1000);
+		} else {
+			// Fallback to planned start if no completion data
+			actualStart = task.plannedStart;
+		}
+
+		const actualEnd = p?.completedAt ? new Date(p.completedAt) : new Date(actualStart.getTime() + task.plannedDurationSec * 1000);
+
 		resultsMap.set(originalIndex, {
 			task,
-			projectedStart: task.plannedStart,
-			projectedEnd: new Date(task.plannedStart.getTime() + task.plannedDurationSec * 1000),
+			projectedStart: actualStart,
+			projectedEnd: actualEnd,
 			riskLevel: null,
 			bufferSec: 0,
 			displayStatus: 'completed',
@@ -221,11 +236,15 @@ export function createProjectedTasks(
 		});
 	}
 
-	// Process current task
+	// Process current task - use ACTUAL start time from timerStartedAtMs
 	if (currentTaskInfo) {
 		const { task, originalIndex } = currentTaskInfo;
-		const projectedStart = now;
+
+		// Use actual start time if provided, otherwise fall back to now - elapsed
+		const actualStartMs = currentTaskStartedAtMs ?? (nowMs - currentElapsedMs);
+		const projectedStart = new Date(actualStartMs);
 		const projectedEnd = new Date(nowMs + currentRemainingMs);
+
 		resultsMap.set(originalIndex, {
 			task,
 			projectedStart,
