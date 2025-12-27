@@ -211,11 +211,11 @@
 - [ ] T074 [P] Update docs/USER_GUIDE.md with schedule start time and fixed task features
 - [ ] T075 [P] Update docs/DATA_SCHEMA.md with new types and schema version 7
 - [x] T076 Run npm run check (svelte-check) and fix any type errors
-  - Note: svelte-check blocked by Node.js v18 (requires v20+ for styleText); TypeScript check passes
+  - Note: 0 errors, 865 warnings (pre-existing CSS/a11y issues)
 - [x] T077 Run npm run lint and fix any linting issues
   - Fixed: unused import, prefer-const, eslint-disable for Map/Date false positives
-- [ ] T078 Run npm run test and ensure all tests pass
-  - Note: Blocked by Node.js v18 environment (requires Node.js 20+ for svelte/vite plugins)
+- [x] T078 Run npm run test and ensure all tests pass
+  - Result: 538 tests passed (with Node.js 20)
 - [ ] T079 Validate quickstart.md examples work correctly
 - [ ] T080 Performance test with 50+ tasks to verify recalculation within 1 second
 

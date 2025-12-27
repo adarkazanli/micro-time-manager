@@ -279,17 +279,25 @@ export async function parseScheduleFile(file: File): Promise<ParseResult> {
 			});
 		}
 
-		// Start Time
+		// Type (parse early to check if start time is required)
+		const rawType = String(row[typeIdx] ?? '').trim();
+		const taskType = rawType ? parseTaskType(rawType) : null;
+
+		// Start Time - only required for fixed tasks (flexible tasks get calculated start times)
 		const rawTime = String(row[startTimeIdx] ?? '').trim();
 		const startTime = rawTime ? parseTime(rawTime) : null;
-		if (!rawTime) {
+		const isFixed = taskType === 'fixed';
+
+		if (!rawTime && isFixed) {
+			// Fixed tasks require a start time
 			errors.push({
 				row: rowNum,
 				column: 'Start Time',
 				value: '',
-				message: `Row ${rowNum}: Start Time cannot be empty.`
+				message: `Row ${rowNum}: Start Time is required for fixed tasks.`
 			});
-		} else if (!startTime) {
+		} else if (rawTime && !startTime) {
+			// If a time was provided but couldn't be parsed
 			errors.push({
 				row: rowNum,
 				column: 'Start Time',
@@ -331,9 +339,7 @@ export async function parseScheduleFile(file: File): Promise<ParseResult> {
 			});
 		}
 
-		// Type
-		const rawType = String(row[typeIdx] ?? '').trim();
-		const taskType = rawType ? parseTaskType(rawType) : null;
+		// Type validation (already parsed above for start time check)
 		if (!rawType) {
 			errors.push({
 				row: rowNum,
@@ -351,11 +357,16 @@ export async function parseScheduleFile(file: File): Promise<ParseResult> {
 		}
 
 		// If this row has no errors, create a DraftTask
-		if (rawName && startTime && durationSeconds && durationSeconds > 0 && taskType) {
+		// For flexible tasks without start time, use a placeholder (will be calculated by schedule calculator)
+		const hasValidStartTime = startTime || (taskType === 'flexible' && !rawTime);
+		if (rawName && hasValidStartTime && durationSeconds && durationSeconds > 0 && taskType) {
+			// For flexible tasks without explicit start time, use current time as placeholder
+			// The actual start time will be calculated by the schedule calculator
+			const effectiveStartTime = startTime || new Date();
 			tasks.push({
 				id: generateId(),
 				name: rawName,
-				startTime,
+				startTime: effectiveStartTime,
 				durationSeconds,
 				type: taskType,
 				sortOrder: i,
