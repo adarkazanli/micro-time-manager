@@ -208,10 +208,11 @@
 	@reference "tailwindcss";
 
 	.impact-task-row {
-		@apply flex items-start gap-3 px-3 py-2 rounded-lg;
+		@apply flex items-start gap-3 px-3 py-3 rounded-lg;
 		@apply transition-all duration-150;
 		@apply border border-transparent;
 		@apply flex-wrap;
+		@apply border-b border-gray-200;
 	}
 
 	/* Status styling */
