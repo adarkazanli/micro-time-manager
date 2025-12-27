@@ -237,6 +237,15 @@ export function createProjectedTasks(
 		});
 	}
 
+	// Build blocked periods from fixed pending tasks
+	// This ensures flexible tasks don't start during a fixed task's time slot
+	const blockedPeriods = pendingTasks
+		.filter(({ task }) => task.type === 'fixed')
+		.map(({ task }) => ({
+			start: task.plannedStart.getTime(),
+			end: task.plannedStart.getTime() + task.plannedDurationSec * 1000
+		}));
+
 	// Process pending tasks in CHRONOLOGICAL order
 	let nextAvailableTime = nowMs + currentRemainingMs;
 
@@ -247,8 +256,18 @@ export function createProjectedTasks(
 			// Fixed tasks start at the later of: next available time OR scheduled time
 			projectedStart = new Date(Math.max(nextAvailableTime, task.plannedStart.getTime()));
 		} else {
-			// Flexible tasks start as soon as available
-			projectedStart = new Date(nextAvailableTime);
+			// Flexible tasks start as soon as available, BUT must skip blocked periods
+			let flexStart = nextAvailableTime;
+
+			// Check if we're starting inside a blocked period (fixed task time slot)
+			for (const blocked of blockedPeriods) {
+				if (flexStart >= blocked.start && flexStart < blocked.end) {
+					// Push start time to after this blocked period
+					flexStart = blocked.end;
+				}
+			}
+
+			projectedStart = new Date(flexStart);
 		}
 
 		const durationMs = task.plannedDurationSec * 1000;
