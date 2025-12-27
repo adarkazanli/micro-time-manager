@@ -115,6 +115,19 @@
 		return map;
 	});
 
+	// Create a Set of task IDs that have conflicts (based on calculated schedule)
+	const conflictingTaskIds = $derived.by((): Set<string> => {
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Set is recreated on each recalculation
+		const set = new Set<string>();
+		if (scheduleResult?.conflicts) {
+			for (const conflict of scheduleResult.conflicts) {
+				set.add(conflict.taskId1);
+				set.add(conflict.taskId2);
+			}
+		}
+		return set;
+	});
+
 	// Get schedule end time for overflow warning (T070)
 	const scheduleEndTime = $derived.by((): Date | null => {
 		if (!scheduleResult || scheduleResult.scheduledTasks.length === 0) return null;
@@ -135,13 +148,16 @@
 	// Sort tasks chronologically by calculated start time for display
 	// This ensures the schedule preview shows tasks in the order they'll actually occur
 	const sortedTasks = $derived.by(() => {
-		// Apply calculated start times
+		// Apply calculated start times and update warnings based on actual conflicts
 		const withCalculatedTimes = tasks.map((task) => {
 			const calculatedTime = calculatedStartTimes.get(task.id);
-			if (calculatedTime) {
-				return { ...task, startTime: calculatedTime };
-			}
-			return task;
+			// Use conflict data from schedule calculator instead of stale hasWarning
+			const hasConflict = conflictingTaskIds.has(task.id);
+			return {
+				...task,
+				startTime: calculatedTime ?? task.startTime,
+				hasWarning: hasConflict
+			};
 		});
 		// Sort chronologically by start time for display
 		return withCalculatedTimes.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
