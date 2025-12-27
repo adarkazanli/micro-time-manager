@@ -381,6 +381,17 @@ function createTimerStore() {
 		},
 
 		/**
+		 * Set duration for the running timer (for schedule impact simulation).
+		 * Updates the planned duration without resetting elapsed time.
+		 *
+		 * @param durationSec - New duration in seconds
+		 */
+		setDuration(durationSec: number): void {
+			if (!running) return;
+			durationMs = durationSec * 1000;
+		},
+
+		/**
 		 * Reset timer to initial state.
 		 */
 		reset(): void {

@@ -343,6 +343,13 @@
 		if (success) {
 			// Update local reference from in-memory store (no storage round-trip)
 			confirmedTasks = sessionStore.tasks;
+
+			// If updating the current task's duration, also update the timer
+			// This ensures remaining time and schedule projections recalculate
+			const currentTask = sessionStore.currentTask;
+			if (currentTask && currentTask.taskId === taskId && updates.plannedDurationSec !== undefined) {
+				timerStore.setDuration(updates.plannedDurationSec);
+			}
 		}
 	}
 

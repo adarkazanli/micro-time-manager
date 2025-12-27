@@ -16,6 +16,7 @@ Auto-generated from all feature plans. Last updated: 2025-12-17
 - localStorage (via existing `storage` service with schema v5) (009-ad-hoc-tasks)
 - TypeScript 5.x (strict mode) + Svelte 5.x (runes syntax) + SvelteKit 2.x, Tailwind CSS 4.x, existing stores (timerStore, sessionStore, interruptionStore) (010-timer-persistence)
 - localStorage (via existing `storage` service) (010-timer-persistence)
+- TypeScript 5.x (strict mode) + Svelte 5.x (runes syntax) + SvelteKit, Tailwind CSS 4.x, existing stores (sessionStore, importStore) (012-fixed-task-reorder)
 
 - TypeScript 5.x (strict mode) + Svelte 5.x, Vite 6.x, SheetJS (xlsx), Tailwind CSS 4.x (001-schedule-import)
 
@@ -51,9 +52,9 @@ npm test && npm run lint
 TypeScript 5.x (strict mode): Follow standard conventions
 
 ## Recent Changes
+- 012-fixed-task-reorder: Added TypeScript 5.x (strict mode) + Svelte 5.x (runes syntax) + SvelteKit, Tailwind CSS 4.x, existing stores (sessionStore, importStore)
 - 011-auto-start-time: Added TypeScript 5.x (strict mode) + Svelte 5.x (runes syntax), SvelteKit, Tailwind CSS 4.x
 - 010-timer-persistence: Added TypeScript 5.x (strict mode) + Svelte 5.x (runes syntax) + SvelteKit 2.x, Tailwind CSS 4.x, existing stores (timerStore, sessionStore, interruptionStore)
-- 009-ad-hoc-tasks: Added TypeScript 5.x (strict mode) + Svelte 5.x (runes), SvelteKit 2.x, Tailwind CSS 4.x, Vite 7.x
 
 
 <!-- MANUAL ADDITIONS START -->
