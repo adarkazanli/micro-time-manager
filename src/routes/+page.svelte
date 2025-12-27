@@ -381,21 +381,22 @@
 		timerStore.setElapsed(elapsedMs);
 	}
 
-	// Jump to a specific task (start it immediately)
+	// Jump to a specific task (start it immediately, PAUSING current task)
 	function handleStartTask(taskId: string) {
 		// Auto-end any active interruption before jumping
 		if (interruptionStore.isInterrupted) {
 			interruptionStore.autoEndInterruption();
 		}
 
-		// Get current elapsed time and complete current task, then jump to target
+		// Get current elapsed time and PAUSE current task (not complete), then jump to target
 		const elapsedMs = timerStore.stop();
 		const elapsedSec = Math.floor(elapsedMs / 1000);
 		const success = sessionStore.jumpToTask(taskId, elapsedSec);
 
 		if (success && sessionStore.currentProgress) {
-			// Start timer for the new current task
-			timerStore.start(sessionStore.currentProgress.plannedDurationSec);
+			// Start timer for the new task, resuming from any saved elapsed time
+			const savedElapsedMs = sessionStore.session?.currentTaskElapsedMs ?? 0;
+			timerStore.start(sessionStore.currentProgress.plannedDurationSec, savedElapsedMs);
 		}
 	}
 

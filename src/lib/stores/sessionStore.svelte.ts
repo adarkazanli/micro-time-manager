@@ -912,14 +912,15 @@ function createSessionStore() {
 		},
 
 		/**
-		 * Jump to a specific task, completing the current task.
+		 * Jump to a specific task, PAUSING (not completing) the current task.
 		 *
 		 * Feature: Task Correction
 		 *
 		 * Allows starting any pending task immediately:
-		 * - Completes the current task with the given elapsed time
+		 * - PAUSES the current task (saves elapsed time but does NOT mark complete)
 		 * - Sets the target task as the new current task
-		 * - Intermediate tasks remain as 'pending' (can be done later)
+		 * - Paused tasks can be resumed later with their saved elapsed time
+		 * - Task completion only happens via explicit "Complete Task" action
 		 *
 		 * @param taskId - ID of task to jump to
 		 * @param currentElapsedSec - Elapsed time on current task in seconds
@@ -952,35 +953,32 @@ function createSessionStore() {
 			// Note: We allow jumping to ANY pending task, including those with lower indices.
 			// This supports the use case where a user skipped a task and wants to return to it later.
 
-			// Complete the current task
+			// PAUSE the current task (save elapsed time but do NOT mark complete)
+			// Task completion only happens when user explicitly clicks "Complete Task"
 			const newProgress = [...session.taskProgress];
 			const currentProgress = newProgress[currentIndex];
-			const plannedDuration = currentProgress.plannedDurationSec;
-			const lag = currentElapsedSec - plannedDuration;
 
 			newProgress[currentIndex] = {
 				...currentProgress,
-				actualDurationSec: currentElapsedSec,
-				completedAt: new Date().toISOString(),
-				status: 'complete' as ProgressStatus
+				actualDurationSec: currentElapsedSec, // Save elapsed time for resuming later
+				status: 'pending' as ProgressStatus   // Back to pending, not complete
+				// Note: completedAt is NOT set - task is not complete
 			};
 
-			// Set target task as active
+			// Set target task as active, restore any previously saved elapsed time
+			const targetSavedElapsedMs = targetProgress.actualDurationSec * 1000;
 			newProgress[targetIndex] = {
 				...newProgress[targetIndex],
 				status: 'active' as ProgressStatus
 			};
 
-			// Calculate new total lag
-			const newLag = session.totalLagSec + lag;
-
-			// Update session
+			// Update session - do NOT update totalLagSec (task not complete)
 			session = {
 				...session,
 				currentTaskIndex: targetIndex,
-				currentTaskElapsedMs: 0,
-				totalLagSec: newLag,
+				currentTaskElapsedMs: targetSavedElapsedMs, // Resume from saved time
 				taskProgress: newProgress,
+				timerStartedAtMs: Date.now(), // Reset timer start for new task
 				lastPersistedAt: Date.now()
 			};
 
