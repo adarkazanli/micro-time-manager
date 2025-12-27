@@ -384,13 +384,19 @@
 	}
 
 	.form-input {
-		@apply w-full px-3 py-2 border border-gray-300 rounded-md;
+		@apply w-full px-3 py-2 rounded-md;
 		@apply bg-white text-gray-900;
-		@apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500;
+		@apply focus:outline-none focus:ring-2 focus:ring-blue-500;
+		/* Explicit border to ensure visibility */
+		border: 1px solid #d1d5db;
+	}
+
+	.form-input:focus {
+		border-color: #3b82f6;
 	}
 
 	.form-input.error {
-		@apply border-red-500;
+		border-color: #ef4444;
 	}
 
 	.error-message {
