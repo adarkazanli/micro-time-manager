@@ -145,11 +145,6 @@
 	<!-- Time display (FR-015: show scheduled start times) -->
 	<div class="task-time" data-testid="task-time">
 		<span class="scheduled-time" class:delayed={isBehindSchedule}>{displayTime}</span>
-		{#if isBehindSchedule}
-			<span class="original-time" title="Originally scheduled for {scheduledTime}">
-				was {scheduledTime}
-			</span>
-		{/if}
 	</div>
 
 	<!-- Duration display -->
@@ -292,10 +287,6 @@
 
 	.scheduled-time.delayed {
 		@apply text-orange-600 font-medium;
-	}
-
-	.original-time {
-		@apply text-xs text-gray-400 line-through;
 	}
 
 	.impact-task-row.completed .task-time {
