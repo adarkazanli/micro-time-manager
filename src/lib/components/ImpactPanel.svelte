@@ -203,7 +203,8 @@
 		);
 	});
 
-	// Schedule calculation for conflict and overflow detection (T071-T072)
+	// Schedule calculation for conflict detection only (T071)
+	// Note: Overflow detection now uses projectedTasks which correctly accounts for progress
 	const scheduleResult = $derived.by(() => {
 		if (tasks.length === 0) return null;
 		// Use 'now' mode for runtime calculations
@@ -220,16 +221,34 @@
 		return map;
 	});
 
-	// Get schedule end time for overflow warning (T072)
+	// Get schedule end time from projectedTasks (not scheduleResult)
+	// This correctly accounts for completed tasks and current progress
 	const scheduleEndTime = $derived.by((): Date | null => {
-		if (!scheduleResult || scheduleResult.scheduledTasks.length === 0) return null;
-		let latestEnd = scheduleResult.scheduledTasks[0].calculatedEnd;
-		for (const st of scheduleResult.scheduledTasks) {
-			if (st.calculatedEnd.getTime() > latestEnd.getTime()) {
-				latestEnd = st.calculatedEnd;
+		if (projectedTasks.length === 0) return null;
+
+		// Find the latest projected end time among current and pending tasks
+		let latestEnd: Date | null = null;
+		for (const pt of projectedTasks) {
+			// Skip completed tasks - they don't affect future schedule
+			if (pt.displayStatus === 'completed') continue;
+
+			if (!latestEnd || pt.projectedEnd.getTime() > latestEnd.getTime()) {
+				latestEnd = pt.projectedEnd;
 			}
 		}
 		return latestEnd;
+	});
+
+	// Check if schedule extends past midnight (T072)
+	const hasOverflow = $derived.by((): boolean => {
+		if (!scheduleEndTime) return false;
+
+		// Get today's midnight
+		const now = new Date();
+		const nextMidnight = new Date(now);
+		nextMidnight.setHours(24, 0, 0, 0);
+
+		return scheduleEndTime.getTime() >= nextMidnight.getTime();
 	});
 
 	// Summary counts
@@ -355,7 +374,7 @@
 	{/if}
 
 	<!-- Schedule warnings (T071-T072) -->
-	{#if scheduleResult?.hasOverflow && scheduleEndTime}
+	{#if hasOverflow && scheduleEndTime}
 		<ScheduleOverflowWarning {scheduleEndTime} />
 	{/if}
 
