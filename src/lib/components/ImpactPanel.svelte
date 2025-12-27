@@ -127,6 +127,47 @@
 		onStartTask?.(task.taskId);
 	}
 
+	/**
+	 * Handle type toggle from badge click (012-fixed-task-reorder)
+	 *
+	 * When toggling flexible → fixed, use the projected start time (displayed time)
+	 * instead of the original planned start time.
+	 */
+	function handleToggleType(task: ConfirmedTask) {
+		if (!onUpdateTask) return;
+
+		const wasFixed = task.type === 'fixed';
+		const newType = wasFixed ? 'flexible' : 'fixed';
+
+		// When becoming fixed, use the projected (displayed) start time
+		if (!wasFixed) {
+			const projectedTask = projectedTasks.find(pt => pt.task.taskId === task.taskId);
+			const projectedStart = projectedTask?.projectedStart ?? task.plannedStart;
+
+			onUpdateTask(task.taskId, {
+				type: newType,
+				plannedStart: projectedStart
+			});
+
+			// Reorder if needed
+			if (onReorder) {
+				const taskIndex = tasks.findIndex(t => t.taskId === task.taskId);
+				const newPosition = findChronologicalPosition(tasks, task.taskId, projectedStart);
+
+				if (taskIndex !== -1 && taskIndex !== newPosition) {
+					onReorder(taskIndex, newPosition);
+
+					setTimeout(() => {
+						scrollToTaskAndHighlight(task.taskId, (id) => highlightedTaskId = id);
+					}, 50);
+				}
+			}
+		} else {
+			// Fixed → Flexible: just change type, keep position
+			onUpdateTask(task.taskId, { type: newType });
+		}
+	}
+
 	function handleCloseDialog() {
 		isEditDialogOpen = false;
 		editingTask = null;
@@ -141,6 +182,14 @@
 	// Derived state for projected tasks (T022: using $derived.by)
 	const projectedTasks = $derived.by(() => {
 		return createProjectedTasks(tasks, progress, currentIndex, elapsedMs);
+	});
+
+	// Sort projected tasks chronologically by projected start time for display
+	// This ensures the impact panel shows tasks in the order they'll actually occur
+	const sortedProjectedTasks = $derived.by(() => {
+		return [...projectedTasks].sort((a, b) =>
+			a.projectedStart.getTime() - b.projectedStart.getTime()
+		);
 	});
 
 	// Schedule calculation for conflict and overflow detection (T071-T072)
@@ -309,7 +358,7 @@
 
 	<!-- Task list (T023: render list of ImpactTaskRow) -->
 	<div class="task-list" role="list" data-testid="task-list">
-		{#each projectedTasks as projectedTask, index (projectedTask.task.taskId)}
+		{#each sortedProjectedTasks as projectedTask, index (projectedTask.task.taskId)}
 			<div
 				class="task-item"
 				role="listitem"
@@ -326,19 +375,20 @@
 					onDragStart={handleDragStart}
 					onDragEnd={handleDragEnd}
 					onEdit={handleEditTask}
+					onToggleType={handleToggleType}
 					onStartTask={onStartTask ? handleStartTask : undefined}
 				/>
 			</div>
 		{/each}
 		<!-- Drop zone for moving tasks to end of list -->
-		{#if draggedIndex !== null && draggedIndex < projectedTasks.length - 1}
+		{#if draggedIndex !== null && draggedIndex < sortedProjectedTasks.length - 1}
 			<div
 				class="end-drop-zone"
 				role="listitem"
-				class:drop-target={dropTargetIndex === projectedTasks.length}
-				ondragover={(e) => handleDragOver(e, projectedTasks.length)}
+				class:drop-target={dropTargetIndex === sortedProjectedTasks.length}
+				ondragover={(e) => handleDragOver(e, sortedProjectedTasks.length)}
 				ondragleave={handleDragLeave}
-				ondrop={(e) => handleDrop(e, projectedTasks.length)}
+				ondrop={(e) => handleDrop(e, sortedProjectedTasks.length)}
 			>
 				<span class="drop-hint">Drop here to move to end</span>
 			</div>
