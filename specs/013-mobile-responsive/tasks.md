@@ -166,6 +166,7 @@
 - [ ] T042 Run Lighthouse mobile audit and verify score 90+ (SC-001)
 - [ ] T043 Audit all interactive elements for 44px touch targets (SC-002)
 - [ ] T044 Test horizontal scroll at 320px, 375px, 414px viewports (SC-003)
+- [ ] T044a Test timer visibility when mobile keyboard opens (verify timer not hidden by keyboard)
 - [ ] T045 Run existing e2e tests to ensure no regressions
 - [ ] T046 Run npm test && npm run lint to verify code quality
 

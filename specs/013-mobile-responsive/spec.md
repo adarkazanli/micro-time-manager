@@ -134,6 +134,14 @@ As a user on a tablet or phone in landscape mode, I want an optimized layout tha
 - **SC-002**: All tap targets meet 44x44px minimum on mobile viewports
 - **SC-003**: No horizontal scrolling occurs on any supported mobile viewport (320-639px)
 - **SC-004**: Text is readable without zoom (16px minimum for body text on mobile)
-- **SC-005**: Core workflows (start day, complete task, view schedule) are completable on mobile in same number of taps as clicks on desktop
+- **SC-005**: Core workflows are completable on mobile with equivalent tap counts:
+  - Start day: 1 tap (same as 1 click)
+  - Complete current task: 2 taps (tap row to reveal, tap complete - vs 1 click on desktop hover)
+  - View schedule: 0 taps (visible on load, same as desktop)
+  - Start specific task: 2 taps (tap row, tap start - vs 1 click on desktop hover)
 - **SC-006**: Layout renders correctly in both portrait and landscape orientations
-- **SC-007**: Visual design maintains consistency and aesthetic quality across all breakpoints
+- **SC-007**: Visual design maintains consistency across breakpoints:
+  - Color palette identical across all viewports
+  - Typography scale follows defined responsive sizing (text-2xl → text-4xl)
+  - Spacing uses consistent Tailwind scale (gap-2, p-2 on mobile; gap-4, p-4 on desktop)
+  - Component visual hierarchy preserved (current task prominently styled on all sizes)
