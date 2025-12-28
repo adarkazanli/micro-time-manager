@@ -8,6 +8,22 @@
    ============================================================================= */
 
 :root {
+	/* ==========================================================================
+	   Mobile Responsive Design (013-mobile-responsive)
+	   ========================================================================== */
+
+	/* Touch target minimum size (WCAG 2.2 / Apple HIG) */
+	--touch-target-min: 44px;
+
+	/* Mobile-specific spacing */
+	--mobile-padding: 0.5rem; /* 8px */
+	--mobile-gap: 0.5rem; /* 8px */
+
+	/* Timer size per breakpoint (used with Tailwind text-* classes) */
+	--timer-size-mobile: 1.5rem; /* 24px / text-2xl */
+	--timer-size-tablet: 1.875rem; /* 30px / text-3xl */
+	--timer-size-desktop: 2.25rem; /* 36px / text-4xl */
+
 	/* Light mode colors */
 	--color-bg-primary: theme(colors.white);
 	--color-bg-secondary: theme(colors.gray.50);
@@ -43,4 +59,19 @@ html {
 
 html.dark {
 	color-scheme: dark;
+}
+
+/* =============================================================================
+   Mobile Responsive Base Styles (013-mobile-responsive)
+   ============================================================================= */
+
+/* Ensure minimum readable font size on mobile (16px prevents iOS zoom on focus) */
+html {
+	font-size: 16px; /* Base size - never smaller */
+}
+
+/* Prevent horizontal overflow on mobile */
+body {
+	overflow-x: hidden;
+	-webkit-text-size-adjust: 100%; /* Prevent font scaling in landscape on iOS */
 }

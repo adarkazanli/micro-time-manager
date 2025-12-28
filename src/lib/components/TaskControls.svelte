@@ -91,8 +91,11 @@
 <style>
 	@reference "tailwindcss";
 
+	/* Mobile-first responsive layout (T025: 013-mobile-responsive) */
 	.task-controls {
-		@apply flex flex-col items-center gap-4;
+		@apply flex flex-col items-center;
+		@apply gap-3 sm:gap-4; /* Reduced gap on mobile */
+		@apply w-full; /* Full width on mobile */
 	}
 
 	.no-schedule,
@@ -101,34 +104,46 @@
 	}
 
 	.message {
-		@apply text-lg font-medium text-gray-700;
+		@apply text-base sm:text-lg font-medium text-gray-700;
 	}
 
 	.hint {
-		@apply text-sm text-gray-500;
+		@apply text-xs sm:text-sm text-gray-500;
 	}
 
 	.running-controls {
-		@apply flex flex-col items-center gap-3;
+		@apply flex flex-col items-center;
+		@apply gap-2 sm:gap-3;
+		@apply w-full; /* Full width on mobile */
 	}
 
 	.leader-warning {
-		@apply text-amber-600 text-sm bg-amber-50 px-4 py-2 rounded-lg;
+		@apply text-amber-600 text-xs sm:text-sm bg-amber-50;
+		@apply px-3 py-2 sm:px-4 rounded-lg;
 	}
 
+	/* Buttons - responsive with 44px touch targets (T025) */
 	.btn {
 		@apply inline-flex items-center justify-center;
-		@apply px-6 py-3 rounded-lg font-medium;
+		@apply px-4 py-3 sm:px-6 rounded-lg font-medium;
 		@apply transition-all duration-150;
 		@apply focus:outline-none focus:ring-2 focus:ring-offset-2;
+		@apply min-h-11; /* 44px touch target */
+		@apply w-full sm:w-auto; /* Full width on mobile */
+		@apply text-sm sm:text-base;
+		/* Active state feedback (T024) */
+		@apply active:scale-[0.98];
 	}
 
 	.btn:disabled {
 		@apply opacity-50 cursor-not-allowed;
 	}
 
+	/* Large button - responsive (T025) */
 	.btn-large {
-		@apply px-8 py-4 text-lg;
+		@apply px-6 py-4 sm:px-8;
+		@apply text-base sm:text-lg;
+		@apply min-h-12 sm:min-h-14; /* Larger touch target */
 	}
 
 	.btn-primary {

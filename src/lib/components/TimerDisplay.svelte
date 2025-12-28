@@ -52,14 +52,20 @@
 <style>
 	@reference "tailwindcss";
 
+	/* Mobile-first responsive layout (013-mobile-responsive) */
 	.timer-display {
-		@apply flex items-center justify-center gap-3;
-		@apply px-6 py-4 rounded-xl border-2;
+		@apply flex items-center justify-center;
+		@apply gap-2 sm:gap-3; /* Reduced gap on mobile */
+		@apply px-3 py-2 sm:px-4 sm:py-3 md:px-6 md:py-4; /* Responsive padding */
+		@apply rounded-xl border-2;
 		@apply transition-colors duration-300;
 	}
 
+	/* Responsive timer typography (013-mobile-responsive) */
+	/* Mobile: text-2xl (24px), Tablet: text-3xl (30px), Desktop: text-5xl (48px) */
 	.timer-time {
-		@apply text-5xl font-mono font-bold tabular-nums;
+		@apply text-2xl sm:text-3xl md:text-4xl lg:text-5xl;
+		@apply font-mono font-bold tabular-nums;
 		@apply tracking-tight;
 	}
 
