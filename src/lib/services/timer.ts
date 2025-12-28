@@ -2,11 +2,13 @@
  * Timer Service
  *
  * Feature: 002-day-tracking
- * Purpose: High-precision elapsed time tracking using performance.now()
+ * Purpose: Wall-clock elapsed time tracking using Date.now()
  *          and requestAnimationFrame for efficient display updates.
  *
- * Per Constitution III: Uses monotonic time (performance.now()) to ensure
- * accuracy regardless of system clock changes.
+ * Uses Date.now() (wall-clock time) to ensure accurate tracking even when
+ * the browser tab is suspended (e.g., during phone calls on mobile).
+ * performance.now() stops advancing during tab suspension, causing
+ * significant under-tracking (35%+ loss observed in production).
  */
 
 /**
@@ -37,7 +39,7 @@ export interface TimerService {
 /**
  * Create a new timer instance.
  *
- * Uses performance.now() for monotonic time tracking and
+ * Uses Date.now() for wall-clock time tracking and
  * requestAnimationFrame for efficient UI updates.
  *
  * @example
@@ -76,11 +78,12 @@ export function createTimer(config: TimerConfig): TimerService {
 	}
 
 	/**
-	 * Calculate current elapsed time using performance.now()
+	 * Calculate current elapsed time using Date.now() (wall-clock).
+	 * This ensures accurate tracking even when the tab is suspended.
 	 */
 	function getElapsedInternal(): number {
 		if (!running) return lastElapsed;
-		return performance.now() - startTime + offset;
+		return Date.now() - startTime + offset;
 	}
 
 	return {
@@ -94,7 +97,7 @@ export function createTimer(config: TimerConfig): TimerService {
 
 			running = true;
 			offset = startFromMs ?? 0;
-			startTime = performance.now();
+			startTime = Date.now();
 
 			onStart?.();
 

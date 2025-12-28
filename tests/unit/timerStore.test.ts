@@ -6,19 +6,23 @@
  *
  * Tests: start, stop, reset, snapshot, elapsedMs, remainingMs, displayTime, color
  *
+ * Note: Timer uses Date.now() (wall-clock time) instead of performance.now()
+ * to ensure accurate tracking even when browser tabs are suspended
+ * (e.g., during phone calls on mobile).
+ *
  * Per Constitution IV: Tests MUST be written first and FAIL before implementation.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 describe('timerStore', () => {
-	let mockPerformanceNow: ReturnType<typeof vi.spyOn>;
+	let mockDateNow: ReturnType<typeof vi.spyOn>;
 	let mockRAF: ReturnType<typeof vi.spyOn>;
 	let _mockCancelRAF: ReturnType<typeof vi.spyOn>;
 
 	beforeEach(() => {
 		vi.useFakeTimers();
-		mockPerformanceNow = vi.spyOn(performance, 'now');
+		mockDateNow = vi.spyOn(Date, 'now');
 		mockRAF = vi.spyOn(window, 'requestAnimationFrame');
 		_mockCancelRAF = vi.spyOn(window, 'cancelAnimationFrame');
 
@@ -66,7 +70,7 @@ describe('timerStore', () => {
 
 	describe('start()', () => {
 		it('should set isRunning to true when started', async () => {
-			mockPerformanceNow.mockReturnValue(0);
+			mockDateNow.mockReturnValue(0);
 			const { timerStore } = await import('$lib/stores/timerStore.svelte');
 
 			timerStore.start(60); // 1 minute
@@ -75,7 +79,7 @@ describe('timerStore', () => {
 		});
 
 		it('should calculate remainingMs based on duration', async () => {
-			mockPerformanceNow.mockReturnValue(0);
+			mockDateNow.mockReturnValue(0);
 			const { timerStore } = await import('$lib/stores/timerStore.svelte');
 
 			timerStore.start(120); // 2 minutes = 120000ms
@@ -84,7 +88,7 @@ describe('timerStore', () => {
 		});
 
 		it('should support starting with pre-existing elapsed time (recovery)', async () => {
-			mockPerformanceNow.mockReturnValue(0);
+			mockDateNow.mockReturnValue(0);
 			const { timerStore } = await import('$lib/stores/timerStore.svelte');
 
 			// Start with 30 seconds already elapsed
@@ -95,13 +99,13 @@ describe('timerStore', () => {
 		});
 
 		it('should not restart if already running', async () => {
-			mockPerformanceNow.mockReturnValue(0);
+			mockDateNow.mockReturnValue(0);
 			const { timerStore } = await import('$lib/stores/timerStore.svelte');
 
 			timerStore.start(60);
 
 			// Advance time
-			mockPerformanceNow.mockReturnValue(5000);
+			mockDateNow.mockReturnValue(5000);
 
 			// Try to start again - should be ignored
 			timerStore.start(120);
@@ -113,7 +117,7 @@ describe('timerStore', () => {
 
 	describe('stop()', () => {
 		it('should set isRunning to false', async () => {
-			mockPerformanceNow.mockReturnValue(0);
+			mockDateNow.mockReturnValue(0);
 			const { timerStore } = await import('$lib/stores/timerStore.svelte');
 
 			timerStore.start(60);
@@ -123,7 +127,7 @@ describe('timerStore', () => {
 		});
 
 		it('should return final elapsed time in milliseconds', async () => {
-			mockPerformanceNow
+			mockDateNow
 				.mockReturnValueOnce(0) // start
 				.mockReturnValueOnce(5000); // stop
 
@@ -136,7 +140,7 @@ describe('timerStore', () => {
 		});
 
 		it('should preserve elapsed time after stop', async () => {
-			mockPerformanceNow
+			mockDateNow
 				.mockReturnValueOnce(0) // start
 				.mockReturnValueOnce(10000); // stop
 
@@ -159,7 +163,7 @@ describe('timerStore', () => {
 
 	describe('reset()', () => {
 		it('should stop the timer', async () => {
-			mockPerformanceNow.mockReturnValue(0);
+			mockDateNow.mockReturnValue(0);
 			const { timerStore } = await import('$lib/stores/timerStore.svelte');
 
 			timerStore.start(60);
@@ -169,7 +173,7 @@ describe('timerStore', () => {
 		});
 
 		it('should reset elapsedMs to 0', async () => {
-			mockPerformanceNow
+			mockDateNow
 				.mockReturnValueOnce(0)
 				.mockReturnValueOnce(10000);
 
@@ -183,7 +187,7 @@ describe('timerStore', () => {
 		});
 
 		it('should reset remainingMs to 0', async () => {
-			mockPerformanceNow.mockReturnValue(0);
+			mockDateNow.mockReturnValue(0);
 			const { timerStore } = await import('$lib/stores/timerStore.svelte');
 
 			timerStore.start(60);
@@ -193,7 +197,7 @@ describe('timerStore', () => {
 		});
 
 		it('should reset displayTime to "00:00"', async () => {
-			mockPerformanceNow.mockReturnValue(0);
+			mockDateNow.mockReturnValue(0);
 			const { timerStore } = await import('$lib/stores/timerStore.svelte');
 
 			timerStore.start(60);
@@ -205,7 +209,7 @@ describe('timerStore', () => {
 
 	describe('snapshot()', () => {
 		it('should return complete TimerState object', async () => {
-			mockPerformanceNow
+			mockDateNow
 				.mockReturnValueOnce(0)
 				.mockReturnValueOnce(5000);
 
@@ -236,7 +240,7 @@ describe('timerStore', () => {
 
 	describe('color thresholds', () => {
 		it('should be green when remaining > 5 minutes', async () => {
-			mockPerformanceNow.mockReturnValue(0);
+			mockDateNow.mockReturnValue(0);
 			const { timerStore } = await import('$lib/stores/timerStore.svelte');
 
 			timerStore.start(600); // 10 minutes
@@ -246,7 +250,7 @@ describe('timerStore', () => {
 		});
 
 		it('should be yellow when 0 < remaining <= 5 minutes', async () => {
-			mockPerformanceNow
+			mockDateNow
 				.mockReturnValueOnce(0) // start
 				.mockReturnValueOnce(301000); // 5min 1sec elapsed
 
@@ -263,7 +267,7 @@ describe('timerStore', () => {
 		});
 
 		it('should be yellow at exactly 5 minutes remaining', async () => {
-			mockPerformanceNow
+			mockDateNow
 				.mockReturnValueOnce(0) // start
 				.mockReturnValueOnce(300000); // 5 min elapsed
 
@@ -279,7 +283,7 @@ describe('timerStore', () => {
 		});
 
 		it('should be red when overtime (remaining <= 0)', async () => {
-			mockPerformanceNow
+			mockDateNow
 				.mockReturnValueOnce(0) // start
 				.mockReturnValueOnce(601000); // 10min 1sec elapsed
 
@@ -297,7 +301,7 @@ describe('timerStore', () => {
 
 	describe('displayTime format', () => {
 		it('should format MM:SS for times under 1 hour', async () => {
-			mockPerformanceNow.mockReturnValue(0);
+			mockDateNow.mockReturnValue(0);
 			const { timerStore } = await import('$lib/stores/timerStore.svelte');
 
 			timerStore.start(1234); // 20min 34sec
@@ -306,7 +310,7 @@ describe('timerStore', () => {
 		});
 
 		it('should format H:MM:SS for times >= 1 hour', async () => {
-			mockPerformanceNow.mockReturnValue(0);
+			mockDateNow.mockReturnValue(0);
 			const { timerStore } = await import('$lib/stores/timerStore.svelte');
 
 			timerStore.start(3700); // 1hr 1min 40sec
@@ -315,7 +319,7 @@ describe('timerStore', () => {
 		});
 
 		it('should format with leading zeros for minutes under 10', async () => {
-			mockPerformanceNow.mockReturnValue(0);
+			mockDateNow.mockReturnValue(0);
 			const { timerStore } = await import('$lib/stores/timerStore.svelte');
 
 			timerStore.start(545); // 9min 5sec
@@ -324,7 +328,7 @@ describe('timerStore', () => {
 		});
 
 		it('should format negative time when overtime', async () => {
-			mockPerformanceNow
+			mockDateNow
 				.mockReturnValueOnce(0)
 				.mockReturnValueOnce(660000); // 11 min elapsed
 
@@ -339,7 +343,7 @@ describe('timerStore', () => {
 		});
 
 		it('should format negative time with hours when overtime >= 1 hour', async () => {
-			mockPerformanceNow
+			mockDateNow
 				.mockReturnValueOnce(0)
 				.mockReturnValueOnce(4200000); // 70 min elapsed
 
@@ -355,10 +359,10 @@ describe('timerStore', () => {
 	});
 
 	describe('elapsed time calculation', () => {
-		it('should calculate elapsed time using performance.now()', async () => {
-			mockPerformanceNow
-				.mockReturnValueOnce(1000) // start
-				.mockReturnValueOnce(3000); // getElapsed
+		it('should calculate elapsed time using Date.now() for wall-clock accuracy', async () => {
+			mockDateNow
+				.mockReturnValueOnce(1000000) // start
+				.mockReturnValueOnce(1002000); // getElapsed - 2 seconds later
 
 			const { timerStore } = await import('$lib/stores/timerStore.svelte');
 
@@ -368,29 +372,27 @@ describe('timerStore', () => {
 			expect(state.elapsedMs).toBe(2000);
 		});
 
-		it('should be immune to Date.now() changes', async () => {
-			mockPerformanceNow
-				.mockReturnValueOnce(0)
-				.mockReturnValueOnce(5000);
+		it('should track elapsed time accurately across tab suspension', async () => {
+			// This is the key benefit of using Date.now() over performance.now()
+			// When a tab is suspended (e.g., during phone calls), Date.now() continues
+			// to advance while performance.now() stops
+			mockDateNow
+				.mockReturnValueOnce(1000000) // start
+				.mockReturnValueOnce(1600000); // 10 minutes later (simulating tab suspension)
 
 			const { timerStore } = await import('$lib/stores/timerStore.svelte');
 
-			// Break Date.now
-			const originalDateNow = Date.now;
-			Date.now = () => 999999999;
-
-			timerStore.start(60);
+			timerStore.start(900); // 15 minutes
 			const state = timerStore.snapshot();
 
-			expect(state.elapsedMs).toBe(5000);
-
-			Date.now = originalDateNow;
+			// Should show 10 minutes (600000ms) elapsed, even though RAF didn't tick
+			expect(state.elapsedMs).toBe(600000);
 		});
 	});
 
 	describe('state property', () => {
 		it('should provide complete TimerState via state property', async () => {
-			mockPerformanceNow.mockReturnValue(0);
+			mockDateNow.mockReturnValue(0);
 			const { timerStore } = await import('$lib/stores/timerStore.svelte');
 
 			timerStore.start(300); // 5 minutes

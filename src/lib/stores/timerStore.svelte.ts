@@ -7,7 +7,8 @@
  * Manages real-time countdown state for the active task.
  * Uses Svelte 5 runes for reactive state management.
  *
- * Per Constitution III: Uses performance.now() for accuracy.
+ * Uses Date.now() (wall-clock time) for accurate tracking even when
+ * the browser tab is suspended (e.g., during phone calls on mobile).
  */
 
 import type { TimerState, TimerColor, TimerRecoveryResult, DaySession } from '$lib/types';
@@ -27,6 +28,9 @@ let timer: TimerService | null = null;
 
 // T012: Sync interval ID for periodic persistence
 let syncIntervalId: ReturnType<typeof setInterval> | null = null;
+
+// Backup interval for updating elapsed when RAF is paused (mobile background)
+let backupIntervalId: ReturnType<typeof setInterval> | null = null;
 
 // Flag to track if browser event listeners have been set up
 let listenersInitialized = false;
@@ -134,48 +138,56 @@ function stopPersistenceSync(): void {
 }
 
 /**
- * T024/T025: Recalculate elapsed time on wake from sleep.
- * Uses wall-clock recovery to add any time spent sleeping.
+ * Start backup interval for updating elapsed time.
+ * This runs every second to ensure UI updates even when RAF is paused
+ * (which happens on mobile when tab is backgrounded).
+ *
+ * Since timer.ts now uses Date.now(), calling getElapsed() will always
+ * return the correct wall-clock based elapsed time.
  */
-function recalculateElapsedOnWake(): void {
-	if (!running) return;
+function startBackupInterval(): void {
+	if (backupIntervalId !== null) return;
 
-	const session = storage.getSession();
-	if (!session || session.status !== 'running') return;
-
-	const now = Date.now();
-	const lastSync = session.lastPersistedAt;
-	const savedElapsed = session.currentTaskElapsedMs;
-
-	// Calculate how much time passed since last sync
-	const awayTimeMs = now - lastSync;
-
-	// If significant time passed (more than sync interval), we were likely asleep
-	if (awayTimeMs > TIMER_SYNC_INTERVAL_MS + 1000) {
-		let newElapsed = savedElapsed + awayTimeMs;
-
-		// Cap at 24 hours
-		if (newElapsed > MAX_RECOVERY_ELAPSED_MS) {
-			newElapsed = MAX_RECOVERY_ELAPSED_MS;
+	backupIntervalId = setInterval(() => {
+		if (running && timer) {
+			// Timer uses Date.now() internally, so this gives accurate elapsed
+			elapsedMsState = timer.getElapsed();
 		}
+	}, 1000); // Update every second
+}
 
-		// Update state
-		elapsedMsState = newElapsed;
-
-		// Restart timer from new position
-		if (timer) {
-			timer.destroy();
-			timer = createTimer({
-				onTick: (elapsed: number) => {
-					elapsedMsState = elapsed;
-				}
-			});
-			timer.start(newElapsed);
-		}
-
-		// Persist the updated state
-		persistTimerState();
+/**
+ * Stop the backup interval.
+ */
+function stopBackupInterval(): void {
+	if (backupIntervalId !== null) {
+		clearInterval(backupIntervalId);
+		backupIntervalId = null;
 	}
+}
+
+/**
+ * T024/T025: Update elapsed time when tab becomes visible.
+ * Since timer.ts uses Date.now() (wall-clock), getElapsed() will
+ * automatically return the correct elapsed time including any
+ * time spent while the tab was suspended.
+ */
+function updateElapsedOnWake(): void {
+	if (!running || !timer) return;
+
+	// Timer uses Date.now() internally, so this gives accurate elapsed
+	// even after the tab was suspended (e.g., during phone calls)
+	const currentElapsed = timer.getElapsed();
+
+	// Cap at 24 hours
+	if (currentElapsed > MAX_RECOVERY_ELAPSED_MS) {
+		elapsedMsState = MAX_RECOVERY_ELAPSED_MS;
+	} else {
+		elapsedMsState = currentElapsed;
+	}
+
+	// Persist the updated state
+	persistTimerState();
 }
 
 /**
@@ -185,14 +197,14 @@ function recalculateElapsedOnWake(): void {
 function setupBrowserEventListeners(): void {
 	if (listenersInitialized || typeof window === 'undefined') return;
 
-	// T024: Handle visibility change for both persist (hidden) and recalculate (visible)
+	// Handle visibility change for both persist (hidden) and update (visible)
 	document.addEventListener('visibilitychange', () => {
 		if (document.hidden && running) {
 			// Persist when tab becomes hidden
 			persistTimerState();
 		} else if (!document.hidden && running) {
-			// T025: Recalculate elapsed on wake (visibility becomes visible)
-			recalculateElapsedOnWake();
+			// Update elapsed from timer (which uses Date.now() for wall-clock accuracy)
+			updateElapsedOnWake();
 		}
 	});
 
@@ -319,7 +331,7 @@ function createTimerStore() {
 				timer.destroy();
 			}
 
-			// Create new timer service
+			// Create new timer service (uses Date.now() for wall-clock accuracy)
 			timer = createTimer({
 				onTick: (elapsed: number) => {
 					elapsedMsState = elapsed;
@@ -329,9 +341,10 @@ function createTimerStore() {
 			timer.start(startFromMs);
 			running = true;
 
-			// T015: Start persistence sync and set up event listeners
+			// T015: Start persistence sync, backup interval, and set up event listeners
 			setupBrowserEventListeners();
 			startPersistenceSync();
+			startBackupInterval();
 		},
 
 		/**
@@ -340,8 +353,9 @@ function createTimerStore() {
 		 * @returns Final elapsed time in milliseconds
 		 */
 		stop(): number {
-			// T016: Stop persistence sync
+			// T016: Stop persistence sync and backup interval
 			stopPersistenceSync();
+			stopBackupInterval();
 
 			if (!running || !timer) {
 				return elapsedMsState;
@@ -395,6 +409,10 @@ function createTimerStore() {
 		 * Reset timer to initial state.
 		 */
 		reset(): void {
+			// Stop all intervals
+			stopPersistenceSync();
+			stopBackupInterval();
+
 			if (timer) {
 				timer.destroy();
 				timer = null;

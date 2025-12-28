@@ -1,6 +1,10 @@
 /**
  * Unit tests for createTimer service
- * Tests: performance.now() usage, RAF updates, stop/start, recovery offset
+ * Tests: Date.now() usage for wall-clock accuracy, RAF updates, stop/start, recovery offset
+ *
+ * Note: Timer uses Date.now() (wall-clock time) instead of performance.now()
+ * to ensure accurate tracking even when browser tabs are suspended
+ * (e.g., during phone calls on mobile).
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -9,13 +13,13 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { TimerConfig as _TimerConfig, TimerService as _TimerService } from '$lib/services/timer';
 
 describe('createTimer', () => {
-	let mockPerformanceNow: ReturnType<typeof vi.spyOn>;
+	let mockDateNow: ReturnType<typeof vi.spyOn>;
 	let mockRAF: ReturnType<typeof vi.spyOn>;
 	let mockCancelRAF: ReturnType<typeof vi.spyOn>;
 
 	beforeEach(() => {
 		vi.useFakeTimers();
-		mockPerformanceNow = vi.spyOn(performance, 'now');
+		mockDateNow = vi.spyOn(Date, 'now');
 		mockRAF = vi.spyOn(window, 'requestAnimationFrame');
 		mockCancelRAF = vi.spyOn(window, 'cancelAnimationFrame');
 	});
@@ -25,38 +29,36 @@ describe('createTimer', () => {
 		vi.restoreAllMocks();
 	});
 
-	describe('performance.now() usage', () => {
-		it('should use performance.now() for elapsed time calculations', async () => {
+	describe('Date.now() usage for wall-clock accuracy', () => {
+		it('should use Date.now() for elapsed time calculations', async () => {
 			const { createTimer } = await import('$lib/services/timer');
 			const onTick = vi.fn();
 
-			mockPerformanceNow.mockReturnValueOnce(0);
+			mockDateNow.mockReturnValueOnce(1000000); // Start time
 			const timer = createTimer({ onTick });
 			timer.start();
 
-			mockPerformanceNow.mockReturnValueOnce(1000);
+			mockDateNow.mockReturnValueOnce(1001000); // 1 second later
 			expect(timer.getElapsed()).toBe(1000);
 
 			timer.destroy();
 		});
 
-		it('should be immune to Date.now() changes', async () => {
+		it('should track elapsed time accurately across tab suspension', async () => {
+			// This is the key benefit of using Date.now() over performance.now()
+			// When a tab is suspended (e.g., during phone calls), Date.now() continues
+			// to advance while performance.now() stops
 			const { createTimer } = await import('$lib/services/timer');
 			const onTick = vi.fn();
 
-			// Mock performance.now with controlled values
-			mockPerformanceNow.mockReturnValueOnce(0);
+			mockDateNow.mockReturnValueOnce(1000000); // Start time
 			const timer = createTimer({ onTick });
 			timer.start();
 
-			// Even if Date.now is broken, performance.now should work
-			const originalDateNow = Date.now;
-			Date.now = () => 999999999; // Break Date.now
+			// Simulate 10 minutes passing while tab was suspended
+			mockDateNow.mockReturnValueOnce(1600000); // 600 seconds (10 min) later
+			expect(timer.getElapsed()).toBe(600000);
 
-			mockPerformanceNow.mockReturnValueOnce(1000);
-			expect(timer.getElapsed()).toBe(1000);
-
-			Date.now = originalDateNow;
 			timer.destroy();
 		});
 	});
@@ -66,7 +68,7 @@ describe('createTimer', () => {
 			const { createTimer } = await import('$lib/services/timer');
 			const onTick = vi.fn();
 
-			mockPerformanceNow.mockReturnValue(0);
+			mockDateNow.mockReturnValue(1000000);
 			mockRAF.mockImplementation((cb: FrameRequestCallback) => {
 				setTimeout(() => cb(0), 16);
 				return 1;
@@ -83,7 +85,7 @@ describe('createTimer', () => {
 			const { createTimer } = await import('$lib/services/timer');
 			const onTick = vi.fn();
 
-			mockPerformanceNow.mockReturnValue(0);
+			mockDateNow.mockReturnValue(1000000);
 			mockRAF.mockReturnValue(123);
 
 			const timer = createTimer({ onTick });
@@ -99,7 +101,7 @@ describe('createTimer', () => {
 			const { createTimer } = await import('$lib/services/timer');
 			const onTick = vi.fn();
 
-			mockPerformanceNow.mockReturnValue(0);
+			mockDateNow.mockReturnValue(1000000);
 			const timer = createTimer({ onTick });
 
 			expect(timer.isRunning()).toBe(false);
@@ -118,7 +120,7 @@ describe('createTimer', () => {
 			const onTick = vi.fn();
 			const onStart = vi.fn();
 
-			mockPerformanceNow.mockReturnValue(0);
+			mockDateNow.mockReturnValue(1000000);
 			const timer = createTimer({ onTick, onStart });
 
 			timer.start();
@@ -131,11 +133,10 @@ describe('createTimer', () => {
 			const onTick = vi.fn();
 			const onStop = vi.fn();
 
-			// Mock performance.now() to return increasing values
-			// Use mockReturnValueOnce for sequential calls
-			mockPerformanceNow
-				.mockReturnValueOnce(0) // start() call
-				.mockReturnValueOnce(5000); // getElapsedInternal() in stop()
+			// Mock Date.now() to return increasing values
+			mockDateNow
+				.mockReturnValueOnce(1000000) // start() call
+				.mockReturnValueOnce(1005000); // getElapsedInternal() in stop() - 5 seconds later
 
 			const { createTimer } = await import('$lib/services/timer');
 			const timer = createTimer({ onTick, onStop });
@@ -150,27 +151,17 @@ describe('createTimer', () => {
 		it('should return elapsed time from stop()', async () => {
 			const onTick = vi.fn();
 
-			// Mock performance.now() to return increasing values
-			mockPerformanceNow
-				.mockReturnValueOnce(0) // start() call
-				.mockReturnValueOnce(3000); // getElapsedInternal() in stop()
-
-			console.log('Before import, mock calls:', mockPerformanceNow.mock.calls.length);
+			// Mock Date.now() to return increasing values
+			mockDateNow
+				.mockReturnValueOnce(1000000) // start() call
+				.mockReturnValueOnce(1003000); // getElapsedInternal() in stop() - 3 seconds later
 
 			const { createTimer } = await import('$lib/services/timer');
-
-			console.log('After import, mock calls:', mockPerformanceNow.mock.calls.length);
 
 			const timer = createTimer({ onTick });
 			timer.start();
 
-			console.log('After start, mock calls:', mockPerformanceNow.mock.calls.length);
-			console.log('Mock results:', mockPerformanceNow.mock.results.map((r: { value: number }) => r.value));
-
 			const elapsed = timer.stop();
-
-			console.log('After stop, mock calls:', mockPerformanceNow.mock.calls.length);
-			console.log('Elapsed:', elapsed);
 
 			expect(elapsed).toBe(3000);
 
@@ -195,13 +186,13 @@ describe('createTimer', () => {
 			const { createTimer } = await import('$lib/services/timer');
 			const onTick = vi.fn();
 
-			mockPerformanceNow.mockReturnValueOnce(0);
+			mockDateNow.mockReturnValueOnce(1000000);
 			const timer = createTimer({ onTick });
 
 			// Start with 5 seconds already elapsed
 			timer.start(5000);
 
-			mockPerformanceNow.mockReturnValueOnce(1000); // 1 second after start
+			mockDateNow.mockReturnValueOnce(1001000); // 1 second after start
 			expect(timer.getElapsed()).toBe(6000); // 5000 + 1000
 
 			timer.destroy();
@@ -212,11 +203,11 @@ describe('createTimer', () => {
 			const onTick = vi.fn();
 
 			// Simulate recovering from persisted state with 45 seconds elapsed
-			mockPerformanceNow.mockReturnValueOnce(0);
+			mockDateNow.mockReturnValueOnce(1000000);
 			const timer = createTimer({ onTick });
 			timer.start(45000);
 
-			mockPerformanceNow.mockReturnValueOnce(5000); // 5 seconds later
+			mockDateNow.mockReturnValueOnce(1005000); // 5 seconds later
 			expect(timer.getElapsed()).toBe(50000); // 45000 + 5000
 
 			timer.destroy();
@@ -228,13 +219,13 @@ describe('createTimer', () => {
 			const { createTimer } = await import('$lib/services/timer');
 			const onTick = vi.fn();
 
-			mockPerformanceNow.mockReturnValueOnce(0);
+			mockDateNow.mockReturnValueOnce(1000000);
 			const timer = createTimer({ onTick });
 			timer.start();
 
 			// Simulate 60 seconds passing while tab was backgrounded
-			// (no RAF callbacks would have fired during this time)
-			mockPerformanceNow.mockReturnValueOnce(60000);
+			// Date.now() continues to advance even when tab is suspended
+			mockDateNow.mockReturnValueOnce(1060000);
 			expect(timer.getElapsed()).toBe(60000);
 
 			timer.destroy();
@@ -246,7 +237,7 @@ describe('createTimer', () => {
 			const { createTimer } = await import('$lib/services/timer');
 			const onTick = vi.fn();
 
-			mockPerformanceNow.mockReturnValue(0);
+			mockDateNow.mockReturnValue(1000000);
 			mockRAF.mockReturnValue(456);
 
 			const timer = createTimer({ onTick });
