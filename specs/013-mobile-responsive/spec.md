@@ -5,6 +5,14 @@
 **Status**: Draft
 **Input**: User description: "I want this app to be responsive and to look great on a mobile app"
 
+## Clarifications
+
+### Session 2025-12-28
+
+- Q: How should drag & drop work on touch devices? → A: Enable touch-and-hold drag (500ms delay before drag activates)
+- Q: Should action buttons always be visible on mobile or require tap to reveal? → A: Tap row to reveal action buttons (keeps UI cleaner)
+- Q: What visual design direction for mobile? → A: Adapt for mobile conventions (bolder touch states, mobile-native spacing)
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Mobile Task Tracking (Priority: P1)
@@ -51,7 +59,7 @@ As a user on mobile, I want to start, complete, and manage tasks using touch-fri
 
 1. **Given** a user on mobile viewing a pending task, **When** they tap the task row, **Then** action buttons (start, jump) are accessible and have adequate touch targets (minimum 44x44px).
 2. **Given** a user with an active task on mobile, **When** they want to complete it, **Then** the complete button is easily tappable and provides visual feedback on tap.
-3. **Given** a user on mobile, **When** they hover/tap on a task row, **Then** action buttons appear in a mobile-appropriate layout (not overlapping content).
+3. **Given** a user on mobile, **When** they tap on a task row, **Then** action buttons are revealed in a mobile-appropriate layout (not overlapping content).
 
 ---
 
@@ -91,7 +99,7 @@ As a user on a tablet or phone in landscape mode, I want an optimized layout tha
 - What happens when the task name is very long on mobile? (Should truncate with ellipsis)
 - How does the system handle very small viewports (< 320px)? (Minimum supported width)
 - What happens when action buttons would overlap on narrow screens? (Stack vertically or use icon-only mode)
-- How are drag handles handled on touch devices? (Touch-and-hold for drag, or disable drag on mobile)
+- Drag reordering on touch devices uses touch-and-hold gesture (500ms delay) to differentiate from scrolling
 - What happens when the keyboard opens on mobile? (Layout should adjust, timer should remain visible)
 
 ## Requirements *(mandatory)*
@@ -108,6 +116,9 @@ As a user on a tablet or phone in landscape mode, I want an optimized layout tha
 - **FR-008**: Warning banners and alerts MUST be visible and not truncated on mobile
 - **FR-009**: System MUST support both portrait and landscape orientations
 - **FR-010**: System MUST use Tailwind CSS responsive utilities for breakpoint handling
+- **FR-011**: Drag reordering on touch devices MUST use touch-and-hold gesture with 500ms delay before drag activates
+- **FR-012**: On mobile, action buttons MUST be revealed on row tap (not always visible) to maintain clean UI
+- **FR-013**: Mobile UI MUST adapt visual conventions (bolder touch states, mobile-native spacing) rather than just scaling desktop design
 
 ### Key Entities
 
