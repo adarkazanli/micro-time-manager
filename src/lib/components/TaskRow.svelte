@@ -324,9 +324,13 @@
 <style>
 	@reference "tailwindcss";
 
+	/* Mobile-first responsive layout (013-mobile-responsive) */
 	.task-row {
-		@apply flex items-center gap-4 p-3 bg-white border border-gray-200 rounded-lg;
-		@apply transition-all duration-150 flex-nowrap;
+		@apply flex items-center bg-white border border-gray-200 rounded-lg;
+		@apply gap-2 sm:gap-4; /* Reduced gap on mobile */
+		@apply p-2 sm:p-3; /* Reduced padding on mobile */
+		@apply transition-all duration-150 flex-wrap sm:flex-nowrap; /* Allow wrap on mobile */
+		@apply min-h-11; /* 44px minimum touch target height */
 	}
 
 	.task-row:hover {
@@ -353,8 +357,10 @@
 		@apply text-gray-400 hover:text-gray-600 cursor-grab;
 	}
 
+	/* Time column - mobile responsive (013-mobile-responsive) */
 	.task-time {
-		@apply flex items-center gap-1 text-sm text-gray-600 font-mono min-w-[140px] flex-shrink-0;
+		@apply flex items-center gap-1 text-sm text-gray-600 font-mono flex-shrink-0;
+		@apply min-w-[100px] sm:min-w-[140px]; /* Narrower on mobile */
 	}
 
 	.time-separator {
@@ -365,8 +371,10 @@
 		@apply flex-1 font-medium text-gray-900;
 	}
 
+	/* Duration column - hidden on mobile (013-mobile-responsive) */
 	.task-duration {
 		@apply text-sm text-gray-600 min-w-[60px] text-right flex-shrink-0;
+		@apply hidden sm:block; /* Hide duration on mobile */
 	}
 
 	.task-type {

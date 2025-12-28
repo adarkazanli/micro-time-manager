@@ -397,12 +397,15 @@
 <style>
 	@reference "tailwindcss";
 
+	/* Mobile-first responsive layout (013-mobile-responsive) */
 	.schedule-preview {
-		@apply flex flex-col gap-4;
+		@apply flex flex-col;
+		@apply gap-2 sm:gap-3 md:gap-4; /* Reduced gap on mobile */
+		@apply w-full; /* Full width on all screens */
 	}
 
 	.preview-header {
-		@apply mb-2;
+		@apply mb-1 sm:mb-2; /* Reduced margin on mobile */
 	}
 
 	/* Schedule config section (T038) */
@@ -415,20 +418,26 @@
 		@apply flex flex-col gap-2;
 	}
 
+	/* Responsive typography (013-mobile-responsive) */
 	.preview-title {
-		@apply text-xl font-semibold text-gray-900;
+		@apply text-lg sm:text-xl font-semibold text-gray-900;
 	}
 
 	.preview-subtitle {
-		@apply text-sm text-gray-600;
+		@apply text-xs sm:text-sm text-gray-600;
 	}
 
 	.edit-hint {
 		@apply text-gray-400;
+		@apply hidden sm:inline; /* Hide edit hint on mobile - less clutter */
 	}
 
+	/* Task list with mobile max-height (013-mobile-responsive) */
 	.task-list {
-		@apply flex flex-col gap-2;
+		@apply flex flex-col;
+		@apply gap-1.5 sm:gap-2; /* Tighter spacing on mobile */
+		@apply max-h-[60vh] sm:max-h-[70vh] md:max-h-none; /* Constrained height on mobile */
+		@apply overflow-y-auto;
 	}
 
 	.task-wrapper {
@@ -448,11 +457,12 @@
 		@apply absolute inset-0 border-2 border-dashed border-blue-400 rounded-lg pointer-events-none;
 	}
 
-	/* End drop zone */
+	/* End drop zone - responsive (013-mobile-responsive) */
 	.end-drop-zone {
-		@apply py-3 px-4 border-2 border-dashed border-gray-300 rounded-lg;
-		@apply text-center text-sm text-gray-400;
+		@apply py-2 px-3 sm:py-3 sm:px-4 border-2 border-dashed border-gray-300 rounded-lg;
+		@apply text-center text-xs sm:text-sm text-gray-400;
 		@apply transition-all duration-150;
+		@apply min-h-11; /* 44px touch target */
 	}
 
 	.end-drop-zone.is-drop-target {
@@ -463,13 +473,20 @@
 		@apply pointer-events-none;
 	}
 
+	/* Actions footer - responsive (013-mobile-responsive) */
 	.preview-actions {
-		@apply flex justify-end gap-3 mt-4 pt-4 border-t border-gray-200;
+		@apply flex justify-end;
+		@apply gap-2 sm:gap-3; /* Reduced gap on mobile */
+		@apply mt-3 pt-3 sm:mt-4 sm:pt-4; /* Reduced margin/padding on mobile */
+		@apply border-t border-gray-200;
+		@apply flex-wrap; /* Allow wrap on very narrow screens */
 	}
 
 	.btn {
-		@apply px-4 py-2 rounded-lg font-medium transition-colors duration-150;
+		@apply px-3 py-2 sm:px-4 rounded-lg font-medium transition-colors duration-150;
 		@apply focus:outline-none focus:ring-2 focus:ring-offset-2;
+		@apply text-sm sm:text-base; /* Smaller text on mobile */
+		@apply min-h-11; /* 44px touch target */
 	}
 
 	.btn-primary {

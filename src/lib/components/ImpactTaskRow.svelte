@@ -185,7 +185,7 @@
 			{/if}
 		</div>
 
-		<!-- Type badge with fixed indicator (T051) -->
+		<!-- Type badge with fixed indicator (T051, T015: responsive - icon only on mobile) -->
 		<div class="task-type">
 			{#if isFixed}
 				<button
@@ -194,10 +194,10 @@
 					data-testid="type-badge"
 					onclick={handleToggleType}
 					disabled={!canToggleType}
-					title={canToggleType ? 'Click to toggle type' : ''}
+					title={canToggleType ? 'Click to toggle type' : 'Fixed time task'}
 				>
 					<FixedTaskIndicator size="sm" tooltip="Fixed time appointment" />
-					<span>fixed</span>
+					<span class="type-label">fixed</span>
 				</button>
 			{:else}
 				<button
@@ -206,9 +206,11 @@
 					data-testid="type-badge"
 					onclick={handleToggleType}
 					disabled={!canToggleType}
-					title={canToggleType ? 'Click to toggle type' : ''}
+					title={canToggleType ? 'Click to toggle type' : 'Flexible task'}
 				>
-					{projectedTask.task.type}
+					<!-- Mobile indicator dot (visible only when text is hidden) -->
+					<span class="type-indicator-dot"></span>
+					<span class="type-label">{projectedTask.task.type}</span>
 				</button>
 			{/if}
 		</div>
@@ -249,19 +251,25 @@
 <style>
 	@reference "tailwindcss";
 
+	/* Mobile-first responsive layout (013-mobile-responsive) */
 	.impact-task-row {
-		@apply flex flex-col gap-1 px-3 py-3 rounded-lg;
+		@apply flex flex-col gap-1;
+		@apply px-2 py-2 sm:px-3 sm:py-3; /* Reduced padding on mobile */
+		@apply rounded-lg;
 		@apply transition-all duration-150;
 		@apply border border-transparent;
 		@apply border-b border-gray-200;
+		@apply min-h-11; /* 44px minimum touch target height */
 	}
 
 	.row-top {
-		@apply flex items-center gap-3;
+		@apply flex items-center;
+		@apply gap-2 sm:gap-3; /* Reduced gap on mobile */
+		@apply flex-wrap; /* Allow wrapping on very narrow screens */
 	}
 
 	.row-bottom {
-		@apply pl-8;
+		@apply pl-6 sm:pl-8; /* Reduced indent on mobile */
 	}
 
 	/* Status styling */
@@ -305,29 +313,34 @@
 		@apply w-4 flex-shrink-0;
 	}
 
-	/* Risk indicator */
+	/* Risk indicator - bolder on mobile (T016: 013-mobile-responsive) */
 	.risk-indicator {
-		@apply flex-shrink-0 w-4 flex items-center justify-center;
+		@apply flex-shrink-0 w-4 sm:w-4 flex items-center justify-center;
 	}
 
 	.risk-indicator-placeholder {
 		@apply w-4 flex-shrink-0;
 	}
 
+	/* Larger risk dot on mobile for better visibility (T016) */
 	.risk-dot {
-		@apply w-3 h-3 rounded-full;
+		@apply w-3.5 h-3.5 sm:w-3 sm:h-3 rounded-full;
+		@apply shadow-sm; /* Subtle shadow for more definition */
 	}
 
 	.risk-indicator.green .risk-dot {
 		@apply bg-green-500;
+		@apply ring-1 ring-green-600/20; /* Subtle ring for definition */
 	}
 
 	.risk-indicator.yellow .risk-dot {
 		@apply bg-yellow-500;
+		@apply ring-1 ring-yellow-600/30; /* Bolder ring for warning */
 	}
 
 	.risk-indicator.red .risk-dot {
 		@apply bg-red-500 animate-pulse;
+		@apply ring-2 ring-red-600/40; /* Most prominent ring for danger */
 	}
 
 	/* Time display */
@@ -369,10 +382,12 @@
 		@apply text-gray-400;
 	}
 
-	/* Task name */
+	/* Task name - mobile responsive (013-mobile-responsive) */
 	.task-name {
 		@apply text-gray-900;
 		@apply flex items-center gap-2;
+		@apply truncate; /* Truncate long names on mobile */
+		@apply text-sm sm:text-base; /* Smaller text on mobile */
 	}
 
 	/* Interruption marker */
@@ -385,19 +400,31 @@
 		@apply w-4 h-4;
 	}
 
-	/* Type badge */
+	/* Type badge - responsive (T015: 013-mobile-responsive) */
 	.task-type {
 		@apply flex-shrink-0;
 	}
 
+	/* Hide type label text on mobile, show icon/color only (T015) */
+	.type-label {
+		@apply hidden sm:inline; /* Hide text on mobile */
+	}
+
 	.type-badge {
-		@apply inline-block px-2 py-0.5 text-xs font-medium rounded-full;
+		@apply inline-flex items-center justify-center;
+		@apply px-1.5 py-0.5 sm:px-2 text-xs font-medium rounded-full;
 		@apply cursor-pointer transition-colors duration-150;
-		@apply border-none bg-transparent;
+		@apply border-none;
+		@apply min-w-[24px] sm:min-w-0; /* Minimum width for icon-only mode */
 	}
 
 	.type-badge:not(:disabled):hover {
 		@apply opacity-80;
+	}
+
+	/* Active state feedback (T024) */
+	.type-badge:not(:disabled):active {
+		@apply scale-95;
 	}
 
 	.type-badge:disabled {
@@ -412,15 +439,29 @@
 		@apply bg-green-100 text-green-800;
 	}
 
-	/* Fixed badge with icon (T051) */
+	/* Mobile indicator dot - visible only when text is hidden (T015) */
+	.type-indicator-dot {
+		@apply w-2 h-2 rounded-full bg-current;
+		@apply sm:hidden; /* Hide on larger screens where text is visible */
+	}
+
+	/* Fixed badge with icon (T051, T015: responsive) */
 	.type-badge-with-icon {
-		@apply inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full;
+		@apply inline-flex items-center justify-center;
+		@apply gap-0.5 sm:gap-1;
+		@apply px-1.5 py-0.5 sm:px-2 text-xs font-medium rounded-full;
 		@apply cursor-pointer transition-colors duration-150;
 		@apply border-none;
+		@apply min-w-[24px] sm:min-w-0; /* Minimum width for icon-only mode */
 	}
 
 	.type-badge-with-icon:not(:disabled):hover {
 		@apply opacity-80;
+	}
+
+	/* Active state feedback (T024) */
+	.type-badge-with-icon:not(:disabled):active {
+		@apply scale-95;
 	}
 
 	.type-badge-with-icon:disabled {
@@ -436,13 +477,17 @@
 		@apply opacity-50;
 	}
 
-	/* Start button - shows on hover */
+	/* Start button - 44px touch target (T022: 013-mobile-responsive) */
 	.start-btn {
-		@apply px-2 py-1 text-xs font-medium rounded;
+		@apply px-3 py-2 sm:px-2 sm:py-1 text-xs font-medium rounded;
 		@apply bg-green-100 text-green-700;
 		@apply hover:bg-green-200;
-		@apply opacity-0 transition-opacity duration-150;
+		@apply opacity-0 transition-all duration-150;
 		@apply flex-shrink-0;
+		@apply min-h-11 sm:min-h-0; /* 44px touch target on mobile */
+		@apply min-w-[60px] sm:min-w-0; /* Wider touch target on mobile */
+		/* Active state feedback (T024) */
+		@apply active:scale-95 active:bg-green-300;
 	}
 
 	.impact-task-row:hover .start-btn {
@@ -452,6 +497,13 @@
 	/* Always show on touch devices / when focused */
 	.start-btn:focus {
 		@apply opacity-100 ring-2 ring-green-500;
+	}
+
+	/* Show button immediately on touch for better mobile UX (T021) */
+	@media (hover: none) {
+		.start-btn {
+			@apply opacity-100; /* Always visible on touch devices */
+		}
 	}
 
 	/* Highlight animation for repositioned tasks (012-fixed-task-reorder) */

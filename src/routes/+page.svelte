@@ -978,8 +978,10 @@
 <style>
 	@reference "tailwindcss";
 
+	/* Mobile-first responsive container (013-mobile-responsive) */
 	.app-container {
-		@apply max-w-5xl mx-auto p-6;
+		@apply max-w-5xl mx-auto;
+		@apply p-2 sm:p-4 md:p-6; /* Reduced padding on mobile */
 	}
 
 	.app-header {
@@ -1021,8 +1023,10 @@
 		@apply w-6 h-6;
 	}
 
+	/* Responsive content padding (013-mobile-responsive) */
 	.app-content {
-		@apply bg-white rounded-xl shadow-sm border border-gray-200 p-6;
+		@apply bg-white rounded-xl shadow-sm border border-gray-200;
+		@apply p-3 sm:p-4 md:p-6; /* Reduced padding on mobile */
 	}
 
 	:global(.dark) .app-content {
@@ -1104,9 +1108,11 @@
 		@apply flex flex-col items-center gap-8 py-6;
 	}
 
-	/* Side-by-side layout for running state */
+	/* Side-by-side layout for running state (013-mobile-responsive) */
+	/* Mobile: single column, Tablet+: two columns */
 	.tracking-layout {
-		@apply grid grid-cols-1 md:grid-cols-2 gap-6 w-full;
+		@apply grid grid-cols-1 lg:grid-cols-2 w-full;
+		@apply gap-4 sm:gap-6; /* Reduced gap on mobile */
 	}
 
 	.timer-column {

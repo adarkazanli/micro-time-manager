@@ -24,9 +24,9 @@
 
 **Purpose**: Add base responsive styles and viewport configuration
 
-- [ ] T001 Verify viewport meta tag exists in src/app.html (width=device-width, initial-scale=1)
-- [ ] T002 Add responsive CSS variables to src/app.css (touch-target-min, mobile-padding, timer sizes)
-- [ ] T003 [P] Create touch detection utility in src/lib/utils/touch.ts (isTouchDevice derived)
+- [x] T001 Verify viewport meta tag exists in src/app.html (width=device-width, initial-scale=1)
+- [x] T002 Add responsive CSS variables to src/app.css (touch-target-min, mobile-padding, timer sizes)
+- [x] T003 [P] Create touch detection utility in src/lib/utils/touch.ts (isTouchDevice derived)
 
 ---
 
@@ -36,8 +36,8 @@
 
 **⚠️ CRITICAL**: These layout changes affect all user stories
 
-- [ ] T004 Add responsive layout classes to src/routes/+page.svelte (single-column mobile, padding adjustments)
-- [ ] T005 [P] Add base responsive text sizing to body/html in src/app.css (16px min on mobile)
+- [x] T004 Add responsive layout classes to src/routes/+page.svelte (single-column mobile, padding adjustments)
+- [x] T005 [P] Add base responsive text sizing to body/html in src/app.css (16px min on mobile)
 
 **Checkpoint**: Base responsive layout ready - component work can now begin
 
@@ -51,17 +51,17 @@
 
 ### E2E Tests for User Story 1
 
-- [ ] T006 [P] [US1] Create mobile viewport test scaffold in tests/e2e/mobile-responsive.test.ts
-- [ ] T007 [P] [US1] Add test: task list displays in single column at 375px viewport
-- [ ] T008 [P] [US1] Add test: no horizontal scroll at 320px viewport width
+- [x] T006 [P] [US1] Create mobile viewport test scaffold in tests/e2e/mobile-responsive.test.ts
+- [x] T007 [P] [US1] Add test: task list displays in single column at 375px viewport
+- [x] T008 [P] [US1] Add test: no horizontal scroll at 320px viewport width
 
 ### Implementation for User Story 1
 
-- [ ] T009 [P] [US1] Add responsive layout to ImpactPanel.svelte (full width mobile, single column)
-- [ ] T010 [P] [US1] Add responsive typography to TimerDisplay.svelte (text-2xl mobile → text-4xl desktop)
-- [ ] T011 [US1] Add responsive row layout to ImpactTaskRow.svelte (44px min height, truncate task name)
-- [ ] T012 [US1] Add responsive layout to TaskRow.svelte (44px height, hide duration on mobile)
-- [ ] T013 [US1] Add responsive layout to SchedulePreview.svelte (full width, max-height 60vh mobile)
+- [x] T009 [P] [US1] Add responsive layout to ImpactPanel.svelte (full width mobile, single column)
+- [x] T010 [P] [US1] Add responsive typography to TimerDisplay.svelte (text-2xl mobile → text-4xl desktop)
+- [x] T011 [US1] Add responsive row layout to ImpactTaskRow.svelte (44px min height, truncate task name)
+- [x] T012 [US1] Add responsive layout to TaskRow.svelte (44px height, hide duration on mobile)
+- [x] T013 [US1] Add responsive layout to SchedulePreview.svelte (full width, max-height 60vh mobile)
 
 **Checkpoint**: Task list displays correctly on mobile - core MVP complete
 
@@ -75,13 +75,13 @@
 
 ### E2E Tests for User Story 2
 
-- [ ] T014 [P] [US2] Add test: Impact Panel shows task name, time, status at 375px viewport
+- [x] T014 [P] [US2] Add test: Impact Panel shows task name, time, status at 375px viewport
 
 ### Implementation for User Story 2
 
-- [ ] T015 [US2] Add responsive status indicators to ImpactTaskRow.svelte (icon only on mobile)
-- [ ] T016 [US2] Add responsive risk indicator styling in ImpactTaskRow.svelte (bolder colors on mobile)
-- [ ] T017 [US2] Ensure projected time display adapts in ImpactTaskRow.svelte (stack below name if needed)
+- [x] T015 [US2] Add responsive status indicators to ImpactTaskRow.svelte (icon only on mobile)
+- [x] T016 [US2] Add responsive risk indicator styling in ImpactTaskRow.svelte (bolder colors on mobile)
+- [x] T017 [US2] Ensure projected time display adapts in ImpactTaskRow.svelte (stack below name if needed)
 
 **Checkpoint**: Impact Panel fully readable on mobile
 
@@ -95,17 +95,17 @@
 
 ### E2E Tests for User Story 3
 
-- [ ] T018 [P] [US3] Add test: tap task row reveals action buttons on mobile
-- [ ] T019 [P] [US3] Add test: action buttons have 44px minimum touch targets
+- [x] T018 [P] [US3] Add test: tap task row reveals action buttons on mobile
+- [x] T019 [P] [US3] Add test: action buttons have 44px minimum touch targets
 
 ### Implementation for User Story 3
 
-- [ ] T020 [US3] Add tap-to-reveal state to ImpactTaskRow.svelte (expandedRowId, toggle on tap)
-- [ ] T021 [US3] Add conditional action button rendering in ImpactTaskRow.svelte (show on tap for mobile)
-- [ ] T022 [US3] Add 44px touch targets to action buttons in ImpactTaskRow.svelte (min-h-11 min-w-11)
+- [x] T020 [US3] Add tap-to-reveal state to ImpactTaskRow.svelte (expandedRowId, toggle on tap)
+- [x] T021 [US3] Add conditional action button rendering in ImpactTaskRow.svelte (show on tap for mobile)
+- [x] T022 [US3] Add 44px touch targets to action buttons in ImpactTaskRow.svelte (min-h-11 min-w-11)
 - [ ] T023 [US3] Add touch-and-hold drag activation to ImpactTaskRow.svelte (500ms delay, touchstart/end/move)
-- [ ] T024 [US3] Add active state feedback to buttons in ImpactTaskRow.svelte (active:scale-95, active:bg-*)
-- [ ] T025 [P] [US3] Add responsive button sizing to TaskControls.svelte (44px on mobile)
+- [x] T024 [US3] Add active state feedback to buttons in ImpactTaskRow.svelte (active:scale-95, active:bg-*)
+- [x] T025 [P] [US3] Add responsive button sizing to TaskControls.svelte (44px on mobile)
 
 **Checkpoint**: All task actions work smoothly on touch devices
 

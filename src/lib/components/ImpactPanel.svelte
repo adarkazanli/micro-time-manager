@@ -496,9 +496,13 @@
 <style>
 	@reference "tailwindcss";
 
+	/* Mobile-first responsive layout (013-mobile-responsive) */
 	.impact-panel {
-		@apply bg-white rounded-lg border border-gray-200 p-4;
-		@apply flex flex-col gap-4;
+		@apply bg-white rounded-lg border border-gray-200;
+		@apply p-2 sm:p-3 md:p-4; /* Reduced padding on mobile */
+		@apply flex flex-col;
+		@apply gap-2 sm:gap-3 md:gap-4; /* Reduced gap on mobile */
+		@apply w-full; /* Full width on all screen sizes */
 	}
 
 	/* Header */
@@ -582,10 +586,14 @@
 		@apply flex flex-col gap-2;
 	}
 
-	/* Task list */
+	/* Task list - mobile responsive (013-mobile-responsive) */
 	.task-list {
 		@apply flex flex-col gap-1;
-		@apply max-h-[400px] overflow-y-auto;
+		/* Responsive max-height: shorter on mobile */
+		@apply max-h-[60vh] sm:max-h-[50vh] md:max-h-[400px];
+		@apply overflow-y-auto;
+		/* Ensure no horizontal overflow */
+		@apply overflow-x-hidden;
 	}
 
 	.task-item {
