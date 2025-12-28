@@ -911,6 +911,13 @@
 			/>
 		{/if}
 	</div>
+
+	<!-- Version footer -->
+	<footer class="version-footer">
+		<span class="version-info">
+			Build: {new Date(__BUILD_DATE__).toLocaleString()} · Commit: {__COMMIT_HASH__}
+		</span>
+	</footer>
 </main>
 
 <!-- T038: EditInterruptionDialog for editing category/note -->
@@ -1221,5 +1228,22 @@
 
 	.analytics-panel {
 		@apply bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-hidden;
+	}
+
+	/* Version footer */
+	.version-footer {
+		@apply mt-8 pt-4 border-t border-gray-200 text-center;
+	}
+
+	:global(.dark) .version-footer {
+		@apply border-gray-700;
+	}
+
+	.version-info {
+		@apply text-xs text-gray-400;
+	}
+
+	:global(.dark) .version-info {
+		@apply text-gray-500;
 	}
 </style>

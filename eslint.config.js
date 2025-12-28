@@ -11,7 +11,11 @@ export default ts.config(
 		languageOptions: {
 			globals: {
 				...globals.browser,
-				...globals.node
+				...globals.node,
+				// Build-time version info injected by vite.config.ts
+				__BUILD_DATE__: 'readonly',
+				__COMMIT_HASH__: 'readonly',
+				__COMMIT_DATE__: 'readonly'
 			}
 		}
 	},

@@ -8,6 +8,11 @@ declare global {
 		// interface PageState {}
 		// interface Platform {}
 	}
+
+	// Build-time version info injected by vite.config.ts
+	const __BUILD_DATE__: string;
+	const __COMMIT_HASH__: string;
+	const __COMMIT_DATE__: string;
 }
 
 export {};
