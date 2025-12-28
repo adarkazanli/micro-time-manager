@@ -437,8 +437,8 @@ export const REQUIRED_COLUMNS = ['Task Name', 'Start Time', 'Duration', 'Type'] 
 /** Maximum file size in bytes (1MB) */
 export const MAX_FILE_SIZE = 1024 * 1024;
 
-/** Maximum tasks per schedule */
-export const MAX_TASKS = 50;
+/** @deprecated No longer enforced - tasks are now unlimited */
+export const MAX_TASKS = Infinity;
 
 /** Maximum duration in seconds (24 hours) */
 export const MAX_DURATION_SECONDS = 86400;

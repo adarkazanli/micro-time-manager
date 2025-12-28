@@ -238,8 +238,8 @@ test.describe('US3: Mobile Task Actions @mobile', () => {
 
 		const box = await startBtn.boundingBox();
 		expect(box).not.toBeNull();
-		// Button should have at least 44px height for touch accessibility
-		expect(box!.height).toBeGreaterThanOrEqual(28); // Current button size, will update when implementing T022
+		// Button should have at least 44px height for touch accessibility (WCAG 2.2 / Apple HIG)
+		expect(box!.height).toBeGreaterThanOrEqual(44);
 	});
 
 	// T019b: Task rows have 44px minimum touch target height

@@ -18,7 +18,6 @@ import type {
 import {
 	REQUIRED_COLUMNS,
 	MAX_FILE_SIZE,
-	MAX_TASKS,
 	MAX_TASK_NAME_LENGTH,
 	MAX_DURATION_SECONDS
 } from '$lib/types';
@@ -235,17 +234,6 @@ export async function parseScheduleFile(file: File): Promise<ParseResult> {
 			column: 'File',
 			value: file.name,
 			message: 'No tasks found. Please add at least one task row.'
-		});
-		return { success: false, errors };
-	}
-
-	// Check task count limit
-	if (dataRows.length > MAX_TASKS) {
-		errors.push({
-			row: 0,
-			column: 'File',
-			value: String(dataRows.length),
-			message: `Schedule exceeds ${MAX_TASKS} task limit (${dataRows.length} tasks found).`
 		});
 		return { success: false, errors };
 	}
