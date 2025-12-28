@@ -74,19 +74,20 @@
 	// Display time logic:
 	// - COMPLETED tasks: show actual start time (projectedStart now contains actual start)
 	// - CURRENT tasks: show actual start time (projectedStart now contains actual start)
-	// - PENDING fixed tasks: always show scheduled time
-	// - PENDING flexible tasks: show projected if behind schedule, otherwise scheduled
+	// - PENDING fixed tasks: always show scheduled time (their appointment time)
+	// - PENDING flexible tasks: always show projected time (when task will actually occur)
+	//   This ensures display matches the sort order in ImpactPanel
 	const displayTime = $derived.by(() => {
 		// Completed and current tasks always show their actual start time
 		if (projectedTask.displayStatus === 'completed' || projectedTask.displayStatus === 'current') {
 			return projectedTime;
 		}
-		// Pending flexible tasks behind schedule show projected time
-		if (isBehindSchedule) {
-			return projectedTime;
+		// Pending fixed tasks show their scheduled appointment time
+		if (isFixed) {
+			return scheduledTime;
 		}
-		// Everything else shows scheduled time
-		return scheduledTime;
+		// Pending flexible tasks always show projected time (calculated based on schedule)
+		return projectedTime;
 	});
 
 	// Buffer display for tooltip
