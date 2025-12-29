@@ -101,4 +101,25 @@
 	.no-task {
 		@apply text-gray-400 py-4;
 	}
+
+	/* Dark mode styles */
+	:global(.dark) .task-counter {
+		@apply text-gray-400;
+	}
+
+	:global(.dark) .task-name {
+		@apply text-gray-100;
+	}
+
+	:global(.dark) .task-meta {
+		@apply text-gray-400;
+	}
+
+	:global(.dark) .type-badge.bg-blue-100 {
+		@apply bg-blue-900 text-blue-200;
+	}
+
+	:global(.dark) .type-badge.bg-green-100 {
+		@apply bg-green-900 text-green-200;
+	}
 </style>

@@ -295,6 +295,24 @@
 		@apply bg-white hover:bg-gray-50 text-sm;
 	}
 
+	/* Dark mode status styling */
+	:global(.dark) .impact-task-row.completed {
+		@apply bg-gray-800 text-gray-500;
+	}
+
+	:global(.dark) .impact-task-row.current {
+		@apply bg-blue-900/50 border-blue-700;
+		@apply ring-2 ring-blue-800;
+	}
+
+	:global(.dark) .impact-task-row.current .task-name {
+		@apply text-blue-200 font-medium;
+	}
+
+	:global(.dark) .impact-task-row.pending {
+		@apply bg-gray-800 hover:bg-gray-700;
+	}
+
 	/* Draggable styling */
 	.impact-task-row.is-draggable {
 		@apply cursor-grab;
@@ -389,6 +407,31 @@
 		@apply flex items-center gap-2;
 		@apply truncate; /* Truncate long names on mobile */
 		@apply text-sm sm:text-base; /* Smaller text on mobile */
+	}
+
+	/* Dark mode text colors */
+	:global(.dark) .task-name {
+		@apply text-gray-100;
+	}
+
+	:global(.dark) .task-time {
+		@apply text-gray-400;
+	}
+
+	:global(.dark) .scheduled-time {
+		@apply text-gray-400;
+	}
+
+	:global(.dark) .task-duration {
+		@apply text-gray-400;
+	}
+
+	:global(.dark) .duration-value {
+		@apply text-gray-400;
+	}
+
+	:global(.dark) .drag-handle {
+		@apply text-gray-500 hover:text-gray-300;
 	}
 
 	/* Interruption marker */
