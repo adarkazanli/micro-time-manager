@@ -235,6 +235,13 @@
 		importStore.recalculateStartTimes();
 	}
 
+	/**
+	 * Replace entire tasks array (used for chronological reordering after type changes)
+	 */
+	function handleTasksReorder(tasks: Parameters<typeof importStore.setTasks>[0]) {
+		importStore.setTasks(tasks);
+	}
+
 	function handleTaskDelete(id: string) {
 		importStore.deleteTask(id);
 	}
@@ -906,6 +913,7 @@
 				onTaskUpdate={handleTaskUpdate}
 				onTaskDelete={handleTaskDelete}
 				onReorder={handleReorder}
+				onTasksReorder={handleTasksReorder}
 				onConfirm={handleConfirm}
 				onCancel={handleCancel}
 			/>

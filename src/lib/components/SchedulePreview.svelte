@@ -286,21 +286,27 @@
 		targetTime: Date,
 		startTimes: Map<string, Date>
 	): DraftTask[] {
-		// Find the task
-		const taskIndex = tasksList.findIndex(t => t.id === taskId);
+		// Sort tasks by their calculated times (chronological order) for proper comparison
+		const sortedByTime = [...tasksList].sort((a, b) => {
+			const timeA = startTimes.get(a.id)?.getTime() ?? 0;
+			const timeB = startTimes.get(b.id)?.getTime() ?? 0;
+			return timeA - timeB;
+		});
+
+		// Find the task in the chronologically sorted list
+		const taskIndex = sortedByTime.findIndex(t => t.id === taskId);
 		if (taskIndex === -1) return tasksList;
 
-		const task = tasksList[taskIndex];
+		const task = sortedByTime[taskIndex];
 
-		// Remove task from current position
-		const remaining = [...tasksList.slice(0, taskIndex), ...tasksList.slice(taskIndex + 1)];
+		// Remove task from current position in the chronological list
+		const remaining = [...sortedByTime.slice(0, taskIndex), ...sortedByTime.slice(taskIndex + 1)];
 
-		// Find insertion point based on where targetTime falls among other tasks' calculated times
+		// Find insertion point based on where targetTime falls chronologically
 		let insertIndex = remaining.length;
 
 		for (let i = 0; i < remaining.length; i++) {
-			const otherTask = remaining[i];
-			const otherTime = startTimes.get(otherTask.id);
+			const otherTime = startTimes.get(remaining[i].id);
 
 			if (otherTime && targetTime.getTime() <= otherTime.getTime()) {
 				insertIndex = i;
@@ -308,10 +314,11 @@
 			}
 		}
 
-		// Insert at new position
+		// Insert at new position in chronological order
 		const reordered = [...remaining.slice(0, insertIndex), task, ...remaining.slice(insertIndex)];
 
-		// Reassign sortOrder values sequentially
+		// Reassign sortOrder values sequentially based on the new chronological order
+		// This ensures flexible tasks are scheduled in this order
 		return reordered.map((t, index) => ({ ...t, sortOrder: index }));
 	}
 
