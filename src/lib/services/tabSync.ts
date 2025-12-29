@@ -71,7 +71,13 @@ export function createTabSync(): TabSyncService {
 	const subscribers: Set<(isLeader: boolean) => void> = new Set();
 
 	// Create BroadcastChannel for cross-tab communication
-	const channel = new BroadcastChannel('tm_tab_sync');
+	// Wrapped in try-catch for browsers that don't support it (rare but possible)
+	let channel: BroadcastChannel | null = null;
+	try {
+		channel = new BroadcastChannel('tm_tab_sync');
+	} catch (error) {
+		console.warn('BroadcastChannel not supported, tab sync disabled:', error);
+	}
 
 	/**
 	 * Read current leader info from localStorage
@@ -166,8 +172,10 @@ export function createTabSync(): TabSyncService {
 		}
 	}
 
-	// Set up message listener
-	channel.onmessage = handleMessage;
+	// Set up message listener (if channel is available)
+	if (channel) {
+		channel.onmessage = handleMessage;
+	}
 
 	return {
 		/**
@@ -189,9 +197,9 @@ export function createTabSync(): TabSyncService {
 				writeLeaderInfo(info);
 				isLeaderTab = true;
 
-				// Notify other tabs
+				// Notify other tabs (if channel is available)
 				const message: TabMessage = { type: 'TAB_ACTIVE', tabId };
-				channel.postMessage(message);
+				channel?.postMessage(message);
 
 				// Start heartbeat to maintain leadership
 				startHeartbeat();
@@ -220,9 +228,9 @@ export function createTabSync(): TabSyncService {
 			stopHeartbeat();
 			clearLeaderInfo();
 
-			// Notify other tabs
+			// Notify other tabs (if channel is available)
 			const message: TabMessage = { type: 'TAB_RELEASED', tabId };
-			channel.postMessage(message);
+			channel?.postMessage(message);
 
 			notifySubscribers(false);
 		},
@@ -257,7 +265,7 @@ export function createTabSync(): TabSyncService {
 				clearLeaderInfo();
 			}
 			stopHeartbeat();
-			channel.close();
+			channel?.close();
 			subscribers.clear();
 		}
 	};
