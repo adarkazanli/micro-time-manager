@@ -59,9 +59,13 @@
 	/**
 	 * Convert DraftTask to ConfirmedTask for schedule calculation.
 	 *
-	 * The schedule is DATE-AGNOSTIC: all times are normalized to the schedule date.
-	 * - 7:30 AM means 7:30 AM on the schedule day, regardless of original date
-	 * - Flexible tasks without a meaningful time use the schedule start time
+	 * Key insight: the schedule calculator sorts by plannedStart to determine
+	 * processing order. For flexible tasks to maintain their POSITION in the
+	 * schedule (based on sortOrder), they ALL need the same plannedStart.
+	 * This way, stable sort preserves their original array order.
+	 *
+	 * - Fixed tasks: use their time of day on the schedule date (they're fixed in time)
+	 * - Flexible tasks: ALL use schedule start time (they're processed in array order)
 	 */
 	function toConfirmedTask(draft: DraftTask, config: ScheduleConfig): ConfirmedTask {
 		const scheduleStart = getScheduleStartTime(config);
@@ -71,25 +75,10 @@
 			// Fixed tasks: use their time of day on the schedule date
 			plannedStart = normalizeToScheduleDate(draft.startTime, scheduleStart);
 		} else {
-			// Flexible tasks: check if they have a meaningful time or just a default
-			// A "default" time is one close to "now" (from import without specified time)
-			const now = Date.now();
-			const timeDiff = Math.abs(draft.startTime.getTime() - now);
-			const THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes
-
-			if (timeDiff < THRESHOLD_MS) {
-				// No meaningful time → use schedule start time
-				plannedStart = scheduleStart;
-			} else {
-				// Has a meaningful time (e.g., 7:30 AM) → normalize to schedule date
-				plannedStart = normalizeToScheduleDate(draft.startTime, scheduleStart);
-
-				// If the time is before schedule start (e.g., 5:00 AM but schedule starts 6:00 AM),
-				// use schedule start instead
-				if (plannedStart.getTime() < scheduleStart.getTime()) {
-					plannedStart = scheduleStart;
-				}
-			}
+			// ALL flexible tasks use schedule start time for sorting
+			// This ensures they're processed in their original array order (by sortOrder)
+			// The actual scheduled time is calculated by the schedule calculator
+			plannedStart = scheduleStart;
 		}
 
 		return {
