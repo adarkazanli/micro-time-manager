@@ -47,15 +47,36 @@
 
 	/**
 	 * Convert DraftTask to ConfirmedTask for schedule calculation.
-	 * For flexible tasks, use the schedule start time so they sort at the beginning
-	 * and get scheduled into gaps between fixed tasks.
+	 *
+	 * For flexible tasks:
+	 * - If the start time is close to "now" (within 30 min), it's probably a default
+	 *   from import → use the schedule start time so they fill gaps from the beginning
+	 * - If the start time is NOT close to "now", it's intentional (e.g., converted from
+	 *   fixed) → keep the original time so the task stays in its approximate position
 	 */
 	function toConfirmedTask(draft: DraftTask, config: ScheduleConfig): ConfirmedTask {
-		// Fixed tasks use their specified start time
-		// Flexible tasks use the schedule start time so they sort correctly
-		const plannedStart = draft.type === 'fixed'
-			? draft.startTime
-			: getScheduleStartTime(config);
+		let plannedStart: Date;
+
+		if (draft.type === 'fixed') {
+			// Fixed tasks always use their specified time
+			plannedStart = draft.startTime;
+		} else {
+			// Check if the start time looks like a "default" value (close to now)
+			// This happens when flexible tasks are imported without a specified time
+			const now = Date.now();
+			const timeDiff = Math.abs(draft.startTime.getTime() - now);
+			const THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes
+
+			if (timeDiff < THRESHOLD_MS) {
+				// Start time is close to "now" → probably a default from import
+				// Use the schedule start time so flexible tasks fill gaps from beginning
+				plannedStart = getScheduleStartTime(config);
+			} else {
+				// Start time is intentional (e.g., converted from fixed, or explicitly set)
+				// Keep the original time so the task stays in its approximate position
+				plannedStart = draft.startTime;
+			}
+		}
 
 		return {
 			taskId: draft.id,
