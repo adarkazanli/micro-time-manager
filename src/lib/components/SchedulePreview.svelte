@@ -276,10 +276,53 @@
 	}
 
 	/**
-	 * Handle task update with auto-reorder when type changes to fixed (012-fixed-task-reorder)
+	 * Reorder a task that's becoming flexible to maintain its chronological position.
+	 * When a fixed task at time X becomes flexible, we want it to stay at approximately
+	 * time X in the schedule by adjusting its sortOrder.
+	 */
+	function reorderFlexibleToPosition(
+		tasksList: DraftTask[],
+		taskId: string,
+		targetTime: Date,
+		startTimes: Map<string, Date>
+	): DraftTask[] {
+		// Find the task
+		const taskIndex = tasksList.findIndex(t => t.id === taskId);
+		if (taskIndex === -1) return tasksList;
+
+		const task = tasksList[taskIndex];
+
+		// Remove task from current position
+		const remaining = [...tasksList.slice(0, taskIndex), ...tasksList.slice(taskIndex + 1)];
+
+		// Find insertion point based on where targetTime falls among other tasks' calculated times
+		let insertIndex = remaining.length;
+
+		for (let i = 0; i < remaining.length; i++) {
+			const otherTask = remaining[i];
+			const otherTime = startTimes.get(otherTask.id);
+
+			if (otherTime && targetTime.getTime() <= otherTime.getTime()) {
+				insertIndex = i;
+				break;
+			}
+		}
+
+		// Insert at new position
+		const reordered = [...remaining.slice(0, insertIndex), task, ...remaining.slice(insertIndex)];
+
+		// Reassign sortOrder values sequentially
+		return reordered.map((t, index) => ({ ...t, sortOrder: index }));
+	}
+
+	/**
+	 * Handle task update with auto-reorder when type changes (012-fixed-task-reorder)
 	 *
 	 * When a task becomes fixed (flexible → fixed), it is automatically reordered
 	 * to its chronological position based on start time, then scrolled to and highlighted.
+	 *
+	 * When a task becomes flexible (fixed → flexible), its sortOrder is updated to
+	 * maintain its approximate position in the schedule.
 	 *
 	 * IMPORTANT: When changing from flexible to fixed without an explicit start time,
 	 * we use the calculated/displayed start time (not the original import time).
@@ -291,6 +334,7 @@
 
 		const wasFixed = task.type === 'fixed';
 		const isNowFixed = changes.type === 'fixed';
+		const isNowFlexible = changes.type === 'flexible';
 
 		// When becoming fixed without explicit start time, use the calculated (displayed) start time
 		// This ensures the task is fixed at the time shown on screen, not the original import time
@@ -298,6 +342,24 @@
 			const calculatedTime = calculatedStartTimes.get(id);
 			if (calculatedTime) {
 				changes = { ...changes, startTime: calculatedTime };
+			}
+		}
+
+		// When becoming flexible from fixed, preserve position by updating sortOrder
+		// BEFORE recalculating projected start times (per user's suggestion)
+		if (wasFixed && isNowFlexible && onTasksReorder) {
+			// Get the task's current calculated position (where it was in the schedule)
+			const targetTime = calculatedStartTimes.get(id);
+			if (targetTime) {
+				// Apply the type change to the task
+				const updatedTasks = tasks.map(t =>
+					t.id === id ? { ...t, ...changes } : t
+				);
+
+				// Reorder to maintain chronological position based on its old calculated time
+				const reorderedTasks = reorderFlexibleToPosition(updatedTasks, id, targetTime, calculatedStartTimes);
+				onTasksReorder(reorderedTasks);
+				return; // onTasksReorder includes the changes, no need to call onTaskUpdate
 			}
 		}
 
