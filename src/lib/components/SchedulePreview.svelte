@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { DraftTask, ConfirmedTask, ScheduleConfig, ScheduleResult } from '$lib/types';
-	import { calculateSchedule } from '$lib/services/scheduleCalculator';
+	import { calculateSchedule, getScheduleStartTime } from '$lib/services/scheduleCalculator';
 	import { exportPreviewToTemplate } from '$lib/services/export';
 	import { reorderTaskChronologically } from '$lib/utils/taskOrder';
 	import { scrollToTaskAndHighlight } from '$lib/utils/scroll';
@@ -46,13 +46,21 @@
 	}
 
 	/**
-	 * Convert DraftTask to ConfirmedTask for schedule calculation
+	 * Convert DraftTask to ConfirmedTask for schedule calculation.
+	 * For flexible tasks, use the schedule start time so they sort at the beginning
+	 * and get scheduled into gaps between fixed tasks.
 	 */
-	function toConfirmedTask(draft: DraftTask): ConfirmedTask {
+	function toConfirmedTask(draft: DraftTask, config: ScheduleConfig): ConfirmedTask {
+		// Fixed tasks use their specified start time
+		// Flexible tasks use the schedule start time so they sort correctly
+		const plannedStart = draft.type === 'fixed'
+			? draft.startTime
+			: getScheduleStartTime(config);
+
 		return {
 			taskId: draft.id,
 			name: draft.name,
-			plannedStart: draft.startTime,
+			plannedStart,
 			plannedDurationSec: draft.durationSeconds,
 			type: draft.type,
 			sortOrder: draft.sortOrder,
@@ -63,7 +71,7 @@
 	// Calculate schedule using $derived (T039)
 	const scheduleResult = $derived.by((): ScheduleResult | null => {
 		if (tasks.length === 0) return null;
-		const confirmedTasks = tasks.map(toConfirmedTask);
+		const confirmedTasks = tasks.map((task) => toConfirmedTask(task, scheduleConfig));
 		return calculateSchedule(confirmedTasks, scheduleConfig);
 	});
 
