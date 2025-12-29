@@ -75,3 +75,10 @@ body {
 	overflow-x: hidden;
 	-webkit-text-size-adjust: 100%; /* Prevent font scaling in landscape on iOS */
 }
+
+/* Ensure all interactive elements respond immediately to touch (no 300ms delay) */
+button,
+a,
+[role='button'] {
+	touch-action: manipulation;
+}

@@ -258,9 +258,15 @@
 
 	// Day tracking handlers
 	function handleStartDay() {
-		sessionStore.startDay(confirmedTasks);
-		// Do NOT auto-start the first task
-		// User must click "Start" on a task to begin working on it
+		try {
+			sessionStore.startDay(confirmedTasks);
+			// Do NOT auto-start the first task
+			// User must click "Start" on a task to begin working on it
+		} catch (error) {
+			console.error('Failed to start day:', error);
+			// Show user-friendly feedback
+			alert('Unable to start day. Please refresh the page and try again.');
+		}
 	}
 
 	function handleCompleteTask() {

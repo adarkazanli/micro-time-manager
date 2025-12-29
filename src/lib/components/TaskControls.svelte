@@ -133,6 +133,8 @@
 		@apply text-sm sm:text-base;
 		/* Active state feedback (T024) */
 		@apply active:scale-[0.98];
+		/* Ensure proper touch handling on mobile (no 300ms delay) */
+		touch-action: manipulation;
 	}
 
 	.btn:disabled {
