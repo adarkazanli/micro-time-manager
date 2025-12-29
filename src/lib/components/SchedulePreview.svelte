@@ -46,50 +46,46 @@
 	}
 
 	/**
+	 * Normalize a time to use the schedule date while keeping the time of day.
+	 * This makes the schedule date-agnostic - 7:30 AM means 7:30 AM on the schedule day.
+	 */
+	function normalizeToScheduleDate(time: Date, scheduleStart: Date): Date {
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Not reactive state, just calculation
+		const normalized = new Date(scheduleStart);
+		normalized.setHours(time.getHours(), time.getMinutes(), time.getSeconds(), 0);
+		return normalized;
+	}
+
+	/**
 	 * Convert DraftTask to ConfirmedTask for schedule calculation.
 	 *
-	 * For flexible tasks:
-	 * - If the start time is close to "now" (within 30 min), it's probably a default
-	 *   from import → use the schedule start time so they fill gaps from the beginning
-	 * - If the start time is NOT close to "now", it's intentional (e.g., converted from
-	 *   fixed) → keep the TIME OF DAY but adjust the DATE to match the schedule date
+	 * The schedule is DATE-AGNOSTIC: all times are normalized to the schedule date.
+	 * - 7:30 AM means 7:30 AM on the schedule day, regardless of original date
+	 * - Flexible tasks without a meaningful time use the schedule start time
 	 */
 	function toConfirmedTask(draft: DraftTask, config: ScheduleConfig): ConfirmedTask {
+		const scheduleStart = getScheduleStartTime(config);
 		let plannedStart: Date;
 
 		if (draft.type === 'fixed') {
-			// Fixed tasks always use their specified time
-			plannedStart = draft.startTime;
+			// Fixed tasks: use their time of day on the schedule date
+			plannedStart = normalizeToScheduleDate(draft.startTime, scheduleStart);
 		} else {
-			// Check if the start time looks like a "default" value (close to now)
-			// This happens when flexible tasks are imported without a specified time
+			// Flexible tasks: check if they have a meaningful time or just a default
+			// A "default" time is one close to "now" (from import without specified time)
 			const now = Date.now();
 			const timeDiff = Math.abs(draft.startTime.getTime() - now);
 			const THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes
 
 			if (timeDiff < THRESHOLD_MS) {
-				// Start time is close to "now" → probably a default from import
-				// Use the schedule start time so flexible tasks fill gaps from beginning
-				plannedStart = getScheduleStartTime(config);
+				// No meaningful time → use schedule start time
+				plannedStart = scheduleStart;
 			} else {
-				// Start time is intentional (e.g., converted from fixed, or explicitly set)
-				// Keep the TIME OF DAY but use the SCHEDULE DATE
-				// This ensures converted tasks stay at their time slot on the right day
-				const scheduleStart = getScheduleStartTime(config);
-				const taskTime = draft.startTime;
+				// Has a meaningful time (e.g., 7:30 AM) → normalize to schedule date
+				plannedStart = normalizeToScheduleDate(draft.startTime, scheduleStart);
 
-				// Create a new date with the schedule's date but the task's time of day
-				// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Not reactive state, just calculation
-				plannedStart = new Date(scheduleStart);
-				plannedStart.setHours(
-					taskTime.getHours(),
-					taskTime.getMinutes(),
-					taskTime.getSeconds(),
-					taskTime.getMilliseconds()
-				);
-
-				// If the resulting time is before the schedule start (e.g., task at 5:00 AM
-				// but schedule starts at 6:00 AM), move it to the schedule start
+				// If the time is before schedule start (e.g., 5:00 AM but schedule starts 6:00 AM),
+				// use schedule start instead
 				if (plannedStart.getTime() < scheduleStart.getTime()) {
 					plannedStart = scheduleStart;
 				}
