@@ -96,6 +96,17 @@ const lagDisplayValue = $derived.by(() => {
  * @param elapsedMs - Milliseconds elapsed on current task
  * @returns Warning info if a fixed task will be late, null otherwise
  */
+/**
+ * Normalize a time to today's date while keeping the time-of-day.
+ * This makes the schedule date-agnostic - 1:00 PM means 1:00 PM today.
+ */
+function normalizeToToday(date: Date): Date {
+	const today = new Date();
+	const normalized = new Date(today);
+	normalized.setHours(date.getHours(), date.getMinutes(), date.getSeconds(), 0);
+	return normalized;
+}
+
 function calculateFixedTaskWarning(elapsedMs: number): FixedTaskWarning | null {
 	// No warning if no session or not running
 	if (!session || session.status !== 'running') return null;
@@ -104,30 +115,36 @@ function calculateFixedTaskWarning(elapsedMs: number): FixedTaskWarning | null {
 	const currentTask = tasks[currentIndex];
 	const now = Date.now();
 
-	// Get all pending tasks sorted chronologically
+	// Get all pending tasks sorted chronologically (using normalized times)
 	const pendingTasks = tasks
 		.map((task, idx) => ({ task, idx }))
 		.filter(({ idx }) => {
 			const progress = session!.taskProgress[idx];
 			return progress.status === 'pending' && idx !== currentIndex;
 		})
-		.sort((a, b) => a.task.plannedStart.getTime() - b.task.plannedStart.getTime());
+		.sort((a, b) => {
+			// Sort by time-of-day only (date-agnostic)
+			const timeA = normalizeToToday(a.task.plannedStart).getTime();
+			const timeB = normalizeToToday(b.task.plannedStart).getTime();
+			return timeA - timeB;
+		});
 
 	// Find the first fixed task in chronological order
 	const nextFixedTask = pendingTasks.find(({ task }) => task.type === 'fixed');
 	if (!nextFixedTask) return null;
 
 	const fixedTask = nextFixedTask.task;
-	const scheduledStart = fixedTask.plannedStart;
+	// Normalize the scheduled start to today's date (date-agnostic)
+	const scheduledStart = normalizeToToday(fixedTask.plannedStart);
 
 	// Calculate projected arrival at the fixed task:
 	// Start with current time + remaining time on current task
 	const currentRemainingMs = Math.max(0, currentTask.plannedDurationSec * 1000 - elapsedMs);
 	let projectedArrivalMs = now + currentRemainingMs;
 
-	// Add durations of tasks that come BEFORE the fixed task (chronologically)
+	// Add durations of tasks that come BEFORE the fixed task (chronologically, date-agnostic)
 	const tasksBefore = pendingTasks.filter(
-		({ task }) => task.plannedStart.getTime() < scheduledStart.getTime() && task.taskId !== fixedTask.taskId
+		({ task }) => normalizeToToday(task.plannedStart).getTime() < scheduledStart.getTime() && task.taskId !== fixedTask.taskId
 	);
 
 	// Debug: log tasks being summed
