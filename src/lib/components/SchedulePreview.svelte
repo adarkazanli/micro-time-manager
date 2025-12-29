@@ -52,7 +52,7 @@
 	 * - If the start time is close to "now" (within 30 min), it's probably a default
 	 *   from import → use the schedule start time so they fill gaps from the beginning
 	 * - If the start time is NOT close to "now", it's intentional (e.g., converted from
-	 *   fixed) → keep the original time so the task stays in its approximate position
+	 *   fixed) → keep the TIME OF DAY but adjust the DATE to match the schedule date
 	 */
 	function toConfirmedTask(draft: DraftTask, config: ScheduleConfig): ConfirmedTask {
 		let plannedStart: Date;
@@ -73,8 +73,26 @@
 				plannedStart = getScheduleStartTime(config);
 			} else {
 				// Start time is intentional (e.g., converted from fixed, or explicitly set)
-				// Keep the original time so the task stays in its approximate position
-				plannedStart = draft.startTime;
+				// Keep the TIME OF DAY but use the SCHEDULE DATE
+				// This ensures converted tasks stay at their time slot on the right day
+				const scheduleStart = getScheduleStartTime(config);
+				const taskTime = draft.startTime;
+
+				// Create a new date with the schedule's date but the task's time of day
+				// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Not reactive state, just calculation
+				plannedStart = new Date(scheduleStart);
+				plannedStart.setHours(
+					taskTime.getHours(),
+					taskTime.getMinutes(),
+					taskTime.getSeconds(),
+					taskTime.getMilliseconds()
+				);
+
+				// If the resulting time is before the schedule start (e.g., task at 5:00 AM
+				// but schedule starts at 6:00 AM), move it to the schedule start
+				if (plannedStart.getTime() < scheduleStart.getTime()) {
+					plannedStart = scheduleStart;
+				}
 			}
 		}
 
