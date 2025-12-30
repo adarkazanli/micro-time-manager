@@ -16,6 +16,17 @@ import { parseScheduleFile } from '$lib/services/parser';
 import { storage } from '$lib/services/storage';
 
 /**
+ * Normalize a date to today while keeping the time-of-day.
+ * This makes schedules date-agnostic - 1:00 PM always means today's 1:00 PM.
+ */
+function normalizeToToday(date: Date): Date {
+	const today = new Date();
+	const normalized = new Date(today);
+	normalized.setHours(date.getHours(), date.getMinutes(), date.getSeconds(), 0);
+	return normalized;
+}
+
+/**
  * Check if a task's start time is in the past
  */
 function isPastDue(task: DraftTask): boolean {
@@ -208,10 +219,11 @@ function createImportStore() {
 
 			update((state) => {
 				// Transform DraftTasks to ConfirmedTasks
+				// Normalize all times to today's date (date-agnostic scheduling)
 				confirmedTasks = state.tasks.map((task) => ({
 					taskId: task.id,
 					name: task.name,
-					plannedStart: task.startTime,
+					plannedStart: normalizeToToday(task.startTime),
 					plannedDurationSec: task.durationSeconds,
 					type: task.type,
 					sortOrder: task.sortOrder,

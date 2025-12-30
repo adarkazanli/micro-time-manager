@@ -231,13 +231,26 @@ function serializeTask(task: ConfirmedTask): SerializedTask {
 }
 
 /**
+ * Normalize a stored date to today while keeping the time-of-day.
+ * This makes schedules date-agnostic - 1:00 PM always means today's 1:00 PM.
+ */
+function normalizeToToday(storedDate: Date): Date {
+	const today = new Date();
+	const normalized = new Date(today);
+	normalized.setHours(storedDate.getHours(), storedDate.getMinutes(), storedDate.getSeconds(), 0);
+	return normalized;
+}
+
+/**
  * Deserialize a task from storage
+ * Note: plannedStart is normalized to today's date to make schedules date-agnostic
  */
 function deserializeTask(data: SerializedTask): ConfirmedTask {
+	const storedDate = new Date(data.plannedStart);
 	return {
 		taskId: data.taskId,
 		name: data.name,
-		plannedStart: new Date(data.plannedStart),
+		plannedStart: normalizeToToday(storedDate),
 		plannedDurationSec: data.plannedDurationSec,
 		type: data.type,
 		sortOrder: data.sortOrder,
