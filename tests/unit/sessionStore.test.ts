@@ -370,8 +370,7 @@ describe('sessionStore', () => {
 			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
 			const tasks = createMockTasks(3);
 
-			sessionStore.startDay(tasks);
-			sessionStore.completeTask(1500); // 25 minutes
+			sessionStore.startDay(tasks);			sessionStore.completeTask(1500 * 1000); // 25 minutes (pass ms)
 
 			expect(sessionStore.taskProgress[0].actualDurationSec).toBe(1500);
 		});
@@ -381,7 +380,7 @@ describe('sessionStore', () => {
 			const tasks = createMockTasks(3);
 
 			sessionStore.startDay(tasks);
-			sessionStore.completeTask(1800);
+			sessionStore.completeTask(1800 * 1000);
 
 			expect(sessionStore.taskProgress[0].status).toBe('complete');
 		});
@@ -391,7 +390,7 @@ describe('sessionStore', () => {
 			const tasks = createMockTasks(3);
 
 			sessionStore.startDay(tasks);
-			sessionStore.completeTask(1800);
+			sessionStore.completeTask(1800 * 1000);
 
 			expect(sessionStore.taskProgress[0].completedAt).not.toBeNull();
 			// Should be valid ISO string
@@ -406,7 +405,7 @@ describe('sessionStore', () => {
 			sessionStore.startDay(tasks);
 			expect(sessionStore.currentTaskIndex).toBe(0);
 
-			sessionStore.completeTask(1800);
+			sessionStore.completeTask(1800 * 1000);
 
 			expect(sessionStore.currentTaskIndex).toBe(1);
 		});
@@ -419,7 +418,7 @@ describe('sessionStore', () => {
 			// First, start task 0 (makes it active)
 			sessionStore.jumpToTask('task-1', 0);
 			// Now complete it
-			sessionStore.completeTask(1800);
+			sessionStore.completeTask(1800 * 1000);
 
 			// Next task should stay 'pending' - user must click Start
 			expect(sessionStore.taskProgress[1].status).toBe('pending');
@@ -430,7 +429,7 @@ describe('sessionStore', () => {
 			const tasks = createMockTasks(3);
 
 			sessionStore.startDay(tasks);
-			sessionStore.completeTask(1800);
+			sessionStore.completeTask(1800 * 1000);
 
 			expect(sessionStore.currentTask?.taskId).toBe('task-2');
 		});
@@ -441,7 +440,7 @@ describe('sessionStore', () => {
 			tasks[0].plannedDurationSec = 1800; // 30 minutes
 
 			sessionStore.startDay(tasks);
-			sessionStore.completeTask(1500); // 25 minutes (5 min early)
+			sessionStore.completeTask(1500 * 1000); // 25 minutes (pass ms) (5 min early)
 
 			// lag = actual - planned = 1500 - 1800 = -300 (5 min ahead)
 			expect(sessionStore.lagSec).toBe(-300);
@@ -453,7 +452,7 @@ describe('sessionStore', () => {
 			tasks[0].plannedDurationSec = 1800; // 30 minutes
 
 			sessionStore.startDay(tasks);
-			sessionStore.completeTask(2400); // 40 minutes (10 min late)
+			sessionStore.completeTask(2400 * 1000); // 40 minutes (10 min late)
 
 			// lag = actual - planned = 2400 - 1800 = 600 (10 min behind)
 			expect(sessionStore.lagSec).toBe(600);
@@ -466,8 +465,8 @@ describe('sessionStore', () => {
 			tasks[1].plannedDurationSec = 1800; // 30 min
 
 			sessionStore.startDay(tasks);
-			sessionStore.completeTask(1500); // 5 min early: lag = -300
-			sessionStore.completeTask(2400); // 10 min late: lag = +600
+			sessionStore.completeTask(1500 * 1000); // 5 min early: lag = -300
+			sessionStore.completeTask(2400 * 1000); // 10 min late: lag = +600
 
 			// Total lag: -300 + 600 = 300 (5 min behind)
 			expect(sessionStore.lagSec).toBe(300);
@@ -479,7 +478,7 @@ describe('sessionStore', () => {
 			tasks[0].plannedDurationSec = 1800;
 
 			sessionStore.startDay(tasks);
-			sessionStore.completeTask(1500); // 5 min early
+			sessionStore.completeTask(1500 * 1000); // 5 min early
 
 			expect(sessionStore.lagDisplay).toBe('5 min ahead');
 		});
@@ -490,7 +489,7 @@ describe('sessionStore', () => {
 			tasks[0].plannedDurationSec = 1800;
 
 			sessionStore.startDay(tasks);
-			sessionStore.completeTask(2400); // 10 min late
+			sessionStore.completeTask(2400 * 1000); // 10 min late
 
 			expect(sessionStore.lagDisplay).toBe('10 min behind');
 		});
@@ -500,17 +499,17 @@ describe('sessionStore', () => {
 			const tasks = createMockTasks(2);
 
 			sessionStore.startDay(tasks);
-			sessionStore.completeTask(1800);
+			sessionStore.completeTask(1800 * 1000);
 			expect(sessionStore.status).toBe('running');
 
-			sessionStore.completeTask(1800);
+			sessionStore.completeTask(1800 * 1000);
 			expect(sessionStore.status).toBe('complete');
 		});
 
 		it('should throw error when no active session', async () => {
 			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
 
-			expect(() => sessionStore.completeTask(1800)).toThrow('No active session');
+			expect(() => sessionStore.completeTask(1800 * 1000)).toThrow('No active session');
 		});
 	});
 
@@ -525,9 +524,9 @@ describe('sessionStore', () => {
 			tasks.forEach((t) => (t.plannedDurationSec = 1800)); // 30 min each
 
 			sessionStore.startDay(tasks);
-			sessionStore.completeTask(1800);
-			sessionStore.completeTask(1800);
-			sessionStore.completeTask(1800);
+			sessionStore.completeTask(1800 * 1000);
+			sessionStore.completeTask(1800 * 1000);
+			sessionStore.completeTask(1800 * 1000);
 
 			const summary = sessionStore.endDay();
 
@@ -539,8 +538,8 @@ describe('sessionStore', () => {
 			const tasks = createMockTasks(2);
 
 			sessionStore.startDay(tasks);
-			sessionStore.completeTask(1500); // 25 min
-			sessionStore.completeTask(2000); // 33 min
+			sessionStore.completeTask(1500 * 1000); // 25 min
+			sessionStore.completeTask(2000 * 1000); // 33 min
 
 			const summary = sessionStore.endDay();
 
@@ -554,8 +553,8 @@ describe('sessionStore', () => {
 			tasks[1].plannedDurationSec = 1800;
 
 			sessionStore.startDay(tasks);
-			sessionStore.completeTask(2000); // +200
-			sessionStore.completeTask(1900); // +100
+			sessionStore.completeTask(2000 * 1000); // +200
+			sessionStore.completeTask(1900 * 1000); // +100
 
 			const summary = sessionStore.endDay();
 
@@ -569,9 +568,9 @@ describe('sessionStore', () => {
 			tasks.forEach((t) => (t.plannedDurationSec = 1800));
 
 			sessionStore.startDay(tasks);
-			sessionStore.completeTask(1800); // on time
-			sessionStore.completeTask(1500); // early (on time)
-			sessionStore.completeTask(2000); // late
+			sessionStore.completeTask(1800 * 1000); // on time
+			sessionStore.completeTask(1500 * 1000); // early (on time)
+			sessionStore.completeTask(2000 * 1000); // late
 
 			const summary = sessionStore.endDay();
 
@@ -584,9 +583,9 @@ describe('sessionStore', () => {
 			tasks.forEach((t) => (t.plannedDurationSec = 1800));
 
 			sessionStore.startDay(tasks);
-			sessionStore.completeTask(1800); // on time
-			sessionStore.completeTask(2000); // late
-			sessionStore.completeTask(2100); // late
+			sessionStore.completeTask(1800 * 1000); // on time
+			sessionStore.completeTask(2000 * 1000); // late
+			sessionStore.completeTask(2100 * 1000); // late
 
 			const summary = sessionStore.endDay();
 
@@ -598,9 +597,9 @@ describe('sessionStore', () => {
 			const tasks = createMockTasks(3);
 
 			sessionStore.startDay(tasks);
-			sessionStore.completeTask(1800);
+			sessionStore.completeTask(1800 * 1000);
 			sessionStore.markMissed('task-2');
-			sessionStore.completeTask(1800);
+			sessionStore.completeTask(1800 * 1000);
 
 			const summary = sessionStore.endDay();
 
@@ -616,7 +615,7 @@ describe('sessionStore', () => {
 			// Advance time by 1 hour
 			vi.advanceTimersByTime(3600000);
 
-			sessionStore.completeTask(1800);
+			sessionStore.completeTask(1800 * 1000);
 			const summary = sessionStore.endDay();
 
 			// Session duration should be approximately 1 hour
@@ -629,7 +628,7 @@ describe('sessionStore', () => {
 			const tasks = createMockTasks(1);
 
 			sessionStore.startDay(tasks);
-			sessionStore.completeTask(1800);
+			sessionStore.completeTask(1800 * 1000);
 			sessionStore.endDay();
 
 			expect(sessionStore.status).toBe('complete');
@@ -640,7 +639,7 @@ describe('sessionStore', () => {
 			const tasks = createMockTasks(1);
 
 			sessionStore.startDay(tasks);
-			sessionStore.completeTask(1800);
+			sessionStore.completeTask(1800 * 1000);
 			sessionStore.endDay();
 
 			expect(sessionStore.session?.endedAt).not.toBeNull();
@@ -715,7 +714,7 @@ describe('sessionStore', () => {
 
 			sessionStore.startDay(tasks);
 			// Complete first task late (10 min behind schedule = 40 min instead of 30)
-			sessionStore.completeTask(2400);
+			sessionStore.completeTask(2400 * 1000);
 
 			// Advance time to 40 min after start (simulating the 40 min we spent)
 			vi.setSystemTime(new Date(now.getTime() + 2400000));
@@ -772,7 +771,7 @@ describe('sessionStore', () => {
 
 			sessionStore.startDay(tasks);
 			// Complete first task early (5 min ahead = 25 min instead of 30)
-			sessionStore.completeTask(1500);
+			sessionStore.completeTask(1500 * 1000);
 
 			// Advance time to 25 min after start
 			vi.setSystemTime(new Date(now.getTime() + 1500000));
@@ -813,7 +812,7 @@ describe('sessionStore', () => {
 			];
 
 			sessionStore.startDay(tasks);
-			sessionStore.completeTask(2400); // 10 min late
+			sessionStore.completeTask(2400 * 1000); // 10 min late
 
 			// No fixed tasks to warn about
 			expect(sessionStore.getFixedTaskWarning(0)).toBeNull();
@@ -867,7 +866,7 @@ describe('sessionStore', () => {
 			];
 
 			sessionStore.startDay(tasks);
-			sessionStore.completeTask(2400); // 10 min late
+			sessionStore.completeTask(2400 * 1000); // 10 min late
 
 			// Advance time to 40 min after start
 			vi.setSystemTime(new Date(now.getTime() + 2400000));
@@ -915,12 +914,12 @@ describe('sessionStore', () => {
 			];
 
 			sessionStore.startDay(tasks);
-			sessionStore.completeTask(2400); // 10 min late
+			sessionStore.completeTask(2400 * 1000); // 10 min late
 			vi.setSystemTime(new Date(now.getTime() + 2400000)); // 09:40 - warning should show
 			expect(sessionStore.getFixedTaskWarning(0)).not.toBeNull();
 
 			// Complete second task early to catch up (20 min instead of 30)
-			sessionStore.completeTask(1200);
+			sessionStore.completeTask(1200 * 1000);
 			vi.setSystemTime(new Date(now.getTime() + 3600000)); // 10:00 - exactly on schedule
 
 			// Now on Fixed Meeting, no future fixed tasks to warn about
@@ -967,7 +966,7 @@ describe('sessionStore', () => {
 			];
 
 			sessionStore.startDay(tasks);
-			sessionStore.completeTask(2400); // 10 min late
+			sessionStore.completeTask(2400 * 1000); // 10 min late
 
 			// Advance time
 			vi.setSystemTime(new Date(now.getTime() + 2400000));
@@ -1369,8 +1368,8 @@ describe('sessionStore', () => {
 
 			sessionStore.startDay(tasks);
 			sessionStore.markMissed('task-1');
-			sessionStore.completeTask(1800);
-			sessionStore.completeTask(1800);
+			sessionStore.completeTask(1800 * 1000);
+			sessionStore.completeTask(1800 * 1000);
 
 			const summary = sessionStore.endDay();
 
@@ -1695,7 +1694,7 @@ describe('sessionStore', () => {
 			const tasks = createMockTasks(4);
 
 			sessionStore.startDay(tasks);
-			sessionStore.completeTask(1800); // Move to task 2 (index 1)
+			sessionStore.completeTask(1800 * 1000); // Move to task 2 (index 1)
 
 			const result = sessionStore.addTask({
 				name: 'New Flexible',
@@ -1804,7 +1803,7 @@ describe('sessionStore', () => {
 			tasks.forEach((t) => (t.type = 'flexible'));
 
 			sessionStore.startDay(tasks);
-			sessionStore.completeTask(1800); // Complete first task
+			sessionStore.completeTask(1800 * 1000); // Complete first task
 
 			// Try to move the completed task
 			const result = sessionStore.reorderTasks(0, 2);
@@ -1835,7 +1834,7 @@ describe('sessionStore', () => {
 			tasks.forEach((t) => (t.type = 'flexible'));
 
 			sessionStore.startDay(tasks);
-			sessionStore.completeTask(1800); // Current is now at index 1
+			sessionStore.completeTask(1800 * 1000); // Current is now at index 1
 
 			// Try to move task 2 to before current (index 0)
 			const result = sessionStore.reorderTasks(2, 0);
@@ -1849,7 +1848,7 @@ describe('sessionStore', () => {
 			tasks.forEach((t) => (t.type = 'flexible'));
 
 			sessionStore.startDay(tasks);
-			sessionStore.completeTask(1800); // Current is now at index 1
+			sessionStore.completeTask(1800 * 1000); // Current is now at index 1
 
 			// Move task 3 to position 2 (before task 2)
 			const result = sessionStore.reorderTasks(3, 2);
@@ -1866,7 +1865,7 @@ describe('sessionStore', () => {
 			});
 
 			sessionStore.startDay(tasks);
-			sessionStore.completeTask(1800); // Current is now at index 1
+			sessionStore.completeTask(1800 * 1000); // Current is now at index 1
 
 			// Capture the taskId of the task being moved (from index 3)
 			const movedTaskId = tasks[3].taskId;
@@ -1896,7 +1895,7 @@ describe('sessionStore', () => {
 			tasks.forEach((t) => (t.type = 'flexible'));
 
 			sessionStore.startDay(tasks);
-			sessionStore.completeTask(1800);
+			sessionStore.completeTask(1800 * 1000);
 
 			const lastPersistedBefore = sessionStore.session?.lastPersistedAt;
 
@@ -1914,11 +1913,144 @@ describe('sessionStore', () => {
 			tasks.forEach((t) => (t.type = 'flexible'));
 
 			sessionStore.startDay(tasks);
-			sessionStore.completeTask(1800); // Complete task 0, current is now 1
+			sessionStore.completeTask(1800 * 1000); // Complete task 0, current is now 1
 			// Task 0 is completed, cannot move it
 			const result = sessionStore.reorderTasks(0, 3);
 
 			expect(result).toBe(false);
+		});
+	});
+
+	// ==========================================================================
+	// Tests for paused task functionality
+	// ==========================================================================
+
+	describe('Task Pausing (jumpToTask behavior)', () => {
+		it('should mark current task as paused when jumping to another task', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(3);
+
+			sessionStore.startDay(tasks);
+			// Jump from task 0 to task 1 after 15 minutes (900 seconds)
+			sessionStore.jumpToTask('task-2', 900 * 1000);
+
+			// The original task (task-1) should be paused, not completed
+			expect(sessionStore.taskProgress[0].status).toBe('paused');
+			expect(sessionStore.taskProgress[0].accumulatedElapsedMs).toBe(900 * 1000);
+		});
+
+		it('should preserve accumulated time when task is paused', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(3);
+
+			sessionStore.startDay(tasks);
+			// Work on task 0 for 10 minutes, then jump to task 1
+			sessionStore.jumpToTask('task-2', 600 * 1000); // 10 min on task 0
+
+			// Task 0 should have accumulated time saved
+			expect(sessionStore.taskProgress[0].accumulatedElapsedMs).toBe(600 * 1000);
+			expect(sessionStore.taskProgress[0].status).toBe('paused');
+			// Task 0 should NOT have actualDurationSec set yet (only on completion)
+			expect(sessionStore.taskProgress[0].actualDurationSec).toBe(0);
+		});
+
+		it('should accumulate time across multiple pause/resume cycles', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(3);
+
+			sessionStore.startDay(tasks);
+			// Work on task 0 for 5 minutes, jump to task 1
+			sessionStore.jumpToTask('task-2', 300 * 1000); // 5 min on task 0
+
+			// Work on task 1 for 10 minutes, jump back to task 0
+			sessionStore.jumpToTask('task-1', 600 * 1000); // 10 min on task 1
+
+			// Task 0 should still have 5 min accumulated
+			expect(sessionStore.taskProgress[0].accumulatedElapsedMs).toBe(300 * 1000);
+			// Task 1 should have 10 min accumulated
+			expect(sessionStore.taskProgress[1].accumulatedElapsedMs).toBe(600 * 1000);
+		});
+
+		it('should set currentTaskElapsedMs when resuming a paused task', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(3);
+
+			sessionStore.startDay(tasks);
+			// Work on task 0 for 5 minutes, jump to task 1
+			sessionStore.jumpToTask('task-2', 300 * 1000);
+
+			// Jump back to paused task 0
+			sessionStore.jumpToTask('task-1', 600 * 1000);
+
+			// currentTaskElapsedMs should be restored from the paused task's accumulated time
+			expect(sessionStore.session?.currentTaskElapsedMs).toBe(300 * 1000);
+		});
+
+		it('should include accumulated time when completing a previously paused task', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(3);
+			tasks[0].plannedDurationSec = 1800; // 30 min
+
+			sessionStore.startDay(tasks);
+			// Work on task 0 for 10 minutes, pause it
+			sessionStore.jumpToTask('task-2', 600 * 1000); // 10 min on task 0
+
+			// Work on task 1 for a bit, then go back to task 0
+			sessionStore.jumpToTask('task-1', 300 * 1000);
+
+			// Complete task 0 with additional 5 minutes (total 15 min)
+			sessionStore.completeTask(300 * 1000); // 5 more min
+
+			// Total elapsed should be accumulated (10 min) + current session (5 min) = 15 min
+			expect(sessionStore.taskProgress[0].actualDurationSec).toBe(900); // 15 min
+			expect(sessionStore.taskProgress[0].status).toBe('complete');
+		});
+
+		it('should calculate lag correctly for completed paused task', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(2);
+			tasks[0].plannedDurationSec = 1800; // 30 min planned
+
+			sessionStore.startDay(tasks);
+			// Work on task 0 for 20 minutes, pause it
+			sessionStore.jumpToTask('task-2', 1200 * 1000);
+
+			// Go back and complete task 0 with 20 more minutes (40 total)
+			sessionStore.jumpToTask('task-1', 600 * 1000);
+			sessionStore.completeTask(1200 * 1000); // 20 more minutes
+
+			// Total: 20 + 20 = 40 min, Planned: 30 min, Lag: +10 min (600 sec behind)
+			expect(sessionStore.lagSec).toBe(600);
+		});
+
+		it('should not update lag when pausing a task', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(3);
+
+			sessionStore.startDay(tasks);
+			const initialLag = sessionStore.lagSec;
+
+			// Jump to another task (pauses current)
+			sessionStore.jumpToTask('task-2', 900 * 1000);
+
+			// Lag should not change when task is paused
+			expect(sessionStore.lagSec).toBe(initialLag);
+		});
+
+		it('should allow paused flexible tasks to be reordered', async () => {
+			const { sessionStore } = await import('$lib/stores/sessionStore.svelte');
+			const tasks = createMockTasks(4);
+			tasks.forEach((t) => (t.type = 'flexible'));
+
+			sessionStore.startDay(tasks);
+			// Jump from task 0 to task 2 (pauses task 0)
+			sessionStore.jumpToTask('task-3', 600 * 1000);
+
+			// Paused task 0 should be reorderable (it's flexible and not complete)
+			// Try to move task 0 to position 3
+			const result = sessionStore.reorderTasks(0, 3);
+
+			expect(result).toBe(true);
 		});
 	});
 });

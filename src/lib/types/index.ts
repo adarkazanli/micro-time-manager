@@ -23,7 +23,7 @@ export type TimerColor = 'green' | 'yellow' | 'red';
 export type SessionStatus = 'idle' | 'running' | 'complete';
 
 /** Individual task progress status */
-export type ProgressStatus = 'pending' | 'active' | 'complete' | 'missed';
+export type ProgressStatus = 'pending' | 'active' | 'complete' | 'missed' | 'paused';
 
 /** Supported file extensions */
 export type SupportedFileType = '.xlsx' | '.xls' | '.csv';
@@ -32,7 +32,7 @@ export type SupportedFileType = '.xlsx' | '.xls' | '.csv';
 export type RiskLevel = 'green' | 'yellow' | 'red';
 
 /** Display status for task styling in impact panel */
-export type DisplayStatus = 'completed' | 'current' | 'pending';
+export type DisplayStatus = 'completed' | 'current' | 'pending' | 'paused';
 
 /**
  * Mode for determining schedule start time.
@@ -141,6 +141,8 @@ export interface TaskProgress {
 	completedAt: string | null;
 	/** Current execution state */
 	status: ProgressStatus;
+	/** Accumulated elapsed time in ms when task is paused (for resume) */
+	accumulatedElapsedMs: number;
 }
 
 /**

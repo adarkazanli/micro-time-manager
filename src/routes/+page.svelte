@@ -276,8 +276,8 @@
 		}
 
 		const elapsedMs = timerStore.stop();
-		const elapsedSec = Math.floor(elapsedMs / 1000);
-		sessionStore.completeTask(elapsedSec);
+		// completeTask now expects milliseconds and adds accumulated time internally
+		sessionStore.completeTask(elapsedMs);
 
 		// Do NOT auto-start the next task
 		// User must click "Start" on the next task to begin working on it
@@ -376,9 +376,9 @@
 		if (success) {
 			// Update local reference
 			confirmedTasks = sessionStore.tasks;
-			console.log('📋 handleUncompleteTask: Task marked as incomplete');
+			console.log('📋 handleUncompleteTask: Task marked as paused');
 			console.log('  taskId:', taskId);
-			console.log('  Elapsed time preserved - will resume when Start is clicked');
+			console.log('  Elapsed time preserved - will resume when Resume is clicked');
 		}
 	}
 
@@ -387,22 +387,21 @@
 		timerStore.setElapsed(elapsedMs);
 	}
 
-	// Jump to a specific task (start it immediately, PAUSING current task)
+	// Jump to a specific task (pauses current task, starts/resumes target)
 	function handleStartTask(taskId: string) {
 		// Auto-end any active interruption before jumping
 		if (interruptionStore.isInterrupted) {
 			interruptionStore.autoEndInterruption();
 		}
 
-		// Get current elapsed time and PAUSE current task (not complete), then jump to target
+		// Get current elapsed time and pause current task, then jump to target
 		const elapsedMs = timerStore.stop();
-		const elapsedSec = Math.floor(elapsedMs / 1000);
-		const success = sessionStore.jumpToTask(taskId, elapsedSec);
+		const success = sessionStore.jumpToTask(taskId, elapsedMs);
 
 		if (success && sessionStore.currentProgress) {
 			// Start timer for the new task, resuming from any saved elapsed time
-			const savedElapsedMs = sessionStore.session?.currentTaskElapsedMs ?? 0;
-			timerStore.start(sessionStore.currentProgress.plannedDurationSec, savedElapsedMs);
+			const resumeFromMs = sessionStore.session?.currentTaskElapsedMs || 0;
+			timerStore.start(sessionStore.currentProgress.plannedDurationSec, resumeFromMs);
 		}
 	}
 
