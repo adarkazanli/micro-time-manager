@@ -127,8 +127,18 @@ function createLogStore() {
       clearLogs();
     },
 
-    exportToJson(): string {
-      return JSON.stringify(entries, null, 2);
+    exportToCsv(): string {
+      const headers = ['timestamp', 'action', 'taskId', 'taskName', 'elapsedMs', 'sessionStatus', 'parameters'];
+      const rows = entries.map(e => [
+        e.timestamp,
+        e.action,
+        e.taskId ?? '',
+        e.taskName ?? '',
+        e.elapsedMs?.toString() ?? '',
+        e.sessionStatus,
+        JSON.stringify(e.parameters)
+      ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','));
+      return [headers.join(','), ...rows].join('\n');
     }
   };
 }
@@ -208,12 +218,12 @@ Create `src/lib/components/LogViewer.svelte`:
   });
 
   function handleExport() {
-    const json = logStore.exportToJson();
-    const blob = new Blob([json], { type: 'application/json' });
+    const csv = logStore.exportToCsv();
+    const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `logs-${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `logs-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -265,7 +275,7 @@ Key test scenarios:
 1. Log entry creation with all required fields
 2. Storage persistence across page refresh
 3. 1000 entry limit enforcement
-4. Export produces valid JSON
+4. Export produces valid CSV with proper escaping
 5. Clear removes all entries
 
 ## Verification
@@ -273,5 +283,5 @@ Key test scenarios:
 1. Open the app and perform several actions (start day, complete task, etc.)
 2. Open Settings > View Logs
 3. Verify entries appear with correct timestamps and context
-4. Export logs and verify JSON file contents
+4. Export logs and verify CSV opens in Excel with all columns
 5. Clear logs and verify list is empty

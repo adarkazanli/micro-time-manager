@@ -57,8 +57,9 @@ A user wants to clear old logs to start fresh for a new debugging session or to 
 ### Edge Cases
 
 - What happens when logs accumulate over a very long session? System retains the last 1000 entries, automatically removing oldest entries when the limit is reached.
-- What happens when storage is full? System gracefully handles storage limits and continues operating without logs if storage writes fail.
+- What happens when storage is full? System aggressively prunes oldest entries (beyond the normal 1000 limit) and retries save; if still failing after pruning to minimum viable entries, log error to console and continue app operation.
 - What happens if the log viewer is open while new actions occur? New entries appear in real-time without requiring a manual refresh.
+- What happens with multiple browser tabs? Each tab writes independently (last-write-wins); no cross-tab synchronization. Users debugging should use a single tab.
 
 ## Requirements *(mandatory)*
 
@@ -87,7 +88,7 @@ A user wants to clear old logs to start fresh for a new debugging session or to 
   - Session status (idle, running, complete)
 - **FR-004**: System MUST persist logs to local storage so they survive page refreshes
 - **FR-005**: System MUST provide a log viewer accessible from the main UI (without disrupting active tracking)
-- **FR-006**: System MUST display logs in reverse chronological order (newest first)
+- **FR-006**: System MUST display logs in reverse chronological order (newest first), showing all fields inline per entry: timestamp (human-readable format, e.g., "14:32:05.123"), action, taskId, taskName, elapsedMs, sessionStatus, and parameters
 - **FR-007**: System MUST allow exporting all logs to a downloadable file
 - **FR-008**: System MUST allow clearing all logs with user confirmation
 - **FR-009**: System MUST retain logs across sessions until explicitly cleared by the user
@@ -115,11 +116,16 @@ A user wants to clear old logs to start fresh for a new debugging session or to 
 ### Session 2026-01-03
 
 - Q: Where should the log viewer be accessed from? → A: Inside Settings panel (less prominent, keeps UI clean)
+- Q: What happens when localStorage writes fail due to quota? → A: Retry with pruning - aggressively prune old entries and retry save
+- Q: What format should log export use? → A: CSV format for Excel compatibility and analysis
+- Q: How should log entries be displayed in the viewer? → A: Full detail inline - show all fields (timestamp, action, taskId, taskName, elapsedMs, status, parameters)
+- Q: What format should timestamps be displayed in? → A: Human-readable format (e.g., "14:32:05.123") for easier scanning
+- Q: How should multi-tab scenarios be handled? → A: Last-write-wins - each tab writes independently, no cross-tab sync
 
 ## Assumptions
 
 - Logs are intended primarily for debugging by the app user/developer, not for end-user analytics
 - Log entries do not need to be searchable or filterable in the initial implementation (simple chronological view is sufficient)
-- Export format will be plain text or JSON (structured for readability, not spreadsheet-optimized)
+- Export format will be CSV (optimized for Excel import and further analysis)
 - Log viewer will be accessed via the Settings panel, keeping the main UI uncluttered
 - Logs are stored locally only; no server-side logging is in scope

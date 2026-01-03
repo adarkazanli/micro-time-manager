@@ -74,18 +74,18 @@ This document captures research decisions and patterns for implementing the UI l
 
 ## Decision 5: Export Format
 
-**Decision**: Export as JSON file with `.json` extension, pretty-printed for readability.
+**Decision**: Export as CSV file with `.csv` extension for Excel compatibility.
 
 **Rationale**:
-- JSON is structured and machine-readable for potential analysis
-- Pretty-printing (2-space indent) makes it human-readable in text editors
+- CSV is directly importable into Excel for analysis (per clarification 2026-01-03)
+- Columns: timestamp, action, taskId, taskName, elapsedMs, sessionStatus, parameters
+- Parameters column contains JSON-stringified object for nested data
 - Single-file export is simpler than multi-format options
-- Matches debugging use case (developer-focused)
 
 **Alternatives Considered**:
-- CSV: Loses nested structure of parameters field
-- Plain text: Harder to parse programmatically if needed later
-- Both JSON and text: YAGNI - one format sufficient for initial implementation
+- JSON: More structured but less Excel-friendly; user requested CSV for analysis
+- Plain text: Harder to parse and analyze in spreadsheet tools
+- Both CSV and JSON: YAGNI - CSV sufficient for initial implementation
 
 ---
 
