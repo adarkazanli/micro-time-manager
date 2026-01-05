@@ -10,7 +10,9 @@ This document describes the public interfaces, Svelte stores, and service module
   - [Interruptions Store](#interruptions-store)
   - [Notes Store](#notes-store)
   - [Settings Store](#settings-store)
+  - [Log Store](#log-store)
 - [Services](#services)
+  - [Logging Service](#logging-service)
   - [Storage Service](#storage-service)
   - [Timer Service](#timer-service)
   - [File Parser Service](#file-parser-service)
@@ -674,6 +676,146 @@ const DEFAULT_SETTINGS: Settings = {
 <!-- Use settings values -->
 <div>Theme: {settingsStore.theme}</div>
 <div>Warning at: {settingsStore.warningThresholdSec / 60} minutes</div>
+```
+
+---
+
+### Log Store
+
+Manages UI interaction logs for debugging with localStorage persistence.
+
+**Location:** `src/lib/stores/logStore.svelte.ts`
+
+```typescript
+interface LogStore {
+  /** All log entries, newest first */
+  readonly entries: LogEntry[];
+
+  /** Whether logs have been loaded from storage */
+  readonly isLoaded: boolean;
+
+  /**
+   * Add a new log entry.
+   * Entries are prepended (newest first) and limited to 1000 max.
+   * @param entry - The log entry to add
+   */
+  addEntry(entry: LogEntry): void;
+
+  /**
+   * Load log entries from localStorage.
+   */
+  loadFromStorage(): void;
+
+  /**
+   * Clear all log entries from state and storage.
+   */
+  clearAll(): void;
+
+  /**
+   * Export all log entries to CSV format.
+   * @returns CSV string with headers and all entries
+   */
+  exportToCsv(): string;
+}
+```
+
+**Types:**
+
+```typescript
+type LogAction =
+  | 'START_DAY'
+  | 'COMPLETE_TASK'
+  | 'START_TASK'
+  | 'END_DAY'
+  | 'INTERRUPT'
+  | 'RESUME_INTERRUPT'
+  | 'ADD_TASK'
+  | 'REORDER_TASK'
+  | 'EDIT_TASK'
+  | 'UNCOMPLETE_TASK'
+  | 'BACK_TO_IMPORT'
+  | 'START_NEW_DAY';
+
+interface LogEntry {
+  id: string;                  // UUID
+  timestamp: string;           // ISO 8601
+  action: LogAction;
+  taskId: string | null;
+  taskName: string | null;
+  elapsedMs: number | null;
+  sessionStatus: SessionStatus;
+  parameters: Record<string, unknown>;
+}
+
+const MAX_LOG_ENTRIES = 1000;
+const STORAGE_KEY_LOGS = 'tm_logs';
+```
+
+**Usage Example:**
+
+```svelte
+<script>
+  import { logStore } from '$lib/stores/logStore.svelte';
+  import { onMount } from 'svelte';
+
+  onMount(() => {
+    logStore.loadFromStorage();
+  });
+</script>
+
+{#each logStore.entries as entry}
+  <div>{entry.timestamp} - {entry.action}</div>
+{/each}
+
+<button onclick={() => {
+  const csv = logStore.exportToCsv();
+  // Download csv...
+}}>Export</button>
+```
+
+---
+
+### Logging Service
+
+Provides a centralized function for logging UI interactions with automatic context capture.
+
+**Location:** `src/lib/services/logging.ts`
+
+```typescript
+/**
+ * Log a UI interaction with automatic context capture.
+ *
+ * Automatically captures:
+ * - Current timestamp (ISO 8601 with milliseconds)
+ * - Session status from sessionStore
+ * - Current task ID and name (if any)
+ * - Timer elapsed time (if running)
+ *
+ * @param action - The action type being logged
+ * @param parameters - Optional action-specific parameters
+ */
+function logAction(
+  action: LogAction,
+  parameters?: Record<string, unknown>
+): void;
+```
+
+**Usage Example:**
+
+```typescript
+import { logAction } from '$lib/services/logging';
+
+// Simple action
+logAction('START_DAY');
+
+// Action with parameters
+logAction('COMPLETE_TASK', {
+  taskId: 'task-123',
+  elapsedMs: 300000
+});
+
+// Reorder with indices
+logAction('REORDER_TASK', { fromIndex: 2, toIndex: 5 });
 ```
 
 ---

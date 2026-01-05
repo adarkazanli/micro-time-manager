@@ -443,10 +443,52 @@ Access analytics and export features from the Settings panel:
 | Action | Description |
 |--------|-------------|
 | **Analytics** | View session statistics and concentration score |
+| **UI Logs** | View debug logs of all button presses and interactions |
 | **Export Excel** | Download a multi-sheet workbook with all session data |
 | **Export CSV** | Download four separate CSV files for tasks, interruptions, notes, and summary |
 
-These buttons are disabled until you have an active session.
+These buttons are disabled until you have an active session (except UI Logs, which is always available).
+
+### UI Logs (Debug)
+
+The UI Logs feature helps troubleshoot issues by recording all button presses and interactions:
+
+1. Open **Settings** → click **"View"** next to **UI Logs**
+2. The log viewer shows all interactions in reverse chronological order (newest first)
+3. Each entry shows:
+   - Timestamp (HH:MM:SS.mmm)
+   - Action type (START_DAY, COMPLETE_TASK, etc.)
+   - Session status (idle, running, complete)
+   - Current task name (if any)
+   - Elapsed time on task (if running)
+   - Action-specific parameters
+
+#### Log Actions
+
+| Action | Description |
+|--------|-------------|
+| START_DAY | Started a new day session |
+| COMPLETE_TASK | Marked a task as complete |
+| START_TASK | Started or resumed a specific task |
+| END_DAY | Ended the day session |
+| INTERRUPT | Started an interruption |
+| RESUME_INTERRUPT | Resumed from an interruption |
+| ADD_TASK | Added a new ad-hoc task |
+| REORDER_TASK | Moved a task in the list |
+| EDIT_TASK | Changed task details |
+| UNCOMPLETE_TASK | Marked a completed task as incomplete |
+| BACK_TO_IMPORT | Returned to import screen |
+| START_NEW_DAY | Started fresh from settings |
+
+#### Export Logs
+
+Click **"Export"** to download logs as a CSV file for external analysis in Excel or other tools.
+
+#### Clear Logs
+
+Click **"Clear"** to remove all logs. A confirmation dialog appears—this action cannot be undone.
+
+Logs are stored in your browser's local storage and persist across sessions until cleared. Maximum 1000 entries are retained.
 
 ---
 

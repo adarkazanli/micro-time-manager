@@ -875,3 +875,78 @@ export const DEFAULT_SETTINGS: Settings = {
 	vibrationEnabled: true,
 	defaultScheduleStartTime: '' // Empty = "Start Now" is default
 };
+
+// =============================================================================
+// UI Logging Types (014-ui-logging-system)
+// =============================================================================
+
+/**
+ * Action types for UI interaction logging.
+ * Covers all user-initiated button presses per FR-002.
+ *
+ * @new 014-ui-logging-system
+ */
+export type LogAction =
+	| 'START_DAY'
+	| 'COMPLETE_TASK'
+	| 'START_TASK'
+	| 'END_DAY'
+	| 'INTERRUPT'
+	| 'RESUME_INTERRUPT'
+	| 'ADD_TASK'
+	| 'REORDER_TASK'
+	| 'EDIT_TASK'
+	| 'UNCOMPLETE_TASK'
+	| 'BACK_TO_IMPORT'
+	| 'START_NEW_DAY';
+
+/**
+ * A single logged UI interaction.
+ * Captures action, timestamp, and full context per FR-003.
+ *
+ * @new 014-ui-logging-system
+ */
+export interface LogEntry {
+	/** Unique identifier (UUID v4) */
+	id: string;
+	/** When the action occurred (ISO 8601 with milliseconds) */
+	timestamp: string;
+	/** The type of action performed */
+	action: LogAction;
+	/** Current task ID when action occurred, null if no active task */
+	taskId: string | null;
+	/** Current task name when action occurred, null if no active task */
+	taskName: string | null;
+	/** Timer elapsed time in ms when action occurred, null if timer not running */
+	elapsedMs: number | null;
+	/** Session state when action occurred */
+	sessionStatus: SessionStatus;
+	/** Action-specific additional data */
+	parameters: Record<string, unknown>;
+}
+
+/**
+ * Versioned storage wrapper for logs.
+ * Enables future schema migrations.
+ *
+ * @new 014-ui-logging-system
+ */
+export interface LogStorage {
+	/** Schema version for migrations */
+	version: number;
+	/** Log entries (stored oldest first) */
+	entries: LogEntry[];
+}
+
+// =============================================================================
+// UI Logging Constants (014-ui-logging-system)
+// =============================================================================
+
+/** localStorage key for logs */
+export const STORAGE_KEY_LOGS = 'tm_logs';
+
+/** Maximum number of log entries to retain (FR-011) */
+export const MAX_LOG_ENTRIES = 1000;
+
+/** Current log schema version */
+export const LOG_SCHEMA_VERSION = 1;
