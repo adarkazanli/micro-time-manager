@@ -91,7 +91,11 @@
 
 	.task-name {
 		@apply text-2xl font-semibold text-gray-900;
-		@apply truncate max-w-md mx-auto;
+		@apply max-w-md mx-auto;
+	}
+
+	:global(.dark) .task-name {
+		@apply text-white;
 	}
 
 	.task-meta {

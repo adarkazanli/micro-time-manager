@@ -17,6 +17,7 @@
 	import type { ConfirmedTask, TaskType } from '$lib/types';
 	import { parseDuration } from '$lib/utils/duration';
 	import { sessionStore } from '$lib/stores/sessionStore.svelte';
+	import { logAction } from '$lib/services/logging';
 
 	interface Props {
 		/** Whether the dialog is open */
@@ -197,6 +198,13 @@
 			});
 
 			if (task) {
+				// T023 (014-ui-logging-system): Log ADD_TASK action
+				logAction('ADD_TASK', {
+					taskName: name.trim(),
+					taskType: type,
+					duration: parsedDuration
+				});
+
 				onTaskCreated?.(task);
 				onClose();
 			} else {

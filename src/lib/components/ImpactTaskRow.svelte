@@ -37,8 +37,11 @@
 		projectedTask.displayStatus === 'pending' && onToggleType !== undefined
 	);
 
-	// Can start this task if it's pending (not completed, not current)
-	const canStart = $derived(projectedTask.displayStatus === 'pending');
+	// Can start/resume this task if it's pending or paused (not completed, not current)
+	const canStart = $derived(
+		projectedTask.displayStatus === 'pending' || projectedTask.displayStatus === 'paused'
+	);
+	const isPaused = $derived(projectedTask.displayStatus === 'paused');
 
 	// Derived display values
 	const scheduledTime = $derived(formatTime(projectedTask.task.plannedStart, '12h'));
@@ -128,6 +131,7 @@
 	class:completed={projectedTask.displayStatus === 'completed'}
 	class:current={projectedTask.displayStatus === 'current'}
 	class:pending={projectedTask.displayStatus === 'pending'}
+	class:paused={projectedTask.displayStatus === 'paused'}
 	class:is-fixed={isFixed}
 	class:is-draggable={projectedTask.isDraggable}
 	class:highlighted={highlighted}
@@ -157,8 +161,18 @@
 			<div class="drag-handle-placeholder"></div>
 		{/if}
 
-		<!-- Risk indicator for fixed tasks -->
-		{#if showRiskIndicator && projectedTask.riskLevel}
+		<!-- Risk indicator for fixed tasks OR paused indicator -->
+		{#if isPaused}
+			<div
+				class="paused-indicator"
+				data-testid="paused-indicator"
+				title="Task paused"
+			>
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+					<path d="M5.75 3a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75V3.75A.75.75 0 007.25 3h-1.5zM12.75 3a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75V3.75a.75.75 0 00-.75-.75h-1.5z" />
+				</svg>
+			</div>
+		{:else if showRiskIndicator && projectedTask.riskLevel}
 			<div
 				class="risk-indicator {projectedTask.riskLevel}"
 				data-testid="risk-indicator"
@@ -216,16 +230,17 @@
 			{/if}
 		</div>
 
-		<!-- Start button for pending tasks -->
+		<!-- Start/Resume button for pending/paused tasks -->
 		{#if canStart && onStartTask}
 			<button
 				type="button"
 				class="start-btn"
+				class:resume-btn={isPaused}
 				onclick={handleStartClick}
-				data-testid="start-task-btn"
-				title="Start this task now"
+				data-testid={isPaused ? "resume-task-btn" : "start-task-btn"}
+				title={isPaused ? "Resume this task" : "Start this task now"}
 			>
-				Start
+				{isPaused ? 'Resume' : 'Start'}
 			</button>
 		{/if}
 	</div>
@@ -278,6 +293,10 @@
 		@apply bg-gray-100 text-gray-400 text-sm;
 	}
 
+	:global(.dark) .impact-task-row.completed {
+		@apply bg-gray-700/50 text-gray-500;
+	}
+
 	.impact-task-row.completed .task-name {
 		@apply line-through;
 	}
@@ -285,6 +304,11 @@
 	.impact-task-row.current {
 		@apply bg-blue-50 border-blue-200;
 		@apply ring-2 ring-blue-100;
+	}
+
+	:global(.dark) .impact-task-row.current {
+		@apply bg-blue-900/30 border-blue-700;
+		@apply ring-2 ring-blue-800;
 	}
 
 	.impact-task-row.current .task-name {
@@ -311,6 +335,22 @@
 
 	:global(.dark) .impact-task-row.pending {
 		@apply bg-gray-800 hover:bg-gray-700;
+	}
+
+	:global(.dark) .impact-task-row.pending {
+		@apply bg-gray-800 hover:bg-gray-700;
+	}
+
+	.impact-task-row.paused {
+		@apply bg-amber-50 border-amber-200 hover:bg-amber-100;
+	}
+
+	:global(.dark) .impact-task-row.paused {
+		@apply bg-amber-900/30 border-amber-700 hover:bg-amber-900/40;
+	}
+
+	.impact-task-row.paused .task-name {
+		@apply text-amber-900 font-medium;
 	}
 
 	/* Draggable styling */
@@ -362,17 +402,35 @@
 		@apply ring-2 ring-red-600/40; /* Most prominent ring for danger */
 	}
 
+	/* Paused indicator */
+	.paused-indicator {
+		@apply flex-shrink-0 w-4 flex items-center justify-center;
+		@apply text-amber-500;
+	}
+
 	/* Time display */
 	.task-time {
-		@apply text-sm font-mono text-gray-600 min-w-[100px] flex flex-col;
+		@apply text-sm font-mono text-gray-600 min-w-[70px] flex flex-col;
+	}
+
+	:global(.dark) .task-time {
+		@apply text-gray-300;
 	}
 
 	.scheduled-time {
 		@apply text-gray-600;
 	}
 
+	:global(.dark) .scheduled-time {
+		@apply text-gray-300;
+	}
+
 	.scheduled-time.delayed {
 		@apply text-orange-600 font-medium;
+	}
+
+	:global(.dark) .scheduled-time.delayed {
+		@apply text-orange-400;
 	}
 
 	.impact-task-row.completed .task-time {
@@ -385,8 +443,16 @@
 		@apply flex flex-col gap-0.5;
 	}
 
+	:global(.dark) .task-duration {
+		@apply text-gray-400;
+	}
+
 	.duration-value {
 		@apply text-gray-500;
+	}
+
+	:global(.dark) .duration-value {
+		@apply text-gray-400;
 	}
 
 	.elapsed-indicator {
@@ -399,6 +465,10 @@
 
 	.impact-task-row.completed .elapsed-indicator {
 		@apply text-gray-400;
+	}
+
+	:global(.dark) .impact-task-row.paused .task-name {
+		@apply text-amber-100;
 	}
 
 	/* Task name - mobile responsive (013-mobile-responsive) */
@@ -548,6 +618,21 @@
 		.start-btn {
 			@apply opacity-100; /* Always visible on touch devices */
 		}
+	}
+
+	/* Resume button styling (amber for paused tasks) */
+	.start-btn.resume-btn {
+		@apply bg-amber-100 text-amber-700;
+		@apply hover:bg-amber-200;
+	}
+
+	.start-btn.resume-btn:focus {
+		@apply ring-2 ring-amber-500;
+	}
+
+	/* Always show resume button for paused tasks */
+	.impact-task-row.paused .start-btn {
+		@apply opacity-100;
 	}
 
 	/* Highlight animation for repositioned tasks (012-fixed-task-reorder) */

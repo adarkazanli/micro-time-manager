@@ -20,10 +20,11 @@
 		onExportCSV?: () => ExportResult;
 		onExportTemplate?: () => ExportResult;
 		onStartNewDay?: () => void;
+		onViewLogs?: () => void;
 		hasSession?: boolean;
 	}
 
-	let { open, onClose, onAnalytics, onExportExcel, onExportCSV, onExportTemplate, onStartNewDay, hasSession = false }: Props = $props();
+	let { open, onClose, onAnalytics, onExportExcel, onExportCSV, onExportTemplate, onStartNewDay, onViewLogs, hasSession = false }: Props = $props();
 
 	// New day confirmation state
 	let showNewDayConfirm = $state(false);
@@ -64,6 +65,13 @@
 	function handleAnalytics() {
 		if (onAnalytics) {
 			onAnalytics();
+			onClose();
+		}
+	}
+
+	function handleViewLogs() {
+		if (onViewLogs) {
+			onViewLogs();
 			onClose();
 		}
 	}
@@ -366,6 +374,25 @@
 						>
 							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="action-icon">
 								<path d="M15.5 2A1.5 1.5 0 0014 3.5v13a1.5 1.5 0 001.5 1.5h1a1.5 1.5 0 001.5-1.5v-13A1.5 1.5 0 0016.5 2h-1zM9.5 6A1.5 1.5 0 008 7.5v9A1.5 1.5 0 009.5 18h1a1.5 1.5 0 001.5-1.5v-9A1.5 1.5 0 0010.5 6h-1zM3.5 10A1.5 1.5 0 002 11.5v5A1.5 1.5 0 003.5 18h1A1.5 1.5 0 006 16.5v-5A1.5 1.5 0 004.5 10h-1z" />
+							</svg>
+							View
+						</button>
+					</div>
+
+					<!-- View Logs button (014-ui-logging-system) -->
+					<div class="setting-row">
+						<div class="setting-label">
+							UI Logs
+							<span class="setting-hint">Debug interaction logs</span>
+						</div>
+						<button
+							type="button"
+							class="action-btn action-btn-logs"
+							onclick={handleViewLogs}
+							data-testid="settings-logs-btn"
+						>
+							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="action-icon">
+								<path fill-rule="evenodd" d="M4.5 2A1.5 1.5 0 003 3.5v13A1.5 1.5 0 004.5 18h11a1.5 1.5 0 001.5-1.5V7.621a1.5 1.5 0 00-.44-1.06l-4.12-4.122A1.5 1.5 0 0011.378 2H4.5zm2.25 8.5a.75.75 0 000 1.5h6.5a.75.75 0 000-1.5h-6.5zm0 3a.75.75 0 000 1.5h6.5a.75.75 0 000-1.5h-6.5z" clip-rule="evenodd" />
 							</svg>
 							View
 						</button>
@@ -737,6 +764,15 @@
 
 	:global(.dark) .action-btn-analytics {
 		@apply bg-indigo-900/40 text-indigo-300 hover:bg-indigo-900/60;
+	}
+
+	.action-btn-logs {
+		@apply bg-gray-100 text-gray-700 hover:bg-gray-200;
+		@apply focus:ring-gray-500;
+	}
+
+	:global(.dark) .action-btn-logs {
+		@apply bg-gray-700 text-gray-300 hover:bg-gray-600;
 	}
 
 	.action-btn-export {

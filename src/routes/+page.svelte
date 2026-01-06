@@ -30,7 +30,10 @@
 	import NotesView from '$lib/components/NotesView.svelte';
 	import AnalyticsDashboard from '$lib/components/AnalyticsDashboard.svelte';
 	import SettingsPanel from '$lib/components/SettingsPanel.svelte';
+	import LogViewer from '$lib/components/LogViewer.svelte';
 	import { exportToExcel, exportToCSV, exportToTemplate } from '$lib/services/export';
+	import { logAction } from '$lib/services/logging';
+	import { logStore } from '$lib/stores/logStore.svelte';
 	import { calculateAnalyticsSummary } from '$lib/services/analytics';
 	import type { DaySummary as DaySummaryType } from '$lib/types';
 
@@ -55,6 +58,9 @@
 
 	// Add task dialog state (T034 - 009-ad-hoc-tasks)
 	let showAddTaskDialog = $state(false);
+
+	// Log viewer state (014-ui-logging-system)
+	let showLogViewer = $state(false);
 
 	// Flag to track when initialization is complete (for notes persistence)
 	let isInitialized = $state(false);
@@ -129,6 +135,9 @@
 		// T051 (005-note-capture): Restore notes from storage
 		const savedNotes = storage.loadNotes();
 		noteStore.restore(savedNotes);
+
+		// T028 (014-ui-logging-system): Load logs from storage
+		logStore.loadFromStorage();
 
 		// If there was an active interruption, restore the paused task elapsed time
 		if (wasInterrupted && savedInterruptionState.pausedTaskElapsedMs > 0) {
@@ -259,6 +268,9 @@
 	// Day tracking handlers
 	function handleStartDay() {
 		try {
+			// T017 (014-ui-logging-system): Log START_DAY action
+			logAction('START_DAY');
+
 			sessionStore.startDay(confirmedTasks);
 			// Do NOT auto-start the first task
 			// User must click "Start" on a task to begin working on it
@@ -270,20 +282,29 @@
 	}
 
 	function handleCompleteTask() {
+		// T018 (014-ui-logging-system): Log COMPLETE_TASK action
+		logAction('COMPLETE_TASK', {
+			taskId: sessionStore.currentTask?.taskId,
+			elapsedMs: timerStore.elapsedMs
+		});
+
 		// T051: Auto-end any active interruption before completing task
 		if (interruptionStore.isInterrupted) {
 			interruptionStore.autoEndInterruption();
 		}
 
 		const elapsedMs = timerStore.stop();
-		const elapsedSec = Math.floor(elapsedMs / 1000);
-		sessionStore.completeTask(elapsedSec);
+		// completeTask now expects milliseconds and adds accumulated time internally
+		sessionStore.completeTask(elapsedMs);
 
 		// Do NOT auto-start the next task
 		// User must click "Start" on the next task to begin working on it
 	}
 
 	function handleEndDay() {
+		// T020 (014-ui-logging-system): Log END_DAY action
+		logAction('END_DAY');
+
 		// T052: Auto-end any active interruption before ending day
 		if (interruptionStore.isInterrupted) {
 			interruptionStore.autoEndInterruption();
@@ -307,6 +328,9 @@
 	}
 
 	function handleBackToImport() {
+		// T027 (014-ui-logging-system): Log BACK_TO_IMPORT action
+		logAction('BACK_TO_IMPORT');
+
 		sessionStore.reset();
 		timerStore.reset();
 		interruptionStore.reset();
@@ -323,6 +347,9 @@
 	 * Resets all session data and returns to the import screen.
 	 */
 	function handleStartNewDay() {
+		// T027 (014-ui-logging-system): Log START_NEW_DAY action
+		logAction('START_NEW_DAY');
+
 		daySummary = null;
 		sessionStore.reset();
 		timerStore.reset();
@@ -337,6 +364,9 @@
 
 	// Impact panel reorder handler (T051)
 	function handleImpactReorder(fromIndex: number, toIndex: number) {
+		// T024 (014-ui-logging-system): Log REORDER_TASK action
+		logAction('REORDER_TASK', { fromIndex, toIndex });
+
 		const success = sessionStore.reorderTasks(fromIndex, toIndex);
 		if (success) {
 			// Update local reference from in-memory store (no storage round-trip)
@@ -349,6 +379,12 @@
 		taskId: string,
 		updates: Partial<Pick<ConfirmedTask, 'name' | 'plannedStart' | 'plannedDurationSec' | 'type'>>
 	) {
+		// T025 (014-ui-logging-system): Log EDIT_TASK action
+		logAction('EDIT_TASK', {
+			taskId,
+			changedFields: Object.keys(updates)
+		});
+
 		const success = sessionStore.updateTask(taskId, updates);
 		if (success) {
 			// Update local reference from in-memory store (no storage round-trip)
@@ -372,13 +408,16 @@
 	// Just marks task as incomplete - does NOT start the timer
 	// User must click "Start" separately to begin working on the task
 	function handleUncompleteTask(taskId: string) {
+		// T026 (014-ui-logging-system): Log UNCOMPLETE_TASK action
+		logAction('UNCOMPLETE_TASK', { taskId });
+
 		const success = sessionStore.uncompleteTask(taskId);
 		if (success) {
 			// Update local reference
 			confirmedTasks = sessionStore.tasks;
-			console.log('📋 handleUncompleteTask: Task marked as incomplete');
+			console.log('📋 handleUncompleteTask: Task marked as paused');
 			console.log('  taskId:', taskId);
-			console.log('  Elapsed time preserved - will resume when Start is clicked');
+			console.log('  Elapsed time preserved - will resume when Resume is clicked');
 		}
 	}
 
@@ -387,22 +426,27 @@
 		timerStore.setElapsed(elapsedMs);
 	}
 
-	// Jump to a specific task (start it immediately, PAUSING current task)
+	// Jump to a specific task (pauses current task, starts/resumes target)
 	function handleStartTask(taskId: string) {
+		// T019 (014-ui-logging-system): Log START_TASK action
+		logAction('START_TASK', {
+			targetTaskId: taskId,
+			previousElapsedMs: timerStore.elapsedMs
+		});
+
 		// Auto-end any active interruption before jumping
 		if (interruptionStore.isInterrupted) {
 			interruptionStore.autoEndInterruption();
 		}
 
-		// Get current elapsed time and PAUSE current task (not complete), then jump to target
+		// Get current elapsed time and pause current task, then jump to target
 		const elapsedMs = timerStore.stop();
-		const elapsedSec = Math.floor(elapsedMs / 1000);
-		const success = sessionStore.jumpToTask(taskId, elapsedSec);
+		const success = sessionStore.jumpToTask(taskId, elapsedMs);
 
 		if (success && sessionStore.currentProgress) {
 			// Start timer for the new task, resuming from any saved elapsed time
-			const savedElapsedMs = sessionStore.session?.currentTaskElapsedMs ?? 0;
-			timerStore.start(sessionStore.currentProgress.plannedDurationSec, savedElapsedMs);
+			const resumeFromMs = sessionStore.session?.currentTaskElapsedMs || 0;
+			timerStore.start(sessionStore.currentProgress.plannedDurationSec, resumeFromMs);
 		}
 	}
 
@@ -421,6 +465,9 @@
 		const taskId = sessionStore.currentTask?.taskId;
 		if (!taskId || interruptionStore.isInterrupted) return;
 
+		// T021 (014-ui-logging-system): Log INTERRUPT action
+		logAction('INTERRUPT', { taskId });
+
 		// Pause task timer and store elapsed time for resume
 		pausedTaskElapsedMs = timerStore.stop();
 
@@ -438,6 +485,11 @@
 		// End interruption and get the completed record
 		const completed = interruptionStore.endInterruption();
 		lastInterruptionId = completed.interruptionId;
+
+		// T022 (014-ui-logging-system): Log RESUME_INTERRUPT action
+		logAction('RESUME_INTERRUPT', {
+			interruptionDurationMs: completed.durationSec * 1000
+		});
 
 		// Resume task timer from where it left off
 		if (sessionStore.currentProgress) {
@@ -519,6 +571,11 @@
 	// T046 (006-analytics-dashboard): Toggle analytics panel
 	function toggleAnalytics() {
 		isAnalyticsOpen = !isAnalyticsOpen;
+	}
+
+	// T016 (014-ui-logging-system): Toggle log viewer
+	function toggleLogViewer() {
+		showLogViewer = !showLogViewer;
 	}
 
 	// T027, T038, T050 (007-data-export): Handle Excel export with error handling
@@ -983,8 +1040,14 @@
 	onExportCSV={handleExportCSV}
 	onExportTemplate={handleExportTemplate}
 	onStartNewDay={handleStartNewDay}
+	onViewLogs={toggleLogViewer}
 	hasSession={sessionStore.session !== null}
 />
+
+<!-- T013-T015 (014-ui-logging-system): Log viewer modal -->
+{#if showLogViewer}
+	<LogViewer onClose={toggleLogViewer} />
+{/if}
 
 <!-- T035 (009-ad-hoc-tasks): Add Task Dialog for keyboard shortcut access -->
 <AddTaskDialog

@@ -224,7 +224,8 @@ function createTaskProgress(confirmedTasks: ConfirmedTask[]): TaskProgress[] {
 		plannedDurationSec: task.plannedDurationSec,
 		actualDurationSec: 0,
 		completedAt: null,
-		status: 'pending' as ProgressStatus
+		status: 'pending' as ProgressStatus,
+		accumulatedElapsedMs: 0
 	}));
 }
 
@@ -372,10 +373,10 @@ function createSessionStore() {
 		/**
 		 * Complete the current task and advance to the next.
 		 *
-		 * @param actualDurationSec - Actual time spent on task in seconds
+		 * @param currentElapsedMs - Current session elapsed time in milliseconds
 		 * @throws Error if no task is active
 		 */
-		completeTask(actualDurationSec: number): void {
+		completeTask(currentElapsedMs: number): void {
 			if (!session || session.status !== 'running') {
 				throw new Error('No active session');
 			}
@@ -386,6 +387,12 @@ function createSessionStore() {
 			// Update current task progress
 			const currentProgress = progress[currentIndex];
 			const plannedDuration = currentProgress.plannedDurationSec;
+
+			// Total actual duration = accumulated time from pauses + current session time
+			const accumulatedMs = currentProgress.accumulatedElapsedMs || 0;
+			const totalElapsedMs = accumulatedMs + currentElapsedMs;
+			const actualDurationSec = Math.floor(totalElapsedMs / 1000);
+
 			const lag = actualDurationSec - plannedDuration;
 
 			// Debug logging for lag calculation
@@ -402,7 +409,8 @@ function createSessionStore() {
 				...currentProgress,
 				actualDurationSec,
 				completedAt: new Date().toISOString(),
-				status: 'complete' as ProgressStatus
+				status: 'complete' as ProgressStatus,
+				accumulatedElapsedMs: 0 // Reset accumulated time
 			};
 
 			// Calculate new total lag
@@ -450,13 +458,16 @@ function createSessionStore() {
 			} else {
 				// Update currentTaskIndex to point to the next task,
 				// but do NOT set it to 'active' - user must click Start
-				// The next task stays 'pending' until explicitly started
+				// The next task stays 'pending' (or 'paused' if it was previously paused)
+
+				// Get accumulated time from next task (if it was previously paused)
+				const nextAccumulatedMs = progress[nextIndex].accumulatedElapsedMs || 0;
 
 				// T021: Clear timer state since no task is auto-started
 				session = {
 					...session,
 					currentTaskIndex: nextIndex, // Point to next task for UI
-					currentTaskElapsedMs: 0, // No elapsed time until user starts
+					currentTaskElapsedMs: nextAccumulatedMs, // Preserve accumulated time for paused tasks
 					lastPersistedAt: Date.now(),
 					totalLagSec: newLag,
 					taskProgress: progress,
@@ -732,7 +743,8 @@ function createSessionStore() {
 				plannedDurationSec: input.durationSec,
 				actualDurationSec: 0,
 				completedAt: null,
-				status: 'pending'
+				status: 'pending',
+				accumulatedElapsedMs: 0
 			};
 
 			// Insert task and progress at the correct position
@@ -806,7 +818,7 @@ function createSessionStore() {
 				return false;
 			}
 
-			// T041: Cannot move completed tasks
+			// T041: Cannot move completed or missed tasks (but CAN move paused tasks)
 			if (
 				progressToMove.status === 'complete' ||
 				progressToMove.status === 'missed'
@@ -814,8 +826,8 @@ function createSessionStore() {
 				return false;
 			}
 
-			// Cannot move from before current task (completed tasks)
-			if (fromIndex < currentIndex) {
+			// Cannot move from before current task (completed tasks), but allow paused tasks
+			if (fromIndex < currentIndex && progressToMove.status !== 'paused') {
 				return false;
 			}
 
@@ -935,21 +947,21 @@ function createSessionStore() {
 		},
 
 		/**
-		 * Jump to a specific task, PAUSING (not completing) any currently active task.
+		 * Jump to a specific task, pausing the current task.
 		 *
 		 * Feature: Task Correction
 		 *
-		 * Allows starting any pending task immediately:
-		 * - If there's an active task, PAUSES it (saves elapsed time, sets to pending)
-		 * - Sets the target task as the new current/active task
-		 * - Paused tasks can be resumed later with their saved elapsed time
-		 * - Task completion only happens via explicit "Complete Task" action
+		 * Allows starting any pending or paused task immediately:
+		 * - Pauses the current task (preserving elapsed time for later resume)
+		 * - Sets the target task as the new current task
+		 * - If target was paused, resumes from accumulated elapsed time
+		 * - Lag is NOT calculated until task is explicitly completed
 		 *
-		 * @param taskId - ID of task to start/jump to
-		 * @param currentElapsedSec - Elapsed time on current task in seconds (0 if no active task)
+		 * @param taskId - ID of task to jump to
+		 * @param currentElapsedMs - Elapsed time on current task in milliseconds
 		 * @returns true if jump succeeded, false if task not found or already complete
 		 */
-		jumpToTask(taskId: string, currentElapsedSec: number): boolean {
+		jumpToTask(taskId: string, currentElapsedMs: number): boolean {
 			if (!session || session.status !== 'running') {
 				return false;
 			}
@@ -974,38 +986,44 @@ function createSessionStore() {
 				return true;
 			}
 
-			// Note: We allow jumping to ANY pending task, including those with lower indices.
+			// Note: We allow jumping to ANY pending/paused task, including those with lower indices.
 			// This supports the use case where a user skipped a task and wants to return to it later.
 
+			// Pause the current task (don't complete it)
 			const newProgress = [...session.taskProgress];
 
-			// If there's currently an ACTIVE task, pause it first
-			// (save elapsed time but do NOT mark complete)
-			if (currentProgress.status === 'active') {
+			// Store accumulated time for the current task (add to any previous accumulated time)
+			// If elapsed time was passed in, the user was working on the task - mark it as paused
+			if (currentProgress.status === 'active' || (currentProgress.status === 'pending' && currentElapsedMs > 0)) {
+				const totalAccumulatedMs = (currentProgress.accumulatedElapsedMs || 0) + currentElapsedMs;
+
 				newProgress[currentIndex] = {
 					...currentProgress,
-					actualDurationSec: currentElapsedSec, // Save elapsed time for resuming later
-					status: 'pending' as ProgressStatus   // Back to pending, not complete
-					// Note: completedAt is NOT set - task is not complete
+					accumulatedElapsedMs: totalAccumulatedMs,
+					status: 'paused' as ProgressStatus
+					// Don't set actualDurationSec or completedAt - task is not complete
 				};
 			}
 
-			// Set target task as active, restore any previously saved elapsed time
-			const targetSavedElapsedMs = targetProgress.actualDurationSec * 1000;
+			// Get the accumulated time from the target task (if it was paused)
+			const targetAccumulatedMs = targetProgress.accumulatedElapsedMs || 0;
 
+			// Set target task as active
 			newProgress[targetIndex] = {
 				...newProgress[targetIndex],
 				status: 'active' as ProgressStatus
 			};
 
-			// Update session - do NOT update totalLagSec (task not complete)
+			// Update session - set currentTaskElapsedMs to the target's accumulated time
+			// so the timer can resume from where it left off
 			session = {
 				...session,
 				currentTaskIndex: targetIndex,
-				currentTaskElapsedMs: targetSavedElapsedMs, // Resume from saved time
+				currentTaskElapsedMs: targetAccumulatedMs,
+				// Note: totalLagSec is NOT updated - lag is only calculated on completion
 				taskProgress: newProgress,
-				timerStartedAtMs: Date.now(), // Reset timer start for new task
-				lastPersistedAt: Date.now()
+				lastPersistedAt: Date.now(),
+				timerStartedAtMs: Date.now()
 			};
 
 			// Persist to storage
@@ -1051,13 +1069,18 @@ function createSessionStore() {
 			// Build new progress array
 			const newProgress = [...session.taskProgress];
 
-			// Mark the completed task as pending, preserving actualDurationSec
-			// Does NOT affect the currently running task - user must click Start separately
+			// Convert actualDurationSec back to accumulatedElapsedMs for resume
+			const restoredAccumulatedMs = oldProgress.actualDurationSec * 1000;
+
+			// Mark the completed task as paused (not pending) with accumulated time
+			// This preserves the work already done on this task
+			// Does NOT auto-start the task - user must click Start/Resume separately
 			newProgress[progressIndex] = {
 				...oldProgress,
-				// Keep actualDurationSec so timer can resume from previous elapsed time
+				actualDurationSec: 0, // Reset actual duration, it's now in accumulatedElapsedMs
 				completedAt: null,
-				status: 'pending' as ProgressStatus
+				status: 'paused' as ProgressStatus,
+				accumulatedElapsedMs: restoredAccumulatedMs
 			};
 
 			// Update session - keep current task unchanged, just update progress and lag
@@ -1067,15 +1090,16 @@ function createSessionStore() {
 				endedAt: null, // Clear end time
 				totalLagSec: session.totalLagSec - oldLagContribution,
 				taskProgress: newProgress,
-				lastPersistedAt: Date.now()
+				lastPersistedAt: Date.now(),
+				timerStartedAtMs: session.timerStartedAtMs // Keep existing timer state
 			};
 
 			// Debug logging
-			console.log('📋 uncompleteTask: Task marked as pending');
+			console.log('📋 uncompleteTask: Task marked as paused');
 			console.log('  Task ID:', taskId);
-			console.log('  Preserved actualDurationSec:', newProgress[progressIndex].actualDurationSec);
+			console.log('  Accumulated time (ms):', restoredAccumulatedMs);
 			console.log('  New status:', newProgress[progressIndex].status);
-			console.log('  Current task unchanged - user must click Start to work on this task');
+			console.log('  Current task unchanged - user must click Resume to work on this task');
 
 			// Persist changes
 			storage.saveSession(session);

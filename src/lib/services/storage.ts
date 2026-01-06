@@ -5,7 +5,7 @@
  * schema versioning, and migration support.
  */
 
-import type { ConfirmedTask, DaySession, TabInfo, Interruption, PersistedInterruptionState, Note, Settings, SettingsStorage } from '$lib/types';
+import type { ConfirmedTask, DaySession, TabInfo, Interruption, PersistedInterruptionState, Note, Settings, SettingsStorage, LogEntry, LogStorage } from '$lib/types';
 import {
 	STORAGE_KEY_TASKS,
 	STORAGE_KEY_SCHEMA,
@@ -14,8 +14,11 @@ import {
 	STORAGE_KEY_INTERRUPTIONS,
 	STORAGE_KEY_NOTES,
 	STORAGE_KEY_SETTINGS,
+	STORAGE_KEY_LOGS,
 	CURRENT_SCHEMA_VERSION,
-	DEFAULT_SETTINGS
+	DEFAULT_SETTINGS,
+	LOG_SCHEMA_VERSION,
+	MAX_LOG_ENTRIES
 } from '$lib/types';
 
 /**
@@ -674,6 +677,125 @@ export const storage = {
 			return true;
 		} catch (error) {
 			console.error('Failed to clear settings:', error);
+			return false;
+		}
+	},
+
+	// =========================================================================
+	// Log Storage (014-ui-logging-system)
+	// =========================================================================
+
+	/**
+	 * Save log entries to localStorage.
+	 * Enforces MAX_LOG_ENTRIES limit by keeping newest entries.
+	 *
+	 * @param entries - Log entries (newest first in array)
+	 * @returns true if successful, false on error
+	 *
+	 * @new 014-ui-logging-system
+	 */
+	saveLogs(entries: LogEntry[]): boolean {
+		if (!isLocalStorageAvailable()) {
+			console.warn('localStorage not available');
+			return false;
+		}
+
+		try {
+			// Entries come in newest-first, store oldest-first, limit to MAX_LOG_ENTRIES
+			const toStore = [...entries].reverse().slice(-MAX_LOG_ENTRIES);
+			const storage: LogStorage = {
+				version: LOG_SCHEMA_VERSION,
+				entries: toStore
+			};
+			localStorage.setItem(STORAGE_KEY_LOGS, JSON.stringify(storage));
+			return true;
+		} catch (error) {
+			console.error('Failed to save logs:', error);
+			// Try aggressive pruning on quota error
+			if (error instanceof DOMException && error.name === 'QuotaExceededError') {
+				return this.saveLogsWithPruning(entries);
+			}
+			return false;
+		}
+	},
+
+	/**
+	 * Save logs with aggressive pruning for quota errors.
+	 * Halves entries until save succeeds or entries are exhausted.
+	 *
+	 * @param entries - Log entries (newest first)
+	 * @returns true if successful after pruning, false if still failing
+	 *
+	 * @new 014-ui-logging-system
+	 */
+	saveLogsWithPruning(entries: LogEntry[]): boolean {
+		let toStore = [...entries].reverse();
+
+		while (toStore.length > 10) {
+			// Keep only the newest half
+			toStore = toStore.slice(-Math.floor(toStore.length / 2));
+
+			try {
+				const storage: LogStorage = {
+					version: LOG_SCHEMA_VERSION,
+					entries: toStore
+				};
+				localStorage.setItem(STORAGE_KEY_LOGS, JSON.stringify(storage));
+				console.warn(`Logs pruned to ${toStore.length} entries due to storage quota`);
+				return true;
+			} catch {
+				// Continue pruning
+			}
+		}
+
+		// If we can't even store 10 entries, give up and log to console
+		console.error('Unable to persist logs even after aggressive pruning');
+		return false;
+	},
+
+	/**
+	 * Load log entries from localStorage.
+	 *
+	 * @returns Array of log entries (oldest first as stored), empty array on error
+	 *
+	 * @new 014-ui-logging-system
+	 */
+	loadLogs(): LogEntry[] {
+		if (!isLocalStorageAvailable()) {
+			return [];
+		}
+
+		try {
+			const stored = localStorage.getItem(STORAGE_KEY_LOGS);
+			if (!stored) {
+				return [];
+			}
+
+			const parsed = JSON.parse(stored) as LogStorage;
+			return parsed.entries || [];
+		} catch (error) {
+			console.error('Failed to load logs:', error);
+			return [];
+		}
+	},
+
+	/**
+	 * Clear all logs from localStorage.
+	 *
+	 * @returns true if successful, false on error
+	 *
+	 * @new 014-ui-logging-system
+	 */
+	clearLogs(): boolean {
+		if (!isLocalStorageAvailable()) {
+			return false;
+		}
+
+		try {
+			localStorage.removeItem(STORAGE_KEY_LOGS);
+			return true;
+		} catch (error) {
+			console.error('Failed to clear logs:', error);
 			return false;
 		}
 	}

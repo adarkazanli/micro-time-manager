@@ -180,7 +180,7 @@ export function createProjectedTasks(
 		progress: progress[idx]
 	}));
 
-	// Separate completed, current, and pending tasks
+	// Separate completed, current, paused, and pending tasks
 	// A task is only "current" if it has status 'active' - not just by currentIndex
 	const completedTasks = taskInfos.filter(
 		({ progress: p }) =>
@@ -193,7 +193,12 @@ export function createProjectedTasks(
 		? taskInfos[currentIndex]
 		: null;
 
-	// Pending tasks include those with status 'pending' (NOT 'active', 'complete', or 'missed')
+	// Paused tasks - tasks that were started but are now paused
+	const pausedTasks = taskInfos.filter(
+		({ progress: p }) => p?.status === 'paused'
+	);
+
+	// Pending tasks include those with status 'pending' (NOT 'active', 'complete', 'missed', or 'paused')
 	// Also exclude the current task if it's active
 	// NOTE: We keep them in ARRAY ORDER (originalIndex) for flexible tasks,
 	// so that manual reordering is respected. Fixed tasks are processed
@@ -257,6 +262,26 @@ export function createProjectedTasks(
 			isDraggable: task.type === 'flexible',
 			elapsedSec,
 			willBeInterrupted: false // Current task is already running
+		});
+	}
+
+	// Process paused tasks - they retain their position but show paused status
+	for (const { task, originalIndex, progress: p } of pausedTasks) {
+		// Use accumulated elapsed time from the paused task
+		const accumulatedMs = p?.accumulatedElapsedMs ?? 0;
+		const elapsedSec = Math.floor(accumulatedMs / 1000);
+
+		// Paused tasks show their original planned start (they're waiting to be resumed)
+		resultsMap.set(originalIndex, {
+			task,
+			projectedStart: task.plannedStart,
+			projectedEnd: new Date(task.plannedStart.getTime() + task.plannedDurationSec * 1000),
+			riskLevel: null,
+			bufferSec: 0,
+			displayStatus: 'paused',
+			isDraggable: task.type === 'flexible', // Paused flexible tasks can be reordered
+			elapsedSec,
+			willBeInterrupted: false
 		});
 	}
 
